@@ -75,6 +75,27 @@ class ApiProvider(private val settings: SettingsRepository, private val session:
         return service
     }
 
+    /** Overí, že na adrese beží Car Tracking API. Vráti null = OK, inak text chyby. */
+    suspend fun testConnection(rawUrl: String): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val url = normalize(rawUrl)
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return@withContext "Adresa musí začínať http:// alebo https://"
+        try {
+            val req = okhttp3.Request.Builder().url(url + "me").header("Accept", "application/json").build()
+            OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(8, TimeUnit.SECONDS).build()
+                .newCall(req).execute().use { res ->
+                    val body = res.body?.string().orEmpty()
+                    // Bez tokenu musí API vrátiť 401 s JSON {"error": ...}
+                    if ((res.code == 401 || res.code == 200) && body.trimStart().startsWith("{")) null
+                    else if (res.code == 500 && body.contains("databáz")) "Server beží, ale nevie sa pripojiť k MySQL – skontrolujte config.php"
+                    else "Na adrese nebeží Car Tracking API (HTTP ${res.code}). Skontrolujte cestu, napr. …/cartracking/api/"
+                }
+        } catch (e: IllegalArgumentException) {
+            "Neplatná adresa servera"
+        } catch (e: IOException) {
+            "Server je nedostupný: ${e.message ?: "chyba siete"}"
+        }
+    }
+
     fun errorMessage(e: Throwable): String = when (e) {
         is HttpException -> {
             val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()

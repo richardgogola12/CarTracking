@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -39,6 +40,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import sk.cartracker.data.AppSettings
+import sk.cartracker.data.remote.ApiProvider
 import kotlinx.coroutines.launch
 import sk.cartracker.container
 import sk.cartracker.security.BiometricAuth
@@ -115,6 +119,7 @@ fun LoginScreen(onLoggedIn: () -> Unit, onRegister: () -> Unit) {
             }
         }
         TextButton(onClick = onRegister) { Text("Nemáte účet? Zaregistrujte sa") }
+        ServerLink()
     }
 
     if (offerBiometric) {
@@ -184,6 +189,7 @@ fun RegisterScreen(onRegistered: () -> Unit, onBack: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(52.dp),
         ) { if (loading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) else Text("Zaregistrovať") }
         TextButton(onClick = onBack) { Text("Už mám účet – prihlásiť sa") }
+        ServerLink()
     }
 }
 
@@ -224,4 +230,64 @@ fun LockScreen(onUnlocked: () -> Unit, onUsePassword: () -> Unit) {
         Text("Sledovanie jázd na pozadí funguje aj pri zamknutej aplikácii.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** Odkaz na nastavenie servera – dostupný aj bez prihlásenia. */
+@Composable
+fun ServerLink() {
+    val c = LocalContext.current.container
+    val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
+    var open by remember { mutableStateOf(false) }
+    TextButton(onClick = { open = true }) {
+        Icon(Icons.Filled.Dns, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp))
+        Text("Server: " + s.serverUrl.removePrefix("https://").removePrefix("http://").trimEnd('/'),
+            style = MaterialTheme.typography.bodySmall, maxLines = 1)
+    }
+    if (open) ServerDialog(s.serverUrl) { open = false }
+}
+
+@Composable
+fun ServerDialog(current: String, onClose: () -> Unit) {
+    val c = LocalContext.current.container
+    val scope = rememberCoroutineScope()
+    var url by remember { mutableStateOf(current) }
+    var testing by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onClose,
+        icon = { Icon(Icons.Filled.Dns, null) },
+        title = { Text("Adresa servera") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Zadajte adresu, kde beží PHP API, napr. https://mojadomena.sk/cartracking/api/",
+                    style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(url, { url = it; result = null }, singleLine = true, label = { Text("URL API") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+                TextButton(enabled = !testing, onClick = {
+                    scope.launch {
+                        testing = true
+                        val err = c.api.testConnection(url)
+                        result = if (err == null) true to "Pripojenie funguje ✅" else false to err
+                        testing = false
+                    }
+                }) { Text(if (testing) "Overujem…" else "Otestovať pripojenie") }
+                result?.let { (ok, msg) ->
+                    Text(msg, color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val u = ApiProvider.normalize(url)
+                if (!u.startsWith("http://") && !u.startsWith("https://")) {
+                    result = false to "Adresa musí začínať http:// alebo https://"
+                } else {
+                    scope.launch { c.settings.update { it.copy(serverUrl = u) }; onClose() }
+                }
+            }) { Text("Uložiť") }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("Zrušiť") } },
+    )
 }
