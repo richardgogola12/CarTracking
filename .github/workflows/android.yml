@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -29,7 +29,17 @@ jobs:
           gradle-version: 8.11.1
 
       - name: Build APK
-        run: gradle assembleRelease --stacktrace --no-daemon
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon 2>&1 | tee build.log
+
+      # Chyby kompilácie ako anotácie (viditeľné v prehľade buildu)
+      - name: Report errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong|AAPT|Execution failed" -A2 build.log | head -80 | while IFS= read -r line; do
+            echo "::error::${line//%/%25}"
+          done
 
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/CarTracking-${{ github.run_number }}.apk
