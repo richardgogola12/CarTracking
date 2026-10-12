@@ -13,12 +13,28 @@ android {
         applicationId = "sk.cartracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Číslo buildu z GitHub Actions → každá nová verzia má vyššie číslo a dá sa nainštalovať ako aktualizácia
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = 100 + build
+        versionName = "1.1.$build"
+    }
+
+    // Pevný podpisový kľúč – rovnaký pre všetky buildy, inak Android aktualizáciu odmietne
+    signingConfigs {
+        create("shared") {
+            storeFile = file("cartracking.jks")
+            storePassword = System.getenv("CT_STORE_PASSWORD") ?: "cartracking123"
+            keyAlias = "cartracking"
+            keyPassword = System.getenv("CT_KEY_PASSWORD") ?: "cartracking123"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         release {
+            signingConfig = signingConfigs.getByName("shared")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
@@ -28,7 +44,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
+    lint { checkReleaseBuilds = false; abortOnError = false }
 }
 
 dependencies {

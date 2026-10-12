@@ -28,16 +28,16 @@ jobs:
         with:
           gradle-version: 8.11.1
 
-      - name: Build debug APK
-        run: gradle assembleDebug --stacktrace --no-daemon
+      - name: Build APK
+        run: gradle assembleRelease --stacktrace --no-daemon
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/CarTracking-${{ github.run_number }}.apk
+        run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/CarTracking-${{ github.run_number }}.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: CarTracking-apk
-          path: android/app/build/outputs/apk/debug/CarTracking-${{ github.run_number }}.apk
+          path: android/app/build/outputs/apk/release/CarTracking-${{ github.run_number }}.apk
 
       # Release = APK stiahnuteľné priamo do telefónu (bez prihlásenia a rozbaľovania zip)
       - name: Publish release
@@ -46,5 +46,5 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: Car Tracking build ${{ github.run_number }}
-          body: Automaticky zostavené debug APK z commitu ${{ github.sha }}.
-          files: android/app/build/outputs/apk/debug/CarTracking-${{ github.run_number }}.apk
+          body: Automaticky zostavené APK (podpísané pevným kľúčom – inštaluje sa ako aktualizácia) z commitu ${{ github.sha }}.
+          files: android/app/build/outputs/apk/release/CarTracking-${{ github.run_number }}.apk
