@@ -1,0 +1,1 @@
+-keep class sk.cartracker.data.remote.** { *; }

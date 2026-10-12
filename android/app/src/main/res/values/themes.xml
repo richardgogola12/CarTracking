@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.CarTracker" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/bg</item>
+    </style>
+    <color name="bg">#FF101418</color>
+    <color name="ic_bg">#FF1565C0</color>
+</resources>
