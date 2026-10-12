@@ -33,6 +33,8 @@ adresa servera, automatická synchronizácia, iba cez Wi-Fi · odtlačok prsta �
 
 ## 1. Server (PHP 8.1+ a MySQL 8 / MariaDB)
 1. Vytvorte databázu: `mysql -u root -p < backend/schema.sql`
+   Všetky tabuľky majú prefix `CarTracking_` (`CarTracking_users`, `CarTracking_api_tokens`, `CarTracking_trips`, `CarTracking_trip_points`),
+   takže môžu bežať aj v zdieľanej databáze s inými aplikáciami. Existujúcu DB so starými názvami premenuje `backend/migrate_prefix.sql`.
 2. Vytvorte používateľa DB, napr.:
    ```sql
    CREATE USER 'car_tracking'@'localhost' IDENTIFIED BY 'silne_heslo';

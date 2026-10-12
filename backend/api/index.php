@@ -61,7 +61,7 @@ function db(array $c): PDO {
 
 function issueToken(PDO $pdo, int $userId, ?string $device, int $days): string {
     $token = bin2hex(random_bytes(32));
-    $stmt = $pdo->prepare('INSERT INTO api_tokens (user_id, token_hash, device_name, expires_at)
+    $stmt = $pdo->prepare('INSERT INTO CarTracking_api_tokens (user_id, token_hash, device_name, expires_at)
                            VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY))');
     $stmt->execute([$userId, hash('sha256', $token), $device ? mb_substr($device, 0, 100) : null, $days]);
     return $token;
@@ -80,12 +80,12 @@ function requireUser(PDO $pdo): array {
     $token = bearer();
     if (!$token) fail(401, 'Chýba prihlasovací token');
     $stmt = $pdo->prepare('SELECT u.id, u.name, u.email, t.id AS token_id
-                           FROM api_tokens t JOIN users u ON u.id = t.user_id
+                           FROM CarTracking_api_tokens t JOIN CarTracking_users u ON u.id = t.user_id
                            WHERE t.token_hash = ? AND t.expires_at > NOW()');
     $stmt->execute([hash('sha256', $token)]);
     $user = $stmt->fetch();
     if (!$user) fail(401, 'Token je neplatný alebo vypršal');
-    $pdo->prepare('UPDATE api_tokens SET last_used_at = NOW() WHERE id = ?')->execute([$user['token_id']]);
+    $pdo->prepare('UPDATE CarTracking_api_tokens SET last_used_at = NOW() WHERE id = ?')->execute([$user['token_id']]);
     return $user;
 }
 
@@ -114,11 +114,11 @@ if ($method === 'POST' && $path === '/register') {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) fail(422, 'Neplatný e-mail');
     if (strlen($pass) < 8) fail(422, 'Heslo musí mať aspoň 8 znakov');
 
-    $exists = $pdo->prepare('SELECT 1 FROM users WHERE email = ?');
+    $exists = $pdo->prepare('SELECT 1 FROM CarTracking_users WHERE email = ?');
     $exists->execute([$email]);
     if ($exists->fetch()) fail(409, 'Účet s týmto e-mailom už existuje');
 
-    $pdo->prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)')
+    $pdo->prepare('INSERT INTO CarTracking_users (name, email, password_hash) VALUES (?, ?, ?)')
         ->execute([$name, $email, password_hash($pass, PASSWORD_DEFAULT)]);
     $id = (int)$pdo->lastInsertId();
     $token = issueToken($pdo, $id, $b['device_name'] ?? null, $config['token_days']);
@@ -130,12 +130,12 @@ if ($method === 'POST' && $path === '/login') {
     $b = body();
     $email = strtolower(trim((string)($b['email'] ?? '')));
     $pass  = (string)($b['password'] ?? '');
-    $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ?');
+    $stmt = $pdo->prepare('SELECT * FROM CarTracking_users WHERE email = ?');
     $stmt->execute([$email]);
     $user = $stmt->fetch();
     if (!$user || !password_verify($pass, $user['password_hash'])) fail(401, 'Nesprávny e-mail alebo heslo');
     if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
-        $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+        $pdo->prepare('UPDATE CarTracking_users SET password_hash = ? WHERE id = ?')
             ->execute([password_hash($pass, PASSWORD_DEFAULT), $user['id']]);
     }
     $token = issueToken($pdo, (int)$user['id'], $b['device_name'] ?? null, $config['token_days']);
@@ -147,7 +147,7 @@ $user = requireUser($pdo);
 $uid  = (int)$user['id'];
 
 if ($method === 'POST' && $path === '/logout') {
-    $pdo->prepare('DELETE FROM api_tokens WHERE id = ?')->execute([$user['token_id']]);
+    $pdo->prepare('DELETE FROM CarTracking_api_tokens WHERE id = ?')->execute([$user['token_id']]);
     respond(200, ['ok' => true]);
 }
 
@@ -165,15 +165,15 @@ if ($method === 'POST' && $path === '/trips/sync') {
     if ($totalPoints > $config['max_points_per_request']) fail(413, 'Príliš veľa bodov v jednej požiadavke');
 
     $upsert = $pdo->prepare(
-        'INSERT INTO trips (user_id, uuid, started_at, ended_at, distance_m, max_speed_kmh, avg_speed_kmh,
+        'INSERT INTO CarTracking_trips (user_id, uuid, started_at, ended_at, distance_m, max_speed_kmh, avg_speed_kmh,
                             start_lat, start_lng, end_lat, end_lng, trigger_source)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE ended_at = VALUES(ended_at), distance_m = VALUES(distance_m),
              max_speed_kmh = VALUES(max_speed_kmh), avg_speed_kmh = VALUES(avg_speed_kmh),
              end_lat = VALUES(end_lat), end_lng = VALUES(end_lng)');
-    $findTrip = $pdo->prepare('SELECT id, user_id FROM trips WHERE uuid = ?');
+    $findTrip = $pdo->prepare('SELECT id, user_id FROM CarTracking_trips WHERE uuid = ?');
     $insPoint = $pdo->prepare(
-        'INSERT IGNORE INTO trip_points (trip_id, ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m)
+        'INSERT IGNORE INTO CarTracking_trip_points (trip_id, ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
 
     $synced = [];
@@ -221,26 +221,26 @@ if ($method === 'GET' && $path === '/trips') {
     $offset = max(0, (int)($_GET['offset'] ?? 0));
     $stmt = $pdo->prepare("SELECT uuid, started_at, ended_at, distance_m, max_speed_kmh, avg_speed_kmh,
                                   start_lat, start_lng, end_lat, end_lng, trigger_source
-                           FROM trips WHERE user_id = ? ORDER BY started_at DESC LIMIT $limit OFFSET $offset");
+                           FROM CarTracking_trips WHERE user_id = ? ORDER BY started_at DESC LIMIT $limit OFFSET $offset");
     $stmt->execute([$uid]);
     respond(200, ['trips' => $stmt->fetchAll()]);
 }
 
 if (preg_match('#^/trips/([0-9a-fA-F-]{36})$#', $path, $m)) {
-    $stmt = $pdo->prepare('SELECT * FROM trips WHERE uuid = ? AND user_id = ?');
+    $stmt = $pdo->prepare('SELECT * FROM CarTracking_trips WHERE uuid = ? AND user_id = ?');
     $stmt->execute([$m[1], $uid]);
     $trip = $stmt->fetch();
     if (!$trip) fail(404, 'Jazda neexistuje');
 
     if ($method === 'GET') {
         $p = $pdo->prepare('SELECT ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m
-                            FROM trip_points WHERE trip_id = ? ORDER BY ts');
+                            FROM CarTracking_trip_points WHERE trip_id = ? ORDER BY ts');
         $p->execute([$trip['id']]);
         unset($trip['id'], $trip['user_id']);
         respond(200, ['trip' => $trip, 'points' => $p->fetchAll()]);
     }
     if ($method === 'DELETE') {
-        $pdo->prepare('DELETE FROM trips WHERE id = ?')->execute([$trip['id']]);
+        $pdo->prepare('DELETE FROM CarTracking_trips WHERE id = ?')->execute([$trip['id']]);
         respond(200, ['ok' => true]);
     }
 }
