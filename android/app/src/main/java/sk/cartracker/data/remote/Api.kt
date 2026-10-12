@@ -26,12 +26,16 @@ data class MeResponse(val user: UserDto)
 data class PointDto(
     val ts: Long, val lat: Double, val lng: Double,
     val speedKmh: Float?, val accuracyM: Float?, val bearing: Float?, val altitudeM: Double?,
+    val event: String? = null,
 )
 data class TripDto(
     val uuid: String, val startedAt: Long, val endedAt: Long?,
     val distanceM: Double, val maxSpeedKmh: Double, val avgSpeedKmh: Double,
     val startLat: Double?, val startLng: Double?, val endLat: Double?, val endLng: Double?,
     val triggerSource: String, val points: List<PointDto>,
+    val category: String = "private", val note: String = "",
+    val startAddress: String? = null, val endAddress: String? = null,
+    val score: Int? = null, val hardBrakes: Int = 0, val hardAccels: Int = 0, val speedingSec: Int = 0,
 )
 data class SyncRequest(val trips: List<TripDto>)
 data class SyncResponse(val synced: List<String>)

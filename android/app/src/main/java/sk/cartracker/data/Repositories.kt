@@ -98,6 +98,22 @@ class TripRepository(
         if (trip.uploaded) runCatching { api.get().deleteTrip(trip.uuid) }
     }
 
+    /** Zmena kategórie / poznámky – jazda sa znova odošle na server. */
+    suspend fun updateMeta(trip: TripEntity, category: String, note: String) {
+        dao.updateTrip(trip.copy(category = category, note = note.trim(), synced = false))
+    }
+
+    suspend fun tripsBetween(from: Long, to: Long): List<TripEntity> =
+        session.user()?.let { dao.tripsBetween(it.id, from, to) } ?: emptyList()
+
+    /** Stav tachometra na začiatku jazdy: zadaný stav + km najazdené od dátumu zadania. */
+    suspend fun odometerAt(ts: Long, s: AppSettings): Double? {
+        val user = session.user() ?: return null
+        if (s.odometerKm <= 0 || s.odometerDate <= 0) return null
+        return if (ts >= s.odometerDate) s.odometerKm + dao.distanceBetween(user.id, s.odometerDate, ts) / 1000.0
+        else s.odometerKm - dao.distanceBetween(user.id, ts, s.odometerDate) / 1000.0
+    }
+
     suspend fun deleteAllLocal() {
         session.user()?.let { dao.deleteAllForUser(it.id) }
     }
@@ -109,7 +125,7 @@ class TripRepository(
         for (trip in dao.tripsToSync(user.id)) {
             while (true) {
                 val batch = dao.unsyncedPoints(trip.id, 1000)
-                val dto = trip.toDto(batch.map { PointDto(it.ts, it.lat, it.lng, it.speedKmh, it.accuracyM, it.bearing, it.altitudeM) })
+                val dto = trip.toDto(batch.map { PointDto(it.ts, it.lat, it.lng, it.speedKmh, it.accuracyM, it.bearing, it.altitudeM, it.event) })
                 val res = api.get().sync(SyncRequest(listOf(dto)))
                 if (trip.uuid !in res.synced) throw IllegalStateException("Server jazdu neprijal")
                 if (batch.isNotEmpty()) dao.markPointsSynced(batch.map { it.id })
@@ -123,6 +139,7 @@ class TripRepository(
 
     private fun TripEntity.toDto(points: List<PointDto>) = TripDto(
         uuid, startedAt, endedAt, distanceM, maxSpeedKmh, avgSpeedKmh,
-        startLat, startLng, endLat, endLng, triggerSource, points
+        startLat, startLng, endLat, endLng, triggerSource, points,
+        category, note, startAddress, endAddress, score, hardBrakes, hardAccels, speedingSec,
     )
 }

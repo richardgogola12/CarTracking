@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.LocalParking
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Warning
@@ -145,6 +146,31 @@ fun HomeScreen(onOpenPermissions: () -> Unit) {
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Icon(Icons.Filled.PlayArrow, null); Spacer(Modifier.size(8.dp)); Text("Spustiť jazdu ručne") }
+                }
+            }
+        }
+
+        // ---- Kde som zaparkoval ----
+        val parking = remember(resumeTick, state) { RuntimeState.parking(ctx) }
+        if (state == DriveState.IDLE && parking != null) {
+            SectionCard("Kde som zaparkoval") {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.LocalParking, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.size(8.dp))
+                        Column {
+                            Text(parking.address ?: String.format(java.util.Locale.US, "%.5f, %.5f", parking.lat, parking.lng), fontWeight = FontWeight.SemiBold)
+                            Text("zaparkované ${formatDateTime(parking.ts)} (pred ${formatDuration(System.currentTimeMillis() - parking.ts)})",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            val uri = android.net.Uri.parse("geo:0,0?q=${parking.lat},${parking.lng}(Moje auto)")
+                            runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) }
+                        }) { Icon(Icons.Filled.Navigation, null); Spacer(Modifier.size(6.dp)); Text("Nájsť auto") }
+                        OutlinedButton(onClick = { RuntimeState.clearParking(ctx); resumeTick++ }) { Text("Skryť") }
+                    }
                 }
             }
         }

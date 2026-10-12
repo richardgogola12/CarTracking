@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +22,9 @@ const val DEFAULT_SERVER_URL = "http://10.0.2.2/cartracking/api/"
 
 enum class VibrationPattern(val label: String) { SHORT("Krátka"), LONG("Dlhá"), DOUBLE("Dvojitá") }
 enum class ThemeMode(val label: String) { SYSTEM("Podľa systému"), LIGHT("Svetlý"), DARK("Tmavý") }
+enum class MapStyle(val label: String) {
+    AUTO("Podľa témy aplikácie"), LIGHT("Svetlá"), DARK("Tmavá"), STREETS("Klasická OSM"), TOPO("Terénna"), SATELLITE("Satelitná")
+}
 
 data class AppSettings(
     // Automatická detekcia jazdy autom
@@ -52,7 +56,28 @@ data class AppSettings(
     // Zabezpečenie / vzhľad
     val biometricEnabled: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-)
+    // Kniha jázd
+    val defaultCategory: String = "private",
+    val carName: String = "",
+    val licensePlate: String = "",
+    val odometerKm: Int = 0,          // stav tachometra…
+    val odometerDate: Long = 0L,      // …k tomuto dátumu
+    val detectAddresses: Boolean = true,
+    // Palivo
+    val fuelConsumptionX10: Int = 65, // 6,5 l/100 km
+    val fuelPriceCents: Int = 160,    // 1,60 €/l
+    // Štýl jazdy
+    val drivingEvents: Boolean = true,
+    val speedAlert: Boolean = false,
+    val speedAlertKmh: Int = 130,
+    // Mapa
+    val mapStyle: MapStyle = MapStyle.AUTO,
+) {
+    val fuelConsumption get() = fuelConsumptionX10 / 10.0
+    val fuelPrice get() = fuelPriceCents / 100.0
+    fun fuelCost(distanceM: Double) = distanceM / 1000.0 / 100.0 * fuelConsumption * fuelPrice
+    fun fuelLiters(distanceM: Double) = distanceM / 1000.0 / 100.0 * fuelConsumption
+}
 
 class SettingsRepository(private val context: Context) {
 
@@ -80,6 +105,18 @@ class SettingsRepository(private val context: Context) {
         val SERVER = stringPreferencesKey("server_url")
         val BIO = booleanPreferencesKey("biometric")
         val THEME = stringPreferencesKey("theme")
+        val CATEGORY = stringPreferencesKey("default_category")
+        val CAR_NAME = stringPreferencesKey("car_name")
+        val PLATE = stringPreferencesKey("license_plate")
+        val ODO = intPreferencesKey("odometer_km")
+        val ODO_DATE = longPreferencesKey("odometer_date")
+        val ADDRESSES = booleanPreferencesKey("detect_addresses")
+        val FUEL_CONS = intPreferencesKey("fuel_consumption_x10")
+        val FUEL_PRICE = intPreferencesKey("fuel_price_cents")
+        val EVENTS = booleanPreferencesKey("driving_events")
+        val SPEED_ALERT = booleanPreferencesKey("speed_alert")
+        val SPEED_ALERT_KMH = intPreferencesKey("speed_alert_kmh")
+        val MAP_STYLE = stringPreferencesKey("map_style")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data
@@ -118,6 +155,18 @@ class SettingsRepository(private val context: Context) {
             serverUrl = p[K.SERVER] ?: d.serverUrl,
             biometricEnabled = p[K.BIO] ?: d.biometricEnabled,
             themeMode = p[K.THEME]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: d.themeMode,
+            defaultCategory = p[K.CATEGORY] ?: d.defaultCategory,
+            carName = p[K.CAR_NAME] ?: d.carName,
+            licensePlate = p[K.PLATE] ?: d.licensePlate,
+            odometerKm = p[K.ODO] ?: d.odometerKm,
+            odometerDate = p[K.ODO_DATE] ?: d.odometerDate,
+            detectAddresses = p[K.ADDRESSES] ?: d.detectAddresses,
+            fuelConsumptionX10 = p[K.FUEL_CONS] ?: d.fuelConsumptionX10,
+            fuelPriceCents = p[K.FUEL_PRICE] ?: d.fuelPriceCents,
+            drivingEvents = p[K.EVENTS] ?: d.drivingEvents,
+            speedAlert = p[K.SPEED_ALERT] ?: d.speedAlert,
+            speedAlertKmh = p[K.SPEED_ALERT_KMH] ?: d.speedAlertKmh,
+            mapStyle = p[K.MAP_STYLE]?.let { runCatching { MapStyle.valueOf(it) }.getOrNull() } ?: d.mapStyle,
         )
     }
 
@@ -145,5 +194,17 @@ class SettingsRepository(private val context: Context) {
         p[K.SERVER] = s.serverUrl
         p[K.BIO] = s.biometricEnabled
         p[K.THEME] = s.themeMode.name
+        p[K.CATEGORY] = s.defaultCategory
+        p[K.CAR_NAME] = s.carName
+        p[K.PLATE] = s.licensePlate
+        p[K.ODO] = s.odometerKm
+        p[K.ODO_DATE] = s.odometerDate
+        p[K.ADDRESSES] = s.detectAddresses
+        p[K.FUEL_CONS] = s.fuelConsumptionX10
+        p[K.FUEL_PRICE] = s.fuelPriceCents
+        p[K.EVENTS] = s.drivingEvents
+        p[K.SPEED_ALERT] = s.speedAlert
+        p[K.SPEED_ALERT_KMH] = s.speedAlertKmh
+        p[K.MAP_STYLE] = s.mapStyle.name
     }
 }

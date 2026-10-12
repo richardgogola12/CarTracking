@@ -42,7 +42,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import sk.cartracker.container
 import sk.cartracker.data.AppSettings
+import sk.cartracker.data.MapStyle
 import sk.cartracker.data.ThemeMode
+import sk.cartracker.data.local.CATEGORY_BUSINESS
+import sk.cartracker.data.local.CATEGORY_PRIVATE
 import sk.cartracker.data.VibrationPattern
 import sk.cartracker.data.remote.ApiProvider
 import sk.cartracker.detection.ActivityDetectionManager
@@ -51,7 +54,7 @@ import sk.cartracker.service.Notifications
 import sk.cartracker.sync.SyncWorker
 
 @Composable
-fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit) {
+fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit = {}) {
     val ctx = LocalContext.current
     val activity = ctx.findActivity()
     val c = ctx.container
@@ -165,6 +168,72 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit) {
             }
         }
 
+        // ---------- Kniha jázd ----------
+        SectionCard("Kniha jázd") {
+            Text("Predvolený typ novej jazdy", Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            listOf(CATEGORY_PRIVATE to "Súkromná", CATEGORY_BUSINESS to "Služobná").forEach { (key, label) ->
+                Row(Modifier.fillMaxWidth().selectable(s.defaultCategory == key) { update { it.copy(defaultCategory = key) } }
+                    .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(s.defaultCategory == key, onClick = { update { it.copy(defaultCategory = key) } })
+                    Text(label)
+                }
+            }
+            var carName by remember(s.carName) { mutableStateOf(s.carName) }
+            var plate by remember(s.licensePlate) { mutableStateOf(s.licensePlate) }
+            var odo by remember(s.odometerKm) { mutableStateOf(if (s.odometerKm > 0) s.odometerKm.toString() else "") }
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(carName, { carName = it }, label = { Text("Vozidlo (napr. Škoda Octavia)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(plate, { plate = it.uppercase() }, label = { Text("EČV (ŠPZ)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(odo, { odo = it.filter(Char::isDigit).take(7) }, label = { Text("Aktuálny stav tachometra (km)") }, singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                    supportingText = { if (s.odometerDate > 0) Text("Zadané ${sk.cartracker.ui.formatDateTime(s.odometerDate)} – ďalej sa dopočítava z jázd") },
+                    modifier = Modifier.fillMaxWidth())
+                val changed = carName != s.carName || plate != s.licensePlate || odo != (if (s.odometerKm > 0) s.odometerKm.toString() else "")
+                Button(enabled = changed, onClick = {
+                    val newOdo = odo.toIntOrNull() ?: 0
+                    update {
+                        it.copy(carName = carName.trim(), licensePlate = plate.trim(), odometerKm = newOdo,
+                            odometerDate = if (newOdo != it.odometerKm) System.currentTimeMillis() else it.odometerDate)
+                    }
+                    message = "Údaje o vozidle uložené"
+                }) { Text("Uložiť údaje o vozidle") }
+            }
+            SwitchRow("Zisťovať adresy začiatku a cieľa", "Ulica a mesto v zozname jázd a v knihe jázd (potrebuje internet)", s.detectAddresses) { on -> update { it.copy(detectAddresses = on) } }
+        }
+
+        // ---------- Palivo ----------
+        SectionCard("Palivo a náklady") {
+            SliderRow("Priemerná spotreba", s.fuelConsumptionX10, 30..200, 5, "l/100 km",
+                format = { String.format(java.util.Locale("sk"), "%.1f l/100 km", it / 10.0) }) { v -> update { it.copy(fuelConsumptionX10 = v) } }
+            SliderRow("Cena paliva", s.fuelPriceCents, 100..250, 1, "€/l",
+                "Náklady sú odhad: km × spotreba × cena.",
+                format = { String.format(java.util.Locale("sk"), "%.2f €/l", it / 100.0) }) { v -> update { it.copy(fuelPriceCents = v) } }
+        }
+
+        // ---------- Štýl jazdy ----------
+        SectionCard("Štýl jazdy a rýchlosť") {
+            SwitchRow("Hodnotiť štýl jazdy", "Prudké brzdenie a zrýchlenie, skóre 0–100 pre každú jazdu", s.drivingEvents) { on -> update { it.copy(drivingEvents = on) } }
+            SliderRow("Rýchlostný limit", s.speedAlertKmh, 50..200, 10, "km/h",
+                "Čas nad limitom znižuje skóre a vyznačí sa na mape.") { v -> update { it.copy(speedAlertKmh = v) } }
+            SwitchRow("Upozorniť vibráciou pri prekročení", "Najviac raz za minútu", s.speedAlert) { on -> update { it.copy(speedAlert = on) } }
+        }
+
+        // ---------- Mapa ----------
+        SectionCard("Mapa") {
+            MapStyle.entries.forEach { m ->
+                Row(Modifier.fillMaxWidth().selectable(s.mapStyle == m) { update { it.copy(mapStyle = m) } }
+                    .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(s.mapStyle == m, onClick = { update { it.copy(mapStyle = m) } })
+                    Text(m.label)
+                }
+            }
+        }
+
+        // ---------- Pomoc ----------
+        SectionCard("Pomoc") {
+            Text("Návod a dokumentácia (aj na tlač)", Modifier.fillMaxWidth().clickable(onClick = onOpenHelp).padding(16.dp))
+        }
+
         // ---------- Zabezpečenie ----------
         SectionCard("Zabezpečenie") {
             val reason = remember { BiometricAuth.unavailableReason(ctx) }
@@ -211,7 +280,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit) {
             }
         }
 
-        Text("Car Tracking 1.0", Modifier.fillMaxWidth().padding(8.dp), style = MaterialTheme.typography.bodySmall,
+        Text("Car Tracking ${sk.cartracker.BuildConfig.VERSION_NAME}", Modifier.fillMaxWidth().padding(8.dp), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline)
     }
 

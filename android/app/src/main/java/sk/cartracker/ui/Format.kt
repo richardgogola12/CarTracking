@@ -19,3 +19,7 @@ fun formatDuration(ms: Long): String {
 fun formatDateTime(ts: Long): String = SimpleDateFormat("d. M. yyyy HH:mm", locale).format(Date(ts))
 fun formatTime(ts: Long): String = SimpleDateFormat("HH:mm", locale).format(Date(ts))
 fun formatDay(ts: Long): String = SimpleDateFormat("EEEE d. MMMM yyyy", locale).format(Date(ts))
+
+fun formatMoney(eur: Double): String = String.format(locale, "%.2f €", eur)
+fun formatMonth(ts: Long): String = SimpleDateFormat("LLLL yyyy", locale).format(Date(ts)).replaceFirstChar { it.uppercase() }
+fun formatDate(ts: Long): String = SimpleDateFormat("d. M. yyyy", locale).format(Date(ts))

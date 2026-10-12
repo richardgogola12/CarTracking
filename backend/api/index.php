@@ -166,15 +166,21 @@ if ($method === 'POST' && $path === '/trips/sync') {
 
     $upsert = $pdo->prepare(
         'INSERT INTO CarTracking_trips (user_id, uuid, started_at, ended_at, distance_m, max_speed_kmh, avg_speed_kmh,
-                            start_lat, start_lng, end_lat, end_lng, trigger_source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            start_lat, start_lng, end_lat, end_lng, trigger_source,
+                            category, note, start_address, end_address, score, hard_brakes, hard_accels, speeding_sec)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE ended_at = VALUES(ended_at), distance_m = VALUES(distance_m),
              max_speed_kmh = VALUES(max_speed_kmh), avg_speed_kmh = VALUES(avg_speed_kmh),
-             end_lat = VALUES(end_lat), end_lng = VALUES(end_lng)');
+             end_lat = VALUES(end_lat), end_lng = VALUES(end_lng),
+             category = VALUES(category), note = VALUES(note),
+             start_address = COALESCE(VALUES(start_address), start_address),
+             end_address = COALESCE(VALUES(end_address), end_address),
+             score = VALUES(score), hard_brakes = VALUES(hard_brakes),
+             hard_accels = VALUES(hard_accels), speeding_sec = VALUES(speeding_sec)');
     $findTrip = $pdo->prepare('SELECT id, user_id FROM CarTracking_trips WHERE uuid = ?');
     $insPoint = $pdo->prepare(
-        'INSERT IGNORE INTO CarTracking_trip_points (trip_id, ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        'INSERT IGNORE INTO CarTracking_trip_points (trip_id, ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m, event)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
 
     $synced = [];
     $pdo->beginTransaction();
@@ -194,6 +200,13 @@ if ($method === 'POST' && $path === '/trips/sync') {
                 num($t['distance_m'] ?? 0) ?? 0, num($t['max_speed_kmh'] ?? 0) ?? 0, num($t['avg_speed_kmh'] ?? 0) ?? 0,
                 num($t['start_lat'] ?? null), num($t['start_lng'] ?? null),
                 num($t['end_lat'] ?? null), num($t['end_lng'] ?? null), $source,
+                ($t['category'] ?? '') === 'business' ? 'business' : 'private',
+                mb_substr((string)($t['note'] ?? ''), 0, 500),
+                isset($t['start_address']) ? mb_substr((string)$t['start_address'], 0, 255) : null,
+                isset($t['end_address']) ? mb_substr((string)$t['end_address'], 0, 255) : null,
+                is_numeric($t['score'] ?? null) ? max(0, min(100, (int)$t['score'])) : null,
+                max(0, (int)($t['hard_brakes'] ?? 0)), max(0, (int)($t['hard_accels'] ?? 0)),
+                max(0, (int)($t['speeding_sec'] ?? 0)),
             ]);
             $findTrip->execute([$uuid]);
             $tripId = (int)$findTrip->fetch()['id'];
@@ -204,6 +217,7 @@ if ($method === 'POST' && $path === '/trips/sync') {
                     $tripId, (int)$p['ts'], (float)$p['lat'], (float)$p['lng'],
                     num($p['speed_kmh'] ?? null), num($p['accuracy_m'] ?? null),
                     num($p['bearing'] ?? null), num($p['altitude_m'] ?? null),
+                    in_array($p['event'] ?? null, ['brake', 'accel', 'speeding'], true) ? $p['event'] : null,
                 ]);
             }
             $synced[] = $uuid;
@@ -220,7 +234,8 @@ if ($method === 'GET' && $path === '/trips') {
     $limit  = max(1, min(200, (int)($_GET['limit'] ?? 50)));
     $offset = max(0, (int)($_GET['offset'] ?? 0));
     $stmt = $pdo->prepare("SELECT uuid, started_at, ended_at, distance_m, max_speed_kmh, avg_speed_kmh,
-                                  start_lat, start_lng, end_lat, end_lng, trigger_source
+                                  start_lat, start_lng, end_lat, end_lng, trigger_source,
+                                  category, note, start_address, end_address, score, hard_brakes, hard_accels, speeding_sec
                            FROM CarTracking_trips WHERE user_id = ? ORDER BY started_at DESC LIMIT $limit OFFSET $offset");
     $stmt->execute([$uid]);
     respond(200, ['trips' => $stmt->fetchAll()]);
@@ -233,7 +248,7 @@ if (preg_match('#^/trips/([0-9a-fA-F-]{36})$#', $path, $m)) {
     if (!$trip) fail(404, 'Jazda neexistuje');
 
     if ($method === 'GET') {
-        $p = $pdo->prepare('SELECT ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m
+        $p = $pdo->prepare('SELECT ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m, event
                             FROM CarTracking_trip_points WHERE trip_id = ? ORDER BY ts');
         $p->execute([$trip['id']]);
         unset($trip['id'], $trip['user_id']);

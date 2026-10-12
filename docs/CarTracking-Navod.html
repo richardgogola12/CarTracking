@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car Tracking – Používateľská príručka</title>
+<style>
+  :root { --blue:#1565c0; --blue-d:#0d47a1; --ink:#1b1f24; --muted:#5b6470; --line:#dfe5ee; --soft:#f3f7fc; --ok:#2e7d32; --warn:#ef6c00; --bad:#c62828; }
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Roboto, "Segoe UI", Arial, sans-serif; color: var(--ink); line-height: 1.55; margin: 0; font-size: 15px; background:#fff; }
+  .page { max-width: 820px; margin: 0 auto; padding: 18px 18px 40px; }
+  header.cover { background: linear-gradient(135deg, var(--blue-d), var(--blue)); color: #fff; border-radius: 14px; padding: 26px 24px; margin-bottom: 22px; }
+  header.cover h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: .2px; }
+  header.cover p { margin: 0; opacity: .92; }
+  header.cover .ver { margin-top: 12px; font-size: 13px; opacity: .85; }
+  nav.toc { background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 26px; }
+  nav.toc h2 { margin: 0 0 6px; font-size: 16px; border: 0; padding: 0; }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 28px; }
+  nav.toc a { color: var(--blue-d); text-decoration: none; }
+  h2 { font-size: 21px; color: var(--blue-d); margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--line); break-after: avoid; }
+  h3 { font-size: 16.5px; margin: 20px 0 6px; break-after: avoid; }
+  p { margin: 8px 0; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 3px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 14px; font-size: 14px; break-inside: avoid; }
+  th { background: var(--blue-d); color: #fff; text-align: left; padding: 7px 9px; font-weight: 600; }
+  td { padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafd; }
+  code, .k { font-family: "Roboto Mono", Consolas, monospace; font-size: 13px; background: #eef2f7; padding: 1px 5px; border-radius: 4px; }
+  pre { background: #0f1720; color: #e6edf3; padding: 12px 14px; border-radius: 10px; overflow-x: auto; font-size: 12.5px; break-inside: avoid; }
+  .note, .tip, .warn { border-radius: 10px; padding: 10px 14px; margin: 12px 0; break-inside: avoid; }
+  .note { background: #e8f1fd; border-left: 4px solid var(--blue); }
+  .tip  { background: #e9f6ec; border-left: 4px solid var(--ok); }
+  .warn { background: #fff4e5; border-left: 4px solid var(--warn); }
+  .flow { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; break-inside: avoid; }
+  .step { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .badge { flex: 0 0 auto; min-width: 30px; height: 30px; border-radius: 15px; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 13px; padding: 0 8px; }
+  .b-grey { background: #78909c; } .b-orange { background: var(--warn); } .b-green { background: var(--ok); } .b-red { background: var(--bad); } .b-blue { background: var(--blue); }
+  .arrow { text-align: center; color: var(--muted); font-size: 13px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 8px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+  .dot { width: 12px; height: 12px; border-radius: 6px; display: inline-block; }
+  .grad { height: 12px; border-radius: 6px; background: linear-gradient(90deg,#2e7d32,#43a047,#c0ca33,#fdd835,#fb8c00,#e53935,#b71c1c,#6a1b9a); margin: 6px 0 2px; }
+  .scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  footer { margin-top: 36px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+  .print-only { display: none; }
+  @media print {
+    body { font-size: 11pt; }
+    .page { max-width: none; padding: 0; }
+    header.cover { border-radius: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th, .badge, .grad, .dot, .note, .tip, .warn, pre { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h2.newpage { break-before: page; }
+    nav.toc { break-after: page; }
+    a { color: inherit; text-decoration: none; }
+    .print-only { display: block; }
+  }
+  @media (max-width: 520px) { nav.toc ol { columns: 1; } body { font-size: 14.5px; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="cover">
+  <h1>🚗 Car Tracking</h1>
+  <p>Používateľská príručka – automatické sledovanie jázd autom, kniha jázd a štatistiky</p>
+  <div class="ver">Verzia aplikácie 1.1 · Android 8.0 a novší</div>
+</header>
+
+<nav class="toc">
+  <h2>Obsah</h2>
+  <ol>
+    <li><a href="#uvod">Čo aplikácia robí</a></li>
+    <li><a href="#instalacia">Inštalácia a aktualizácia</a></li>
+    <li><a href="#start">Prvé spustenie</a></li>
+    <li><a href="#povolenia">Povolenia</a></li>
+    <li><a href="#detekcia">Automatická detekcia jazdy</a></li>
+    <li><a href="#prehlad">Obrazovka Prehľad</a></li>
+    <li><a href="#jazdy">Jazdy a detail jazdy</a></li>
+    <li><a href="#mapa">Mapa</a></li>
+    <li><a href="#styl">Štýl jazdy a skóre</a></li>
+    <li><a href="#kniha">Kniha jázd a export</a></li>
+    <li><a href="#statistiky">Štatistiky</a></li>
+    <li><a href="#parkovanie">Kde som zaparkoval</a></li>
+    <li><a href="#bluetooth">Bluetooth auta</a></li>
+    <li><a href="#nastavenia">Všetky nastavenia</a></li>
+    <li><a href="#problemy">Riešenie problémov</a></li>
+    <li><a href="#server">Server (pre správcu)</a></li>
+    <li><a href="#sukromie">Bezpečnosť a súkromie</a></li>
+  </ol>
+</nav>
+
+<h2 id="uvod">1. Čo aplikácia robí</h2>
+<p>Car Tracking sám rozpozná, že sedíte v aute, a zaznamená trasu jazdy pomocou GPS – bez toho, aby ste aplikáciu otvárali. Chôdza, beh a bicykel sa <b>nezaznamenávajú</b>.</p>
+<ul>
+  <li><b>Automatický záznam jázd</b> – spustí sa a ukončí sám, aj keď je aplikácia zatvorená alebo sa telefón reštartoval.</li>
+  <li><b>Notifikácia a vibrácia</b> pri zapnutí aj vypnutí režimu jazdy, so súhrnom (km, čas, priemer, náklady, skóre).</li>
+  <li><b>Kniha jázd</b> – súkromné / služobné jazdy, účel cesty, adresy, stav tachometra, tlač a PDF, export do Excelu.</li>
+  <li><b>Štýl jazdy</b> – prudké brzdenie a zrýchlenie, prekračovanie rýchlosti, skóre 0–100.</li>
+  <li><b>Náklady na palivo</b> – odhad pre každú jazdu aj za obdobie.</li>
+  <li><b>Štatistiky</b> – týždeň, mesiac, rok, grafy a mapa všetkých jázd.</li>
+  <li><b>Kde som zaparkoval</b> – miesto konca poslednej jazdy s navigáciou k autu.</li>
+  <li><b>Prihlásenie odtlačkom prsta</b> a synchronizácia na vlastný server s databázou MySQL.</li>
+</ul>
+
+<h2 id="instalacia">2. Inštalácia a aktualizácia</h2>
+<ol>
+  <li>V telefóne otvorte stránku <code>github.com/richardgogola12/CarTracking/releases</code> a stiahnite najnovší súbor <code>CarTracking-N.apk</code>.</li>
+  <li>Otvorte stiahnutý súbor. Android požiada o povolenie <i>Inštalovať neznáme aplikácie</i> pre prehliadač – povoľte ho.</li>
+  <li>Potvrďte <b>Inštalovať</b>.</li>
+</ol>
+<div class="note"><b>Aktualizácia:</b> novšiu verziu stačí nainštalovať „cez“ starú – údaje ostanú zachované. Všetky verzie od 1.1 sú podpísané rovnakým kľúčom.</div>
+<div class="warn"><b>Prechod zo skúšobných verzií (build 1–3):</b> tie boli podpísané iným kľúčom. Pred prvou inštaláciou verzie 1.1 ich jedenkrát odinštalujte.</div>
+
+<h2 id="start">3. Prvé spustenie</h2>
+<h3>3.1 Adresa servera</h3>
+<p>Na obrazovke prihlásenia ťuknite úplne dole na <b>„Server: …“</b>, zadajte adresu API (napr. <code>https://mojadomena.sk/cartracking/api/</code>) a ťuknite na <b>Otestovať pripojenie</b>. Keď sa zobrazí „Pripojenie funguje ✅“, ťuknite na <b>Uložiť</b>.</p>
+<h3>3.2 Registrácia a prihlásenie</h3>
+<p>Ťuknite na <b>Nemáte účet? Zaregistrujte sa</b>, vyplňte meno, e-mail a heslo (min. 8 znakov). Po registrácii vás aplikácia prevedie povoleniami.</p>
+<h3>3.3 Prihlásenie odtlačkom prsta</h3>
+<p>Po prvom prihlásení heslom aplikácia ponúkne prihlasovanie odtlačkom. Zapnúť alebo vypnúť ho môžete aj v <b>Nastavenia → Zabezpečenie</b>. Prihlasovací údaj je zašifrovaný kľúčom v bezpečnom úložisku telefónu, ktorý odomkne iba váš odtlačok.</p>
+<ul>
+  <li><b>Odhlásiť</b> – odhlási z aplikácie, prihlásenie odtlačkom ostane funkčné.</li>
+  <li><b>Zabudnúť zariadenie</b> – zruší prihlásenie aj na serveri a vymaže uložený odtlačkový kľúč.</li>
+  <li>Ak do telefónu pridáte nový odtlačok, z bezpečnostných dôvodov sa treba raz prihlásiť heslom a biometriu zapnúť znova.</li>
+</ul>
+
+<h2 id="povolenia">4. Povolenia</h2>
+<p>Aby sa jazdy zaznamenávali úplne automaticky, povoľte postupne všetky položky na obrazovke <b>Povolenia</b> (otvoríte ju aj cez červenú kartu na Prehľade alebo v Nastaveniach).</p>
+<table>
+  <tr><th>Povolenie</th><th>Prečo je potrebné</th></tr>
+  <tr><td>Presná poloha</td><td>Záznam trasy a rýchlosti z GPS.</td></tr>
+  <tr><td>Poloha <b>vždy</b></td><td>Spustenie záznamu na pozadí pri zatvorenej aplikácii. V systéme zvoľte <i>Povoliť vždy</i>.</td></tr>
+  <tr><td>Fyzická aktivita</td><td>Rozpoznanie jazdy vo vozidle a odlíšenie od chôdze a bicykla.</td></tr>
+  <tr><td>Notifikácie</td><td>Oznámenie o zapnutí a vypnutí režimu jazdy.</td></tr>
+  <tr><td>Bez obmedzenia batérie</td><td>Android inak nedovolí spustiť sledovanie na pozadí.</td></tr>
+  <tr><td>Zariadenia v okolí</td><td>Len ak používate Bluetooth auta.</td></tr>
+</table>
+<div class="tip"><b>Xiaomi, Huawei, Oppo, Samsung:</b> v systémových nastaveniach aplikácie zapnite aj <i>Automatické spustenie</i> a batériu nastavte na <i>Bez obmedzení</i>. Títo výrobcovia inak aplikácie na pozadí ukončujú.</div>
+
+<h2 id="detekcia" class="newpage">5. Automatická detekcia jazdy</h2>
+<p>Detekcia pracuje v dvoch krokoch: telefón najprv nahlási, že ste <i>vo vozidle</i>, a aplikácia to potom <b>overí rýchlosťou z GPS</b>. Preto sa chôdza ani bicykel nikdy nezaznamenajú.</p>
+<div class="flow">
+  <div class="step"><span class="badge b-grey">1</span><div><b>Čakanie</b> – žiadna GPS, takmer nulová spotreba batérie. Systém Android sleduje typ pohybu.</div></div>
+  <div class="arrow">▼ systém nahlási „vo vozidle“ alebo sa pripojí Bluetooth auta</div>
+  <div class="step"><span class="badge b-orange">2</span><div><b>Overovanie</b> – zapne sa GPS a tichá notifikácia „Overujem…“. Ak 3 presné body ukážu rýchlosť aspoň <b>25 km/h</b>, ide o auto. Ak začnete chodiť, bicyklovať alebo sa rýchlosť do <b>5 min</b> nepotvrdí, overovanie sa potichu zruší a nič sa neuloží.</div></div>
+  <div class="arrow">▼ rýchlosť potvrdená</div>
+  <div class="step"><span class="badge b-green">3</span><div><b>Režim jazdy ZAPNUTÝ</b> – notifikácia + vibrácia. Zaznamenáva sa trasa, rýchlosť a štýl jazdy. Body z overovania sa doplnia na začiatok jazdy.</div></div>
+  <div class="arrow">▼ auto stojí 4 min, alebo ste vystúpili a 1 min idete pešo</div>
+  <div class="step"><span class="badge b-red">4</span><div><b>Režim jazdy VYPNUTÝ</b> – notifikácia + vibrácia so súhrnom. Jazda sa uloží, zistia sa adresy, uloží sa miesto parkovania a jazda sa odošle na server.</div></div>
+</div>
+<ul>
+  <li>Státie v kolóne alebo na semafore jazdu <b>neukončí</b> (limit je nastaviteľný).</li>
+  <li>Jazdy kratšie ako <b>500 m</b> sa neukladajú (nastaviteľné).</li>
+  <li>Jazdu môžete spustiť aj ručne tlačidlom <b>Spustiť jazdu ručne</b>; takú jazdu ukončíte iba ručne.</li>
+  <li>V trvalej notifikácii počas jazdy je tlačidlo <b>Ukončiť jazdu</b>, počas overovania <b>Nie je to jazda</b>.</li>
+</ul>
+<div class="note">Autobus, vlak či taxík telefón tiež vníma ako „vozidlo“. Ak to nechcete, použite <a href="#bluetooth">Bluetooth auta</a> s voľbou <i>Sledovať iba keď je pripojené auto</i>.</div>
+
+<h2 id="prehlad">6. Obrazovka Prehľad</h2>
+<ul>
+  <li><b>Stav</b> – Čakám na jazdu (sivá), Overujem jazdu (oranžová), Režim jazdy ZAPNUTÝ (zelená) so živou vzdialenosťou, časom, rýchlosťou a maximom.</li>
+  <li><b>Upozornenie na povolenia</b> – červená karta, ak niečo chýba. Ťuknutím ju vyriešite.</li>
+  <li><b>Kde som zaparkoval</b> – adresa a čas posledného parkovania, tlačidlo <b>Nájsť auto</b>.</li>
+  <li><b>Prehľad</b> – km dnes, tento týždeň a počet jázd.</li>
+  <li><b>Detekcia a synchronizácia</b> – či je rozpoznávanie aktívne, posledná zmena aktivity, počet jázd čakajúcich na odoslanie a tlačidlo <b>Synchronizovať teraz</b>.</li>
+</ul>
+
+<h2 id="jazdy">7. Jazdy a detail jazdy</h2>
+<p>Záložka <b>Jazdy</b> zobrazuje jazdy po dňoch s trasou „odkiaľ → kam“, časom, priemernou rýchlosťou, nákladmi a skóre štýlu jazdy. Filtrami <b>Súkromné / Služobné</b> zúžite zoznam. Ikona oblaku ukazuje, či je jazda uložená na serveri.</p>
+<p>Detail jazdy obsahuje:</p>
+<ul>
+  <li><b>Mapu</b> trasy (pozri ďalšiu kapitolu),</li>
+  <li><b>Trasu</b> – adresy a časy začiatku (A) a cieľa (B),</li>
+  <li><b>Štatistiky</b> – vzdialenosť, trvanie, priemer, maximum, palivo, náklady,</li>
+  <li><b>Štýl jazdy</b> – skóre a počty udalostí,</li>
+  <li><b>Knihu jázd</b> – prepínač Súkromná / Služobná, účel jazdy a stav tachometra,</li>
+  <li>tlačidlá <b>Zdieľať</b> (text s odkazom na mapu) a <b>Zmazať</b> (z telefónu aj zo servera).</li>
+</ul>
+
+<h2 id="mapa">8. Mapa</h2>
+<p>Trasa je vykreslená s obrysom a <b>farbou podľa rýchlosti</b>:</p>
+<div class="grad"></div>
+<div class="scale"><span>0 km/h</span><span>50</span><span>90</span><span>130</span><span>150+</span></div>
+<div class="legend">
+  <span><span class="badge b-green" style="min-width:22px;height:22px">A</span> štart</span>
+  <span><span class="badge b-red" style="min-width:22px;height:22px">B</span> cieľ</span>
+  <span><span class="dot" style="background:#d32f2f"></span> prudké brzdenie</span>
+  <span><span class="dot" style="background:#f57c00"></span> prudké zrýchlenie</span>
+  <span><span class="dot" style="background:#6a1b9a"></span> prekročený limit</span>
+</div>
+<p>Ťuknutím na značku zobrazíte čas, adresu alebo rýchlosť. Ovládacie tlačidlá vpravo hore:</p>
+<table>
+  <tr><th>Tlačidlo</th><th>Funkcia</th></tr>
+  <tr><td>Vrstvy</td><td>Typ mapy: podľa témy, svetlá, tmavá, klasická OSM, terénna, satelitná.</td></tr>
+  <tr><td>Zameranie</td><td>Priblíži mapu tak, aby bola vidieť celá trasa.</td></tr>
+  <tr><td>Celá obrazovka</td><td>Zväčší mapu na celú obrazovku a späť.</td></tr>
+</table>
+<p>Vľavo dole je mierka a legenda, vpravo dole zdroj mapových podkladov. Typ mapy sa pamätá a dá sa nastaviť aj v <b>Nastavenia → Mapa</b>. Mapové podklady sa sťahujú z internetu (OpenStreetMap, CARTO, OpenTopoMap, Esri).</p>
+
+<h2 id="styl" class="newpage">9. Štýl jazdy a skóre</h2>
+<p>Počas jazdy aplikácia z presných GPS bodov sleduje:</p>
+<table>
+  <tr><th>Udalosť</th><th>Kedy sa zaznamená</th><th>Vplyv na skóre</th></tr>
+  <tr><td>Prudké brzdenie</td><td>spomalenie viac ako 3,5 m/s² (cca z 50 na 0 km/h za 4 s)</td><td>−6 bodov na každých 10 km</td></tr>
+  <tr><td>Prudké zrýchlenie</td><td>zrýchlenie viac ako 3,0 m/s²</td><td>−4 body na každých 10 km</td></tr>
+  <tr><td>Prekročenie limitu</td><td>rýchlosť nad nastaveným limitom (predvolene 130 km/h)</td><td>podľa podielu času, max. −40</td></tr>
+</table>
+<p><b>Hodnotenie:</b> 90–100 výborná · 75–89 dobrá · 55–74 priemerná · pod 55 riziková. Pri zapnutom <i>Upozornení vibráciou</i> telefón pri prekročení limitu trikrát krátko zavibruje (najviac raz za minútu).</p>
+<div class="note">GPS meranie nie je rovnako presné ako senzory v aute – skóre berte ako orientačné.</div>
+
+<h2 id="kniha" class="newpage">10. Kniha jázd a export</h2>
+<h3>10.1 Nastavenie</h3>
+<p>V <b>Nastavenia → Kniha jázd</b> vyplňte vozidlo, EČV a <b>aktuálny stav tachometra</b>. Od tohto okamihu aplikácia dopočítava stav tachometra pri každej jazde. Zvoľte aj predvolený typ novej jazdy (súkromná / služobná).</p>
+<h3>10.2 Úprava jazdy</h3>
+<p>V detaile jazdy prepnite <b>Súkromná / Služobná</b> a doplňte <b>účel jazdy</b>. Zmena sa automaticky odošle na server.</p>
+<h3>10.3 Tlač, PDF a Excel</h3>
+<ol>
+  <li>Otvorte <b>Štatistiky</b>, zvoľte <b>Mesiac</b> (alebo týždeň/rok) a šípkami vyberte obdobie.</li>
+  <li><b>Kniha jázd – tlač / PDF</b> otvorí systémovú tlač. Vyberte tlačiareň alebo <i>Uložiť ako PDF</i>. Výstup je na šírku A4 s tabuľkou jázd, súčtami (služobné, súkromné, palivo, náklady) a miestom na podpis.</li>
+  <li><b>Export do Excelu (CSV)</b> vytvorí súbor, ktorý môžete poslať e-mailom alebo uložiť. Excel ho otvorí priamo so slovenskou diakritikou.</li>
+</ol>
+<table>
+  <tr><th>Stĺpce knihy jázd</th></tr>
+  <tr><td>Poradie, dátum, čas od–do, odkiaľ, kam, účel, typ (S/P), tachometer na začiatku a na konci, km, palivo (l), náklady (€)</td></tr>
+</table>
+
+<h2 id="statistiky">11. Štatistiky</h2>
+<ul>
+  <li><b>Súhrn</b> – vzdialenosť, čas za volantom, počet jázd, priemerná rýchlosť, palivo a náklady.</li>
+  <li><b>Graf najazdených km</b> – po dňoch (týždeň, mesiac) alebo po mesiacoch (rok).</li>
+  <li><b>Súkromné vs. služobné</b> – pomer najazdených km.</li>
+  <li><b>Štýl jazdy</b> – priemerné skóre, počty udalostí, najdlhšia jazda.</li>
+  <li><b>Mapa jázd</b> – všetky jazdy obdobia, každá inou farbou.</li>
+</ul>
+
+<h2 id="parkovanie">12. Kde som zaparkoval</h2>
+<p>Po skončení jazdy sa uloží miesto, kde auto zastalo. Na Prehľade sa zobrazí adresa a čas. <b>Nájsť auto</b> otvorí mapovú aplikáciu (napr. Google Mapy) s bodom „Moje auto“ – odtiaľ spustíte navigáciu pešo. <b>Skryť</b> kartu odstráni; pri ďalšej jazde sa miesto aktualizuje.</p>
+
+<h2 id="bluetooth">13. Bluetooth auta</h2>
+<p>Ak má auto Bluetooth (handsfree, rádio), jeho pripojenie je najspoľahlivejší signál, že sedíte práve vo <i>svojom</i> aute.</p>
+<ol>
+  <li>Telefón spárujte s autom v systémových nastaveniach Bluetooth.</li>
+  <li>V <b>Nastavenia → Bluetooth auta</b> ťuknite na <i>Bluetooth zariadenie auta</i> a vyberte ho.</li>
+  <li><b>Spustiť sledovanie po pripojení k autu</b> – overovanie sa spustí hneď po pripojení.</li>
+  <li><b>Sledovať iba keď je pripojené auto</b> – ignoruje autobus, vlak, taxík a jazdu v cudzom aute.</li>
+</ol>
+<p>Odpojenie Bluetooth sa berie ako signál vystúpenia z auta.</p>
+
+<h2 id="nastavenia" class="newpage">14. Všetky nastavenia</h2>
+<table>
+  <tr><th>Sekcia / nastavenie</th><th>Predvolené</th><th>Popis</th></tr>
+  <tr><td colspan="3"><b>Automatická detekcia jazdy</b></td></tr>
+  <tr><td>Automaticky sledovať jazdu</td><td>zapnuté</td><td>Hlavný vypínač automatiky.</td></tr>
+  <tr><td>Spustiť po reštarte telefónu</td><td>zapnuté</td><td>Obnoví detekciu po zapnutí telefónu.</td></tr>
+  <tr><td>Rýchlosť potvrdzujúca auto</td><td>25 km/h</td><td>Nižšia rýchlosť sa nepovažuje za jazdu autom.</td></tr>
+  <tr><td>Čas na potvrdenie jazdy</td><td>5 min</td><td>Pri Bluetooth spúšťači dvojnásobok.</td></tr>
+  <tr><td>Ukončiť jazdu po státí</td><td>4 min</td><td>Ako dlho môže auto stáť bez ukončenia jazdy.</td></tr>
+  <tr><td>Minimálna dĺžka jazdy</td><td>500 m</td><td>Kratšie automatické jazdy sa neukladajú.</td></tr>
+  <tr><td colspan="3"><b>GPS</b></td></tr>
+  <tr><td>Interval záznamu polohy</td><td>3 s</td><td>Kratší = presnejšia trasa, vyššia spotreba.</td></tr>
+  <tr><td>Vysoká presnosť</td><td>zapnuté</td><td>Vypnutím šetríte batériu.</td></tr>
+  <tr><td colspan="3"><b>Notifikácie a vibrácie</b></td></tr>
+  <tr><td>Oznámiť zapnutie / vypnutie</td><td>zapnuté</td><td>Notifikácia pri štarte a konci jazdy.</td></tr>
+  <tr><td>Zvuk notifikácie</td><td>zapnuté</td><td>Tichá alebo zvuková notifikácia.</td></tr>
+  <tr><td>Vibrovať / typ vibrácie</td><td>zapnuté / dvojitá</td><td>Krátka, dlhá alebo dvojitá; tlačidlo Vyskúšať.</td></tr>
+  <tr><td>Rýchlosť v trvalej notifikácii</td><td>zapnuté</td><td>Aktuálna rýchlosť počas jazdy.</td></tr>
+  <tr><td colspan="3"><b>Bluetooth auta</b></td></tr>
+  <tr><td>Zariadenie, spúšťač, len s autom</td><td>vypnuté</td><td>Pozri kapitolu 13.</td></tr>
+  <tr><td colspan="3"><b>Kniha jázd</b></td></tr>
+  <tr><td>Predvolený typ jazdy</td><td>súkromná</td><td>Typ novo zaznamenanej jazdy.</td></tr>
+  <tr><td>Vozidlo, EČV, tachometer</td><td>–</td><td>Údaje do hlavičky knihy jázd a výpočet tachometra.</td></tr>
+  <tr><td>Zisťovať adresy</td><td>zapnuté</td><td>Ulica a mesto začiatku a cieľa.</td></tr>
+  <tr><td colspan="3"><b>Palivo a náklady</b></td></tr>
+  <tr><td>Priemerná spotreba</td><td>6,5 l/100 km</td><td>Použije sa na odhad paliva.</td></tr>
+  <tr><td>Cena paliva</td><td>1,60 €/l</td><td>Náklady = km × spotreba × cena.</td></tr>
+  <tr><td colspan="3"><b>Štýl jazdy a rýchlosť</b></td></tr>
+  <tr><td>Hodnotiť štýl jazdy</td><td>zapnuté</td><td>Udalosti a skóre.</td></tr>
+  <tr><td>Rýchlostný limit</td><td>130 km/h</td><td>Hranica pre prekročenie rýchlosti.</td></tr>
+  <tr><td>Upozorniť vibráciou</td><td>vypnuté</td><td>Upozornenie pri prekročení limitu.</td></tr>
+  <tr><td colspan="3"><b>Ostatné</b></td></tr>
+  <tr><td>Server a synchronizácia</td><td>auto, aj mobilné dáta</td><td>Adresa API, automatické odosielanie, iba cez Wi-Fi.</td></tr>
+  <tr><td>Mapa</td><td>podľa témy</td><td>Typ mapových podkladov.</td></tr>
+  <tr><td>Zabezpečenie</td><td>vypnuté</td><td>Prihlásenie odtlačkom prsta.</td></tr>
+  <tr><td>Vzhľad</td><td>podľa systému</td><td>Svetlá alebo tmavá téma.</td></tr>
+  <tr><td>Účet</td><td>–</td><td>Vymazanie jázd z telefónu, odhlásenie.</td></tr>
+</table>
+
+<h2 id="problemy">15. Riešenie problémov</h2>
+<table>
+  <tr><th>Problém</th><th>Riešenie</th></tr>
+  <tr><td>Jazda sa nespustila automaticky</td><td>Skontrolujte Povolenia (všetky zelené) a výnimku z batérie. Rozpoznanie trvá 30 s – 2 min od rozbehnutia. Pri telefónoch Xiaomi/Huawei zapnite Automatické spustenie.</td></tr>
+  <tr><td>Zaznamenala sa jazda autobusom</td><td>Zmažte ju v detaile jazdy. Do budúcna použite Bluetooth auta a voľbu „Sledovať iba keď je pripojené auto“.</td></tr>
+  <tr><td>Jazda sa ukončila v zápche</td><td>Zvýšte <i>Ukončiť jazdu po státí</i> (napr. na 8 min).</td></tr>
+  <tr><td>Jazda sa skončila až dlho po zaparkovaní</td><td>Znížte <i>Ukončiť jazdu po státí</i>. Čas konca jazdy sa aj tak počíta od posledného pohybu.</td></tr>
+  <tr><td>„Server je nedostupný“</td><td>Na prihlasovacej obrazovke ťuknite na „Server: …“ a otestujte adresu. Musí končiť <code>/api/</code>.</td></tr>
+  <tr><td>Jazdy sa neodosielajú</td><td>Prehľad → Synchronizovať teraz. Skontrolujte voľbu „Iba cez Wi-Fi“.</td></tr>
+  <tr><td>Nezobrazuje sa adresa</td><td>Adresa sa zisťuje pri konci jazdy a potrebuje internet. Bez pripojenia ostane prázdna.</td></tr>
+  <tr><td>Mapa je sivá</td><td>Mapové podklady potrebujú internet. Skúste iný typ mapy.</td></tr>
+  <tr><td>Aplikácia sa nedá aktualizovať</td><td>Staré skúšobné verzie (build 1–3) raz odinštalujte. Od verzie 1.1 aktualizácia funguje priamo.</td></tr>
+  <tr><td>Odtlačok prestal fungovať</td><td>Po pridaní nového odtlačku sa prihláste heslom a v Nastaveniach zapnite biometriu znova.</td></tr>
+</table>
+
+<h2 id="server" class="newpage">16. Server (pre správcu)</h2>
+<p>Aplikácia komunikuje so serverom cez REST API v PHP; databáza je MySQL 8 / MariaDB 10.5+. Aplikácia sa k databáze nepripája priamo (heslo k DB by inak bolo v aplikácii).</p>
+<h3>16.1 Inštalácia</h3>
+<pre>mysql -u root -p &lt; backend/schema.sql
+
+CREATE USER 'car_tracking'@'localhost' IDENTIFIED BY 'silne_heslo';
+GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localhost';</pre>
+<p>Priečinok <code>backend/api</code> skopírujte na web server (napr. <code>/cartracking/api</code>), upravte <code>config.php</code>. Apache potrebuje <code>mod_rewrite</code> (súbor <code>.htaccess</code> je priložený). Odporúčame HTTPS.</p>
+<h3>16.2 Aktualizácia databázy</h3>
+<table>
+  <tr><th>Skript</th><th>Kedy ho spustiť</th></tr>
+  <tr><td><code>migrate_prefix.sql</code></td><td>Databáza vznikla ešte s tabuľkami bez prefixu <code>CarTracking_</code>.</td></tr>
+  <tr><td><code>migrate_v2.sql</code></td><td>Prechod na verziu 1.1 (kniha jázd, štýl jazdy). Nová inštalácia ho nepotrebuje.</td></tr>
+</table>
+<h3>16.3 Tabuľky</h3>
+<table>
+  <tr><th>Tabuľka</th><th>Obsah</th></tr>
+  <tr><td><code>CarTracking_users</code></td><td>Používatelia (heslo ako bcrypt hash).</td></tr>
+  <tr><td><code>CarTracking_api_tokens</code></td><td>Prihlasovacie tokeny (iba SHA-256 hash, platnosť 90 dní).</td></tr>
+  <tr><td><code>CarTracking_trips</code></td><td>Jazdy: časy, km, rýchlosti, adresy, typ, účel, skóre.</td></tr>
+  <tr><td><code>CarTracking_trip_points</code></td><td>Body trasy: čas, poloha, rýchlosť, presnosť, udalosť.</td></tr>
+</table>
+<h3>16.4 API</h3>
+<table>
+  <tr><th>Metóda a cesta</th><th>Popis</th></tr>
+  <tr><td><code>POST /register</code></td><td>Registrácia → token</td></tr>
+  <tr><td><code>POST /login</code></td><td>Prihlásenie → token</td></tr>
+  <tr><td><code>POST /logout</code></td><td>Zrušenie tokenu</td></tr>
+  <tr><td><code>GET /me</code></td><td>Aktuálny používateľ</td></tr>
+  <tr><td><code>POST /trips/sync</code></td><td>Odoslanie jázd a bodov (opakovateľné bez duplicít)</td></tr>
+  <tr><td><code>GET /trips</code>, <code>GET /trips/{uuid}</code></td><td>Zoznam jázd, detail s bodmi</td></tr>
+  <tr><td><code>DELETE /trips/{uuid}</code></td><td>Zmazanie jazdy</td></tr>
+</table>
+
+<h2 id="sukromie">17. Bezpečnosť a súkromie</h2>
+<ul>
+  <li>Poloha sa zaznamenáva <b>iba počas jazdy autom</b>; pri chôdzi a v pokoji sa GPS nepoužíva.</li>
+  <li>Jazdy sa ukladajú v telefóne a odosielajú <b>iba na váš server</b>, ktorý zadáte.</li>
+  <li>Prihlasovací token je v telefóne šifrovaný kľúčom v Android Keystore; heslo sa v telefóne neukladá.</li>
+  <li>Na serveri sa heslá ukladajú ako bcrypt hash a tokeny ako SHA-256 hash.</li>
+  <li>Na adresy začiatku a cieľa sa používa geokódovanie systému Android (Google); dá sa vypnúť v Nastaveniach.</li>
+  <li>Mapové podklady sa sťahujú od poskytovateľov máp; posielajú sa im iba súradnice zobrazených dlaždíc, nie vaše jazdy.</li>
+</ul>
+
+<footer>
+  Car Tracking · Používateľská príručka pre verziu 1.1 · © 2026 Richard Gogola<br>
+  Mapové údaje © prispievatelia OpenStreetMap, © CARTO, © OpenTopoMap, snímky © Esri.
+</footer>
+
+</div>
+</body>
+</html>

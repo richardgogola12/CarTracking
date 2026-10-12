@@ -73,12 +73,12 @@ fun SwitchRow(title: String, subtitle: String? = null, checked: Boolean, enabled
 
 /** Posuvník, ktorý uloží hodnotu až po pustení prsta. */
 @Composable
-fun SliderRow(title: String, value: Int, range: IntRange, step: Int = 1, unit: String, subtitle: String? = null, onChange: (Int) -> Unit) {
+fun SliderRow(title: String, value: Int, range: IntRange, step: Int = 1, unit: String, subtitle: String? = null, format: ((Int) -> String)? = null, onChange: (Int) -> Unit) {
     var temp by remember(value) { mutableFloatStateOf(value.toFloat()) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text("${temp.roundToInt()} $unit", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+            Text(format?.invoke(temp.roundToInt()) ?: "${temp.roundToInt()} $unit", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         }
         if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         val steps = ((range.last - range.first) / step - 1).coerceAtLeast(0)

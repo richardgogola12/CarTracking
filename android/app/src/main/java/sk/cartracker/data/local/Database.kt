@@ -12,7 +12,12 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Update
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
+
+const val CATEGORY_PRIVATE = "private"
+const val CATEGORY_BUSINESS = "business"
 
 @Entity(tableName = "trips", indices = [Index("uuid", unique = true), Index("userId")])
 data class TripEntity(
@@ -32,7 +37,23 @@ data class TripEntity(
     val finished: Boolean = false,
     val synced: Boolean = false,     // všetko je na serveri
     val uploaded: Boolean = false,   // server o jazde vie (aspoň raz odoslaná)
+    // v2 – kniha jázd a štýl jazdy
+    val category: String = CATEGORY_PRIVATE,
+    val note: String = "",
+    val startAddress: String? = null,
+    val endAddress: String? = null,
+    val score: Int? = null,
+    val hardBrakes: Int = 0,
+    val hardAccels: Int = 0,
+    val speedingSec: Int = 0,
 )
+
+/** Udalosti štýlu jazdy uložené pri bode trasy. */
+object DriveEvent {
+    const val BRAKE = "brake"
+    const val ACCEL = "accel"
+    const val SPEEDING = "speeding"
+}
 
 @Entity(
     tableName = "points",
@@ -50,6 +71,7 @@ data class PointEntity(
     val bearing: Float?,
     val altitudeM: Double?,
     val synced: Boolean = false,
+    val event: String? = null,
 )
 
 @Dao
@@ -63,6 +85,10 @@ interface TripDao {
     @Query("SELECT * FROM trips WHERE id = :id") fun tripFlow(id: Long): Flow<TripEntity?>
     @Query("SELECT * FROM trips WHERE userId = :userId AND finished = 1 ORDER BY startedAt DESC")
     fun finishedTrips(userId: Int): Flow<List<TripEntity>>
+    @Query("SELECT * FROM trips WHERE userId = :userId AND finished = 1 AND startedAt >= :from AND startedAt < :to ORDER BY startedAt")
+    suspend fun tripsBetween(userId: Int, from: Long, to: Long): List<TripEntity>
+    @Query("SELECT COALESCE(SUM(distanceM), 0) FROM trips WHERE userId = :userId AND finished = 1 AND startedAt >= :from AND startedAt < :to")
+    suspend fun distanceBetween(userId: Int, from: Long, to: Long): Double
     @Query("SELECT * FROM trips WHERE userId = :userId AND finished = 0 ORDER BY startedAt DESC LIMIT 1")
     suspend fun unfinishedTrip(userId: Int): TripEntity?
     @Query("SELECT * FROM trips WHERE userId = :userId AND finished = 0")
@@ -81,13 +107,28 @@ interface TripDao {
     @Query("UPDATE points SET synced = 1 WHERE id IN (:ids)") suspend fun markPointsSynced(ids: List<Long>)
 }
 
-@Database(entities = [TripEntity::class, PointEntity::class], version = 1, exportSchema = false)
+private val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE trips ADD COLUMN category TEXT NOT NULL DEFAULT 'private'")
+        db.execSQL("ALTER TABLE trips ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE trips ADD COLUMN startAddress TEXT")
+        db.execSQL("ALTER TABLE trips ADD COLUMN endAddress TEXT")
+        db.execSQL("ALTER TABLE trips ADD COLUMN score INTEGER")
+        db.execSQL("ALTER TABLE trips ADD COLUMN hardBrakes INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE trips ADD COLUMN hardAccels INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE trips ADD COLUMN speedingSec INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE points ADD COLUMN event TEXT")
+    }
+}
+
+@Database(entities = [TripEntity::class, PointEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tripDao(): TripDao
 
     companion object {
         fun create(ctx: Context): AppDatabase =
             Room.databaseBuilder(ctx, AppDatabase::class.java, "car_tracking.db")
+                .addMigrations(MIGRATION_1_2)
                 .fallbackToDestructiveMigration()
                 .build()
     }

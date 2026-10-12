@@ -34,6 +34,14 @@ CREATE TABLE IF NOT EXISTS CarTracking_trips (
     start_lat        DOUBLE NULL, start_lng DOUBLE NULL,
     end_lat          DOUBLE NULL, end_lng   DOUBLE NULL,
     trigger_source   VARCHAR(20)  NOT NULL DEFAULT 'auto' COMMENT 'auto | bluetooth | manual',
+    category         VARCHAR(10)  NOT NULL DEFAULT 'private' COMMENT 'private | business',
+    note             VARCHAR(500) NOT NULL DEFAULT '',
+    start_address    VARCHAR(255) NULL,
+    end_address      VARCHAR(255) NULL,
+    score            TINYINT UNSIGNED NULL COMMENT 'štýl jazdy 0–100',
+    hard_brakes      INT UNSIGNED NOT NULL DEFAULT 0,
+    hard_accels      INT UNSIGNED NOT NULL DEFAULT 0,
+    speeding_sec     INT UNSIGNED NOT NULL DEFAULT 0,
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_trips_user_start (user_id, started_at),
@@ -50,6 +58,7 @@ CREATE TABLE IF NOT EXISTS CarTracking_trip_points (
     accuracy_m FLOAT        NULL,
     bearing    FLOAT        NULL,
     altitude_m DOUBLE       NULL,
+    event      VARCHAR(10)  NULL COMMENT 'brake | accel | speeding',
     UNIQUE KEY uq_point (trip_id, ts),
     CONSTRAINT CarTracking_fk_points_trip FOREIGN KEY (trip_id) REFERENCES CarTracking_trips(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

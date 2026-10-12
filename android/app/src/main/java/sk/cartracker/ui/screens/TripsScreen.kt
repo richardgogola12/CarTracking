@@ -1,6 +1,8 @@
 package sk.cartracker.ui.screens
 
-import android.graphics.Color as AColor
+import android.content.Intent
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,60 +17,92 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.BusinessCenter
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.BoundingBox
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.Polyline
 import sk.cartracker.container
+import sk.cartracker.data.AppSettings
+import sk.cartracker.data.DrivingScore
+import sk.cartracker.data.local.CATEGORY_BUSINESS
+import sk.cartracker.data.local.CATEGORY_PRIVATE
 import sk.cartracker.data.local.PointEntity
 import sk.cartracker.data.local.TripEntity
+import sk.cartracker.sync.SyncWorker
 import sk.cartracker.ui.formatDateTime
 import sk.cartracker.ui.formatDay
 import sk.cartracker.ui.formatDistance
 import sk.cartracker.ui.formatDuration
+import sk.cartracker.ui.formatMoney
 import sk.cartracker.ui.formatTime
+import sk.cartracker.ui.map.MapRoute
+import sk.cartracker.ui.map.RouteMap
+
+fun scoreColor(score: Int) = when {
+    score >= 90 -> Color(0xFF2E7D32)
+    score >= 75 -> Color(0xFF7CB342)
+    score >= 55 -> Color(0xFFF9A825)
+    else -> Color(0xFFD32F2F)
+}
+
+fun TripEntity.routeTitle(): String = when {
+    startAddress != null && endAddress != null -> "${shortPlace(startAddress)} → ${shortPlace(endAddress)}"
+    else -> "${formatTime(startedAt)} – ${endedAt?.let { formatTime(it) } ?: "…"}"
+}
+
+private fun shortPlace(a: String) = a.substringAfterLast(", ").ifBlank { a }
 
 @Composable
 fun TripsScreen(onOpenTrip: (Long) -> Unit) {
     val c = LocalContext.current.container
     val trips by remember { c.trips.trips() }.collectAsStateWithLifecycle(emptyList())
+    val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
+    var filter by rememberSaveable { mutableStateOf("all") }
 
     if (trips.isEmpty()) {
         Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -83,36 +117,68 @@ fun TripsScreen(onOpenTrip: (Long) -> Unit) {
         return
     }
 
-    val grouped = remember(trips) { trips.groupBy { formatDay(it.startedAt) } }
+    val shown = remember(trips, filter) { if (filter == "all") trips else trips.filter { it.category == filter } }
+    val grouped = remember(shown) { shown.groupBy { formatDay(it.startedAt) } }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item(key = "filter") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(filter == "all", { filter = "all" }, { Text("Všetky (${trips.size})") })
+                FilterChip(filter == CATEGORY_PRIVATE, { filter = CATEGORY_PRIVATE }, { Text("Súkromné") },
+                    leadingIcon = { Icon(Icons.Filled.Home, null, Modifier.size(16.dp)) })
+                FilterChip(filter == CATEGORY_BUSINESS, { filter = CATEGORY_BUSINESS }, { Text("Služobné") },
+                    leadingIcon = { Icon(Icons.Filled.BusinessCenter, null, Modifier.size(16.dp)) })
+            }
+        }
         grouped.forEach { (day, list) ->
             item(key = "h_$day") {
-                Text(day.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
+                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(day.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                    Text(formatDistance(list.sumOf { it.distanceM }), style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            items(list, key = { it.id }) { TripRow(it) { onOpenTrip(it.id) } }
+            items(list, key = { it.id }) { TripRow(it, s) { onOpenTrip(it.id) } }
         }
     }
 }
 
 @Composable
-private fun TripRow(t: TripEntity, onClick: () -> Unit) {
+private fun TripRow(t: TripEntity, s: AppSettings, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                when (t.triggerSource) { "bluetooth" -> Icons.Filled.Bluetooth; "manual" -> Icons.Filled.TouchApp; else -> Icons.Filled.DirectionsCar },
-                null, tint = MaterialTheme.colorScheme.primary,
-            )
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(42.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    when {
+                        t.category == CATEGORY_BUSINESS -> Icons.Filled.BusinessCenter
+                        t.triggerSource == "bluetooth" -> Icons.Filled.Bluetooth
+                        t.triggerSource == "manual" -> Icons.Filled.TouchApp
+                        else -> Icons.Filled.DirectionsCar
+                    }, null, tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("${formatTime(t.startedAt)} – ${t.endedAt?.let { formatTime(it) } ?: "…"}", fontWeight = FontWeight.SemiBold)
-                Text("${formatDuration((t.endedAt ?: t.startedAt) - t.startedAt)} · Ø ${t.avgSpeedKmh.toInt()} km/h · max ${t.maxSpeedKmh.toInt()} km/h",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(t.routeTitle(), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${formatTime(t.startedAt)} · ${formatDuration((t.endedAt ?: t.startedAt) - t.startedAt)} · Ø ${t.avgSpeedKmh.toInt()} km/h · ${formatMoney(s.fuelCost(t.distanceM))}",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (t.note.isNotBlank()) Text(t.note, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(formatDistance(t.distanceM), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Icon(if (t.synced) Icons.Filled.CloudDone else Icons.Filled.CloudUpload, if (t.synced) "Synchronizované" else "Čaká na odoslanie",
-                    Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    t.score?.let {
+                        Text("$it", style = MaterialTheme.typography.labelSmall, color = Color.White,
+                            modifier = Modifier.background(scoreColor(it), RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 1.dp))
+                        Spacer(Modifier.size(6.dp))
+                    }
+                    Icon(if (t.synced) Icons.Filled.CloudDone else Icons.Filled.CloudUpload, if (t.synced) "Synchronizované" else "Čaká na odoslanie",
+                        Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                }
             }
         }
     }
@@ -121,37 +187,98 @@ private fun TripRow(t: TripEntity, onClick: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
-    val c = LocalContext.current.container
+    val ctx = LocalContext.current
+    val c = ctx.container
     val scope = rememberCoroutineScope()
     val trip by remember { c.trips.trip(tripId) }.collectAsStateWithLifecycle(null)
+    val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
     var points by remember { mutableStateOf<List<PointEntity>>(emptyList()) }
+    var odometer by remember { mutableStateOf<Double?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var fullscreen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(tripId) { points = c.trips.points(tripId) }
+    LaunchedEffect(trip?.startedAt, s.odometerKm, s.odometerDate) { trip?.let { odometer = c.trips.odometerAt(it.startedAt, s) } }
+
+    val routes = remember(points, trip?.startAddress, trip?.endAddress) {
+        listOf(MapRoute(points, trip?.startAddress, trip?.endAddress))
+    }
 
     Scaffold(topBar = {
         TopAppBar(
             title = { Text(trip?.let { formatDateTime(it.startedAt) } ?: "Jazda") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Späť") } },
-            actions = { IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Zmazať") } },
+            actions = {
+                IconButton(onClick = {
+                    val t = trip ?: return@IconButton
+                    val text = buildString {
+                        appendLine("Jazda ${formatDateTime(t.startedAt)}")
+                        t.startAddress?.let { appendLine("Z: $it") }
+                        t.endAddress?.let { appendLine("Do: $it") }
+                        appendLine("${formatDistance(t.distanceM)}, ${formatDuration((t.endedAt ?: t.startedAt) - t.startedAt)}, Ø ${t.avgSpeedKmh.toInt()} km/h")
+                        points.lastOrNull()?.let { append("https://www.openstreetmap.org/?mlat=${it.lat}&mlon=${it.lng}#map=15/${it.lat}/${it.lng}") }
+                    }
+                    ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Zdieľať jazdu"))
+                }) { Icon(Icons.Filled.Share, "Zdieľať") }
+                IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Zmazať") }
+            },
         )
     }) { pad ->
         val t = trip ?: return@Scaffold
+        if (fullscreen) {
+            RouteMap(routes, Modifier.padding(pad).fillMaxSize(), fullscreen = true, onToggleFullscreen = { fullscreen = false })
+            return@Scaffold
+        }
         Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState())) {
-            TripMap(points, Modifier.fillMaxWidth().height(360.dp))
+            RouteMap(routes, Modifier.fillMaxWidth().height(380.dp), onToggleFullscreen = { fullscreen = true })
+
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth()) {
-                    StatBox("Vzdialenosť", formatDistance(t.distanceM), Modifier.weight(1f))
-                    StatBox("Trvanie", formatDuration((t.endedAt ?: t.startedAt) - t.startedAt), Modifier.weight(1f))
+                // Trasa
+                SectionCard("Trasa") {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        PlaceRow("A", Color(0xFF2E7D32), t.startAddress ?: "Adresa nezistená", formatDateTime(t.startedAt))
+                        PlaceRow("B", Color(0xFFC62828), t.endAddress ?: "Adresa nezistená", t.endedAt?.let { formatDateTime(it) } ?: "")
+                    }
                 }
-                Row(Modifier.fillMaxWidth()) {
-                    StatBox("Priemer", "${t.avgSpeedKmh.toInt()} km/h", Modifier.weight(1f))
-                    StatBox("Maximum", "${t.maxSpeedKmh.toInt()} km/h", Modifier.weight(1f))
+                // Štatistiky
+                SectionCard("Štatistiky") {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(Modifier.fillMaxWidth()) {
+                            StatBox("Vzdialenosť", formatDistance(t.distanceM), Modifier.weight(1f))
+                            StatBox("Trvanie", formatDuration((t.endedAt ?: t.startedAt) - t.startedAt), Modifier.weight(1f))
+                            StatBox("Priemer", "${t.avgSpeedKmh.toInt()} km/h", Modifier.weight(1f))
+                        }
+                        Row(Modifier.fillMaxWidth()) {
+                            StatBox("Maximum", "${t.maxSpeedKmh.toInt()} km/h", Modifier.weight(1f))
+                            StatBox("Palivo", String.format(java.util.Locale("sk"), "%.1f l", s.fuelLiters(t.distanceM)), Modifier.weight(1f))
+                            StatBox("Náklady", formatMoney(s.fuelCost(t.distanceM)), Modifier.weight(1f))
+                        }
+                    }
                 }
-                Text("Začiatok: ${formatDateTime(t.startedAt)}")
-                t.endedAt?.let { Text("Koniec: ${formatDateTime(it)}") }
-                Text("Spustenie: " + when (t.triggerSource) { "bluetooth" -> "Bluetooth auta"; "manual" -> "ručne"; else -> "automaticky" })
-                Text("Bodov GPS: ${points.size}")
-                Text(if (t.synced) "Uložené na serveri ✅" else "Čaká na synchronizáciu so serverom")
+                // Štýl jazdy
+                if (t.score != null) SectionCard("Štýl jazdy") {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        ScoreRing(t.score, Modifier.size(84.dp))
+                        Spacer(Modifier.size(16.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(DrivingScore.label(t.score), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = scoreColor(t.score))
+                            Text("Prudké brzdenia: ${t.hardBrakes}")
+                            Text("Prudké zrýchlenia: ${t.hardAccels}")
+                            Text("Nad ${s.speedAlertKmh} km/h: ${formatDuration(t.speedingSec * 1000L).let { if (t.speedingSec in 1..59) "${t.speedingSec} s" else it }}")
+                        }
+                    }
+                }
+                // Kniha jázd
+                TripLogbookCard(t, odometer) { category, note ->
+                    scope.launch {
+                        c.trips.updateMeta(t, category, note)
+                        if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
+                    }
+                }
+                Text(
+                    "Spustenie: " + when (t.triggerSource) { "bluetooth" -> "Bluetooth auta"; "manual" -> "ručne"; else -> "automaticky" } +
+                        " · bodov GPS: ${points.size} · " + if (t.synced) "uložené na serveri ✅" else "čaká na synchronizáciu",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -173,34 +300,63 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
 }
 
 @Composable
-private fun TripMap(points: List<PointEntity>, modifier: Modifier) {
-    val ctx = LocalContext.current
-    val map = remember {
-        MapView(ctx).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
-            controller.setZoom(14.0)
+private fun PlaceRow(letter: String, color: Color, address: String, time: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(28.dp).background(color, RoundedCornerShape(50)), contentAlignment = Alignment.Center) {
+            Text(letter, color = Color.White, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.size(12.dp))
+        Column {
+            Text(address, fontWeight = FontWeight.Medium)
+            if (time.isNotEmpty()) Text(time, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    DisposableEffect(Unit) {
-        map.onResume()
-        onDispose { map.onPause(); map.onDetach() }
-    }
-    AndroidView(factory = { map }, modifier = modifier, update = { mv ->
-        mv.overlays.clear()
-        val geo = points.map { GeoPoint(it.lat, it.lng) }
-        if (geo.isEmpty()) return@AndroidView
-        mv.overlays.add(Polyline(mv).apply {
-            setPoints(geo)
-            outlinePaint.color = AColor.rgb(21, 101, 192)
-            outlinePaint.strokeWidth = 12f
-        })
-        mv.overlays.add(Marker(mv).apply { position = geo.first(); title = "Štart"; setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) })
-        mv.overlays.add(Marker(mv).apply { position = geo.last(); title = "Cieľ"; setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM) })
-        mv.post {
-            if (geo.size > 1) mv.zoomToBoundingBox(BoundingBox.fromGeoPoints(geo).increaseByScale(1.3f), false)
-            else mv.controller.setCenter(geo.first())
+}
+
+@Composable
+fun ScoreRing(score: Int, modifier: Modifier) {
+    val color = scoreColor(score)
+    val track = MaterialTheme.colorScheme.surfaceVariant
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.minDimension * 0.11f
+            val inset = w / 2
+            val arcSize = Size(size.width - w, size.height - w)
+            drawArc(track, 135f, 270f, false, Offset(inset, inset), arcSize, style = Stroke(w, cap = StrokeCap.Round))
+            drawArc(color, 135f, 270f * score / 100f, false, Offset(inset, inset), arcSize, style = Stroke(w, cap = StrokeCap.Round))
         }
-        mv.invalidate()
-    })
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("$score", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = color)
+            Text("/ 100", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TripLogbookCard(t: TripEntity, odometer: Double?, onSave: (String, String) -> Unit) {
+    var note by remember(t.id, t.note) { mutableStateOf(t.note) }
+    SectionCard("Kniha jázd") {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = t.category == CATEGORY_PRIVATE, onClick = { onSave(CATEGORY_PRIVATE, note) },
+                    shape = SegmentedButtonDefaults.itemShape(0, 2),
+                    icon = { Icon(Icons.Filled.Home, null, Modifier.size(18.dp)) },
+                ) { Text("Súkromná") }
+                SegmentedButton(
+                    selected = t.category == CATEGORY_BUSINESS, onClick = { onSave(CATEGORY_BUSINESS, note) },
+                    shape = SegmentedButtonDefaults.itemShape(1, 2),
+                    icon = { Icon(Icons.Filled.BusinessCenter, null, Modifier.size(18.dp)) },
+                ) { Text("Služobná") }
+            }
+            OutlinedTextField(note, { note = it.take(500) }, label = { Text("Účel jazdy / poznámka") },
+                modifier = Modifier.fillMaxWidth(), minLines = 2)
+            if (note != t.note) TextButton(onClick = { onSave(t.category, note) }) { Text("Uložiť poznámku") }
+            odometer?.let {
+                Text("Tachometer: ${it.toLong()} km → ${(it + t.distanceM / 1000).toLong()} km",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
 }

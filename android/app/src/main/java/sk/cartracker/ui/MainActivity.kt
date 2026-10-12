@@ -5,6 +5,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
@@ -31,12 +32,14 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import sk.cartracker.container
 import sk.cartracker.data.AppSettings
+import sk.cartracker.ui.screens.HelpScreen
 import sk.cartracker.ui.screens.HomeScreen
 import sk.cartracker.ui.screens.LockScreen
 import sk.cartracker.ui.screens.LoginScreen
 import sk.cartracker.ui.screens.PermissionsScreen
 import sk.cartracker.ui.screens.RegisterScreen
 import sk.cartracker.ui.screens.SettingsScreen
+import sk.cartracker.ui.screens.StatsScreen
 import sk.cartracker.ui.screens.TripDetailScreen
 import sk.cartracker.ui.screens.TripsScreen
 import sk.cartracker.ui.theme.CarTrackerTheme
@@ -82,8 +85,10 @@ private fun AppNavigation(start: String) {
                 onOpenTrip = { nav.navigate("trip/$it") },
                 onOpenPermissions = { nav.navigate("permissions") },
                 onLoggedOut = { nav.goClean("login") },
+                onOpenHelp = { nav.navigate("help") },
             )
         }
+        composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
         composable("trip/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
             TripDetailScreen(it.arguments?.getLong("id") ?: 0L, onBack = { nav.popBackStack() })
         }
@@ -94,13 +99,14 @@ private fun AppNavigation(start: String) {
 }
 
 @Composable
-private fun MainTabs(onOpenTrip: (Long) -> Unit, onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit) {
+private fun MainTabs(onOpenTrip: (Long) -> Unit, onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Scaffold(bottomBar = {
         NavigationBar {
             NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.Dashboard, null) }, label = { Text("Prehľad") })
             NavigationBarItem(tab == 1, { tab = 1 }, { Icon(Icons.Filled.Route, null) }, label = { Text("Jazdy") })
-            NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Filled.Settings, null) }, label = { Text("Nastavenia") })
+            NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Filled.BarChart, null) }, label = { Text("Štatistiky") })
+            NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Filled.Settings, null) }, label = { Text("Nastavenia") })
         }
     }) { pad ->
         val m = Modifier.padding(pad)
@@ -108,7 +114,8 @@ private fun MainTabs(onOpenTrip: (Long) -> Unit, onOpenPermissions: () -> Unit, 
             when (tab) {
                 0 -> HomeScreen(onOpenPermissions)
                 1 -> TripsScreen(onOpenTrip)
-                else -> SettingsScreen(onOpenPermissions, onLoggedOut)
+                2 -> StatsScreen()
+                else -> SettingsScreen(onOpenPermissions, onLoggedOut, onOpenHelp)
             }
         }
     }

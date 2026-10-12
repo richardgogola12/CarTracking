@@ -108,6 +108,33 @@ object Notifications {
         NotificationManagerCompat.from(ctx).notify(ID_EVENT, n)
     }
 
+    /** Upozornenie na prekročenie nastavenej rýchlosti (3 krátke vibrácie). */
+    fun speedAlert(ctx: Context, speedKmh: Int, s: AppSettings) {
+        if (s.vibrate) vibrateRaw(ctx, longArrayOf(0, 150, 100, 150, 100, 150))
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val n = NotificationCompat.Builder(ctx, if (s.sound) CH_EVENTS else CH_EVENTS_SILENT)
+            .setSmallIcon(R.drawable.ic_car)
+            .setContentTitle("⚠️ Rýchlosť $speedKmh km/h")
+            .setContentText("Prekročili ste nastavený limit ${s.speedAlertKmh} km/h")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setTimeoutAfter(15_000)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(ctx).notify(ID_SPEED, n)
+    }
+
+    private const val ID_SPEED = 3
+
+    private fun vibrateRaw(ctx: Context, timings: LongArray) {
+        val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ctx.getSystemService(VibratorManager::class.java).defaultVibrator
+        } else {
+            @Suppress("DEPRECATION") ctx.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+        if (vibrator.hasVibrator()) vibrator.vibrate(VibrationEffect.createWaveform(timings, -1))
+    }
+
     fun vibrate(ctx: Context, pattern: VibrationPattern) {
         val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             ctx.getSystemService(VibratorManager::class.java).defaultVibrator

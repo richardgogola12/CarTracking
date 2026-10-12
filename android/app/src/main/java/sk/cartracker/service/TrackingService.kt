@@ -30,7 +30,10 @@ import kotlinx.coroutines.sync.withLock
 import sk.cartracker.appScope
 import sk.cartracker.container
 import sk.cartracker.data.AppSettings
+import sk.cartracker.data.DrivingScore
+import sk.cartracker.data.Geo
 import sk.cartracker.data.RuntimeState
+import sk.cartracker.data.local.DriveEvent
 import sk.cartracker.data.local.PointEntity
 import sk.cartracker.data.local.TripEntity
 import sk.cartracker.sync.SyncWorker
@@ -132,6 +135,15 @@ class TrackingService : LifecycleService() {
     private var lastMovingAt = 0L
     private var exitSignalAt: Long? = null
 
+    // Štýl jazdy
+    private var hardBrakes = 0
+    private var hardAccels = 0
+    private var speedingMs = 0L
+    private var speedFix: Location? = null      // posledný presný bod s rýchlosťou (na výpočet zrýchlenia)
+    private var lastEventAt = 0L
+    private var wasSpeeding = false
+    private var lastSpeedAlertAt = 0L
+
     private var locationActive = false
     private var lastNotifUpdate = 0L
     private var wakeLock: PowerManager.WakeLock? = null
@@ -225,10 +237,12 @@ class TrackingService : LifecycleService() {
     }
 
     private suspend fun startTrip(startedAt: Long) {
-        val t = TripEntity(uuid = UUID.randomUUID().toString(), userId = userId, startedAt = startedAt, triggerSource = source)
+        val t = TripEntity(uuid = UUID.randomUUID().toString(), userId = userId, startedAt = startedAt,
+            triggerSource = source, category = settings.defaultCategory)
         trip = t.copy(id = dao.insertTrip(t))
         distance = 0.0; maxSpeed = 0.0; pointCount = 0
         lastGood = null
+        hardBrakes = 0; hardAccels = 0; speedingMs = 0L; speedFix = null; wasSpeeding = false
         lastMovingAt = System.currentTimeMillis()
         exitSignalAt = null
         TrackingState.state.value = DriveState.DRIVING
@@ -247,6 +261,8 @@ class TrackingService : LifecycleService() {
         source = t.triggerSource
         manual = t.triggerSource == SOURCE_MANUAL
         distance = t.distanceM; maxSpeed = t.maxSpeedKmh
+        hardBrakes = t.hardBrakes; hardAccels = t.hardAccels; speedingMs = t.speedingSec * 1000L
+        speedFix = null; wasSpeeding = false
         pointCount = dao.points(t.id).size
         lastGood = last?.let { Location("db").apply { latitude = it.lat; longitude = it.lng; time = it.ts } }
         lastMovingAt = System.currentTimeMillis()
@@ -294,21 +310,59 @@ class TrackingService : LifecycleService() {
         if (speed >= MOVING_KMH) lastMovingAt = now
         if (speed >= settings.minDriveSpeedKmh) exitSignalAt = null
 
+        val event = detectEvent(loc, speed)
+
         dao.insertPoint(
             PointEntity(
                 tripId = t.id, ts = loc.time, lat = loc.latitude, lng = loc.longitude,
                 speedKmh = speed.toFloat(), accuracyM = loc.accuracy,
                 bearing = if (loc.hasBearing()) loc.bearing else null,
                 altitudeM = if (loc.hasAltitude()) loc.altitude else null,
+                event = event,
             )
         )
         pointCount++
         var updated = t
         if (t.startLat == null) updated = t.copy(startLat = loc.latitude, startLng = loc.longitude)
-        updated = updated.copy(distanceM = distance, maxSpeedKmh = maxSpeed)
+        updated = updated.copy(distanceM = distance, maxSpeedKmh = maxSpeed,
+            hardBrakes = hardBrakes, hardAccels = hardAccels, speedingSec = (speedingMs / 1000).toInt())
         trip = updated
         if (pointCount % 10 == 1) dao.updateTrip(updated) // priebežne – pre obnovu po páde
         publishLive(loc)
+    }
+
+    /** Prudké brzdenie / zrýchlenie z rozdielu GPS rýchlostí, prekročenie nastaveného limitu. */
+    private fun detectEvent(loc: Location, speedKmh: Double): String? {
+        if (!settings.drivingEvents) return null
+        var event: String? = null
+        val now = loc.time
+
+        // Prekračovanie rýchlosti
+        val speeding = speedKmh > settings.speedAlertKmh && loc.accuracy <= 30f
+        val prev = speedFix
+        if (speeding && prev != null) speedingMs += (now - prev.time).coerceIn(0, 10_000)
+        if (speeding && !wasSpeeding) {
+            event = DriveEvent.SPEEDING
+            if (settings.speedAlert && System.currentTimeMillis() - lastSpeedAlertAt > 60_000) {
+                lastSpeedAlertAt = System.currentTimeMillis()
+                Notifications.speedAlert(this, speedKmh.toInt(), settings)
+            }
+        }
+        wasSpeeding = speeding
+
+        // Zrýchlenie – iba z presných bodov s rýchlosťou z GPS, 1–6 s od seba
+        if (loc.hasSpeed() && loc.accuracy <= 25f) {
+            if (prev != null) {
+                val dt = (now - prev.time) / 1000.0
+                if (dt in 1.0..6.0 && now - lastEventAt > 8_000) {
+                    val a = (loc.speed - prev.speed) / dt
+                    if (a <= DrivingScore.BRAKE_MS2 && prev.speed > 4f) { hardBrakes++; lastEventAt = now; event = DriveEvent.BRAKE }
+                    else if (a >= DrivingScore.ACCEL_MS2) { hardAccels++; lastEventAt = now; event = DriveEvent.ACCEL }
+                }
+            }
+            speedFix = loc
+        }
+        return event
     }
 
     private suspend fun evaluate() {
@@ -344,13 +398,24 @@ class TrackingService : LifecycleService() {
             dao.deleteTrip(t.id)
             summary = "Jazda bola kratšia ako ${settings.minTripDistanceM} m – neuložená"
         } else {
+            val speedingSec = (speedingMs / 1000).toInt()
+            val score = if (settings.drivingEvents) DrivingScore.compute(distance, end - t.startedAt, hardBrakes, hardAccels, speedingSec) else null
+            val startAddr = if (settings.detectAddresses && t.startLat != null) Geo.address(this, t.startLat, t.startLng!!) else null
+            val endAddr = if (settings.detectAddresses && last != null) Geo.address(this, last.lat, last.lng) else null
             dao.updateTrip(
                 t.copy(
                     endedAt = end, distanceM = distance, maxSpeedKmh = maxSpeed, avgSpeedKmh = avg,
                     endLat = last?.lat, endLng = last?.lng, finished = true,
+                    startAddress = startAddr, endAddress = endAddr, score = score,
+                    hardBrakes = hardBrakes, hardAccels = hardAccels, speedingSec = speedingSec,
                 )
             )
-            summary = "${formatDistance(distance)} · ${formatDuration(end - t.startedAt)} · Ø ${avg.toInt()} km/h"
+            if (last != null) RuntimeState.setParking(this, last.lat, last.lng, end, endAddr)
+            summary = buildString {
+                append("${formatDistance(distance)} · ${formatDuration(end - t.startedAt)} · Ø ${avg.toInt()} km/h")
+                append(" · ~").append(String.format(java.util.Locale("sk"), "%.2f €", settings.fuelCost(distance)))
+                if (score != null) append(" · štýl $score/100")
+            }
             if (settings.autoSync) SyncWorker.enqueueNow(this, settings.syncWifiOnly)
         }
         Notifications.driveEvent(this, started = false, s = settings, summary = summary)
@@ -469,7 +534,8 @@ class TrackingService : LifecycleService() {
         releaseWakeLock()
         // Ak systém službu zabil počas jazdy, uložíme priebežný stav – recover() ju po reštarte dokončí
         trip?.let { t ->
-            val snapshot = t.copy(distanceM = distance, maxSpeedKmh = maxSpeed)
+            val snapshot = t.copy(distanceM = distance, maxSpeedKmh = maxSpeed, hardBrakes = hardBrakes,
+                hardAccels = hardAccels, speedingSec = (speedingMs / 1000).toInt())
             val dao = this.dao
             appScope.launch { dao.updateTrip(snapshot) }
         }
