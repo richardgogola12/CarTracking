@@ -10,28 +10,28 @@ import android.graphics.drawable.BitmapDrawable
 import org.osmdroid.tileprovider.tilesource.ITileSource
 import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.tileprovider.tilesource.XYZTileSource
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.MapTileIndex
 import sk.cartracker.data.MapStyle
 
 /** Mapové podklady. Všetky sú bezplatné a nevyžadujú API kľúč. */
 object MapTiles {
-    private val CARTO_LIGHT = XYZTileSource(
+    private val CARTO_LIGHT = XYTileSource(
         "CartoPositron", 0, 20, 512, "@2x.png",
         arrayOf("https://a.basemaps.cartocdn.com/light_all/", "https://b.basemaps.cartocdn.com/light_all/", "https://c.basemaps.cartocdn.com/light_all/"),
         "© OpenStreetMap © CARTO",
     )
-    private val CARTO_DARK = XYZTileSource(
+    private val CARTO_DARK = XYTileSource(
         "CartoDarkMatter", 0, 20, 512, "@2x.png",
         arrayOf("https://a.basemaps.cartocdn.com/dark_all/", "https://b.basemaps.cartocdn.com/dark_all/", "https://c.basemaps.cartocdn.com/dark_all/"),
         "© OpenStreetMap © CARTO",
     )
-    private val CARTO_VOYAGER = XYZTileSource(
+    private val CARTO_VOYAGER = XYTileSource(
         "CartoVoyager", 0, 20, 512, "@2x.png",
         arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager/", "https://b.basemaps.cartocdn.com/rastertiles/voyager/"),
         "© OpenStreetMap © CARTO",
     )
-    private val TOPO = XYZTileSource(
+    private val TOPO = XYTileSource(
         "OpenTopoMap", 0, 17, 256, ".png",
         arrayOf("https://a.tile.opentopomap.org/", "https://b.tile.opentopomap.org/", "https://c.tile.opentopomap.org/"),
         "© OpenStreetMap © OpenTopoMap (CC-BY-SA)",
