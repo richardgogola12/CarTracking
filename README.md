@@ -25,6 +25,16 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Novinky vo verzii 1.1
+- **Kniha jázd** – súkromná/služobná jazda, účel, adresy odkiaľ → kam, stav tachometra; tlač/PDF a export do Excelu (CSV).
+- **Štatistiky** – týždeň/mesiac/rok, graf km, súkromné vs. služobné, mapa všetkých jázd obdobia.
+- **Štýl jazdy** – prudké brzdenie/zrýchlenie, čas nad limitom, skóre 0–100, voliteľné upozornenie vibráciou.
+- **Náklady na palivo** – podľa spotreby a ceny, pri každej jazde aj za obdobie.
+- **Kde som zaparkoval** – miesto konca jazdy s tlačidlom „Nájsť auto“.
+- **Nová mapa** – CARTO/OSM/terén/satelit, trasa farbená podľa rýchlosti, značky A/B a udalostí, legenda, celá obrazovka.
+- **Návod v aplikácii** (Nastavenia → Pomoc) s tlačou; PDF verzia v `docs/CarTracking-Navod.pdf`.
+- APK je podpísané pevným kľúčom → nové verzie sa inštalujú ako aktualizácia. Databázu servera aktualizuje `backend/migrate_v2.sql`.
+
 ## Nastavenia v aplikácii
 Automatická detekcia (zap/vyp), štart po reštarte, rýchlosť potvrdzujúca auto, čas na potvrdenie,
 ukončenie po státí, minimálna dĺžka jazdy · GPS interval a presnosť · notifikácia pri zapnutí/vypnutí,
