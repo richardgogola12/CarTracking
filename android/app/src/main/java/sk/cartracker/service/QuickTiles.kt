@@ -75,6 +75,24 @@ abstract class BaseTrackTile : TileService() {
     }
 
     companion object {
+        /** Android 13+: systémový dialóg „Pridať tlačidlo do rýchlej lišty“. */
+        fun requestAdd(ctx: Context, walk: Boolean, onResult: (String) -> Unit) {
+            if (Build.VERSION.SDK_INT < 33) { onResult("Stiahnite hornú lištu → ceruzka (Upraviť) → pretiahnite tlačidlo Jazda / Chôdza."); return }
+            val sbm = ctx.getSystemService(android.app.StatusBarManager::class.java)
+            sbm.requestAddTileService(
+                ComponentName(ctx, if (walk) WalkTile::class.java else DriveTile::class.java),
+                if (walk) "Chôdza" else "Jazda",
+                Icon.createWithResource(ctx, if (walk) R.drawable.ic_walk else R.drawable.ic_car),
+                ctx.mainExecutor,
+            ) { code ->
+                onResult(when (code) {
+                    android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> "Tlačidlo je v rýchlej lište ✓"
+                    android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> "Tlačidlo už v lište je"
+                    else -> "Tlačidlo nebolo pridané"
+                })
+            }
+        }
+
         /** Požiada systém o prekreslenie oboch tlačidiel (volá sa pri zmene stavu). */
         fun requestUpdate(ctx: Context) {
             runCatching { requestListeningState(ctx, ComponentName(ctx, DriveTile::class.java)) }

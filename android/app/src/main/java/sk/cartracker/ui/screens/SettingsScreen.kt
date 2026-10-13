@@ -223,6 +223,8 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             Text("Tankovanie – pri vozidle v časti Vozidlá (ikona pumpy)", Modifier.fillMaxWidth().clickable(onClick = onOpenVehicles).padding(16.dp),
                 color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            Text("Časté trasy", Modifier.fillMaxWidth().clickable { onNavigate("routes") }.padding(16.dp),
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
         }
 
         // ---------- Záloha ----------
@@ -293,6 +295,27 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                     Text(m.label)
                 }
             }
+            SwitchRow("Režim offline", "Mapy iba z uložených dlaždíc – bez internetu", s.offlineMaps) { on -> update { it.copy(offlineMaps = on) } }
+            SliderRow("Miesto pre uložené mapy", s.mapCacheMb.coerceIn(100, 4000), 100..4000, 1, "MB",
+                "Po zmene sa prejaví pri ďalšom spustení aplikácie.") { v -> update { it.copy(mapCacheMb = v) } }
+            Text("Offline mapy – uložiť oblasť", Modifier.fillMaxWidth().clickable { onNavigate("offline") }.padding(16.dp),
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+        }
+
+        // ---------- Rýchla lišta ----------
+        SectionCard("Tlačidlá v rýchlej lište") {
+            Text("Spustenie alebo ukončenie jazdy / chôdze jedným ťuknutím zo stiahnutej hornej lišty.",
+                Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { sk.cartracker.service.BaseTrackTile.requestAdd(ctx, false) { message = it } }) { Text("🚗 Pridať Jazda") }
+                OutlinedButton(onClick = { sk.cartracker.service.BaseTrackTile.requestAdd(ctx, true) { message = it } }) { Text("🚶 Pridať Chôdza") }
+            }
+        }
+
+        // ---------- Zhrnutia ----------
+        SectionCard("Zhrnutia") {
+            SwitchRow("Mesačné zhrnutie", "1. deň v mesiaci notifikácia: km, náklady, kroky a porovnanie s predchádzajúcim mesiacom",
+                s.monthlySummary) { on -> update { it.copy(monthlySummary = on) } }
         }
 
         // ---------- Pomoc ----------

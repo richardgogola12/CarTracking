@@ -137,7 +137,8 @@ fun RouteMap(
     }
 
     // Podklad
-    LaunchedEffect(s.mapStyle, appDark) {
+    LaunchedEffect(s.mapStyle, appDark, s.offlineMaps) {
+        map.setUseDataConnection(!s.offlineMaps)   // offline: iba uložené dlaždice
         map.setTileSource(MapTiles.source(s.mapStyle, appDark))
         map.invalidate()
     }

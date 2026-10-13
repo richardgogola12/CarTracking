@@ -43,7 +43,13 @@ data class VehicleEntity(
     val limitUrban: Int = 50,
     val limitRural: Int = 90,
     val limitHighway: Int = 130,
+    // v6 – sadzba základnej náhrady €/km × 1000 (cestovné náhrady) a zdieľanie
+    val ratePerKmMilli: Int = 0,
+    /** Meno vlastníka, ak je vozidlo zdieľané od iného používateľa (null = moje). */
+    val ownerName: String? = null,
 ) {
+    val isShared: Boolean get() = ownerName != null
+    val ratePerKm: Double get() = ratePerKmMilli / 1000.0
     val label: String get() = if (plate.isBlank()) name else "$name · $plate"
     fun liters(distanceM: Double) = distanceM / 1000.0 / 100.0 * consumptionX10 / 10.0
     fun cost(distanceM: Double) = liters(distanceM) * fuelPriceCents / 100.0
@@ -275,7 +281,8 @@ interface TripDao {
     @Query("SELECT * FROM vehicles WHERE uuid = :uuid") suspend fun vehicle(uuid: String): VehicleEntity?
     @Query("SELECT * FROM vehicles WHERE userId = :userId AND archived = 0 AND btAddress = :address COLLATE NOCASE LIMIT 1")
     suspend fun vehicleByBt(userId: Int, address: String): VehicleEntity?
-    @Query("SELECT * FROM vehicles WHERE userId = :userId AND synced = 0") suspend fun vehiclesToSync(userId: Int): List<VehicleEntity>
+    @Query("SELECT * FROM vehicles WHERE userId = :userId AND synced = 0 AND ownerName IS NULL") suspend fun vehiclesToSync(userId: Int): List<VehicleEntity>
+    @Query("DELETE FROM vehicles WHERE id = :id") suspend fun deleteVehicle(id: Long)
 }
 
 private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -353,9 +360,16 @@ private val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+private val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE vehicles ADD COLUMN ratePerKmMilli INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE vehicles ADD COLUMN ownerName TEXT")
+    }
+}
+
 @Database(
     entities = [TripEntity::class, PointEntity::class, VehicleEntity::class, PlaceEntity::class, RefuelEntity::class, ReminderEntity::class],
-    version = 5, exportSchema = false,
+    version = 6, exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tripDao(): TripDao
@@ -364,7 +378,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         fun create(ctx: Context): AppDatabase =
             Room.databaseBuilder(ctx, AppDatabase::class.java, "car_tracking.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .fallbackToDestructiveMigration()
                 .build()
     }

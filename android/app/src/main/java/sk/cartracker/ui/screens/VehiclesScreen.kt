@@ -31,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -65,6 +66,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
@@ -89,7 +91,12 @@ fun VehiclesScreen(onBack: () -> Unit, onRefuels: (String) -> Unit = {}) {
     val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
     val vehicles by remember { c.vehicles.vehicles() }.collectAsStateWithLifecycle(emptyList())
     var editing by remember { mutableStateOf<VehicleEntity?>(null) }
-    LaunchedEffect(Unit) { c.vehicles.ensureDefault() }
+    var sharing by remember { mutableStateOf<VehicleEntity?>(null) }
+    var sharedInfo by remember { mutableStateOf<VehicleEntity?>(null) }
+    LaunchedEffect(Unit) {
+        c.vehicles.ensureDefault()
+        runCatching { c.vehicles.pullShared() }   // vozidlá, ktoré mi zdieľajú iní
+    }
 
     Scaffold(
         topBar = {
@@ -134,13 +141,17 @@ fun VehiclesScreen(onBack: () -> Unit, onRefuels: (String) -> Unit = {}) {
                                 String.format(Locale("sk"), "%.1f %s/100 km", v.consumptionX10 / 10.0, v.unit),
                                 "max ${v.limitUrban}/${v.limitRural}/${v.limitHighway}").joinToString(" · "),
                                 style = MaterialTheme.typography.bodySmall)
+                            if (v.isShared) Text("👥 zdieľané od ${v.ownerName}", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary)
+                            if (v.ratePerKmMilli > 0) Text(String.format(Locale("sk"), "náhrada %.3f €/km", v.ratePerKm), style = MaterialTheme.typography.bodySmall)
                             if (v.btName.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Filled.Bluetooth, null, Modifier.size(14.dp)); Text(" ${v.btName}", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         if (active) Icon(Icons.Filled.CheckCircle, "Aktívne", tint = MaterialTheme.colorScheme.primary)
                         IconButton(onClick = { onRefuels(v.uuid) }) { Icon(Icons.Filled.LocalGasStation, "Tankovanie") }
-                        IconButton(onClick = { editing = v }) { Icon(Icons.Filled.Edit, "Upraviť") }
+                        if (!v.isShared) IconButton(onClick = { sharing = v }) { Icon(Icons.Filled.Share, "Zdieľať") }
+                        IconButton(onClick = { if (v.isShared) sharedInfo = v else editing = v }) { Icon(Icons.Filled.Edit, "Upraviť") }
                     }
                 }
             }
@@ -150,7 +161,7 @@ fun VehiclesScreen(onBack: () -> Unit, onRefuels: (String) -> Unit = {}) {
     editing?.let { v ->
         VehicleDialog(
             initial = v,
-            canDelete = v.id != 0L && vehicles.size > 1,
+            canDelete = v.id != 0L && vehicles.count { !it.isShared } > 1,
             onDismiss = { editing = null },
             onSave = { saved ->
                 scope.launch {
@@ -163,6 +174,97 @@ fun VehiclesScreen(onBack: () -> Unit, onRefuels: (String) -> Unit = {}) {
             onDelete = { scope.launch { c.vehicles.archive(v); editing = null } },
         )
     }
+    sharing?.let { v -> ShareVehicleDialog(v) { sharing = null } }
+    sharedInfo?.let { v ->
+        var leaving by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { sharedInfo = null },
+            title = { Text(v.label) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Toto vozidlo vám zdieľa ${v.ownerName}. Údaje vozidla (spotreba, tachometer, limity, sadzba) upravuje iba vlastník – " +
+                        "do telefónu sa stiahnu pri synchronizácii.")
+                    Text("Vaše jazdy týmto vozidlom sa zapíšu do spoločnej knihy jázd, ktorú vidí vlastník aj ostatní vodiči.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Text(String.format(Locale("sk"), "Spotreba %.1f %s/100 km · cena %.2f € · max %d/%d/%d km/h",
+                        v.consumptionX10 / 10.0, v.unit, v.fuelPriceCents / 100.0, v.limitUrban, v.limitRural, v.limitHighway),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = { sharedInfo = null }) { Text("Zavrieť") } },
+            dismissButton = {
+                TextButton(enabled = !leaving, onClick = {
+                    leaving = true
+                    scope.launch {
+                        runCatching { c.vehicles.leaveShared(v) }
+                            .onSuccess { sharedInfo = null }
+                            .onFailure { Toast.makeText(ctx, c.api.errorMessage(it), Toast.LENGTH_LONG).show(); leaving = false }
+                    }
+                }) { Text("Opustiť vozidlo") }
+            },
+        )
+    }
+}
+
+/** Zdieľanie vozidla s ďalšími vodičmi (podľa e-mailu ich účtu na tom istom serveri). */
+@Composable
+private fun ShareVehicleDialog(v: VehicleEntity, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val c = ctx.container
+    val scope = rememberCoroutineScope()
+    var shares by remember { mutableStateOf<List<sk.cartracker.data.remote.ShareUser>?>(null) }
+    var email by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    LaunchedEffect(v.uuid) {
+        runCatching { c.vehicles.shares(v.uuid) }
+            .onSuccess { shares = it }
+            .onFailure { error = c.api.errorMessage(it) + " (vozidlo musí byť najprv uložené na serveri – synchronizujte)"; shares = emptyList() }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Zdieľať ${v.name}") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Vodiči, s ktorými vozidlo zdieľate, ho uvidia vo svojej aplikácii a ich jazdy sa zapíšu do spoločnej knihy jázd " +
+                    "(Štatistiky → Kniha jázd). Musia mať účet na rovnakom serveri.", style = MaterialTheme.typography.bodySmall)
+                when (val list = shares) {
+                    null -> Text("Načítavam…")
+                    else -> if (list.isEmpty()) Text("Zatiaľ nezdieľané.", style = MaterialTheme.typography.bodyMedium)
+                    else list.forEach { u ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(u.name, fontWeight = FontWeight.SemiBold)
+                                Text(u.email, style = MaterialTheme.typography.bodySmall)
+                            }
+                            TextButton(onClick = {
+                                scope.launch {
+                                    runCatching { c.vehicles.unshare(v.uuid, u.userId) }
+                                        .onSuccess { shares = shares?.filter { it.userId != u.userId } }
+                                        .onFailure { error = c.api.errorMessage(it) }
+                                }
+                            }) { Text("Odobrať") }
+                        }
+                    }
+                }
+                OutlinedTextField(email, { email = it; error = null }, label = { Text("E-mail vodiča") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth())
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy && email.contains('@'), onClick = {
+                busy = true
+                scope.launch {
+                    runCatching { c.trips.syncAll(); c.vehicles.share(v.uuid, email) }
+                        .onSuccess { u -> shares = (shares ?: emptyList()).filter { it.userId != u.userId } + u; email = "" }
+                        .onFailure { error = c.api.errorMessage(it) }
+                    busy = false
+                }
+            }) { Text("Pridať") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Zavrieť") } },
+    )
 }
 
 @Composable
@@ -180,6 +282,7 @@ private fun VehicleDialog(
     var limUrban by remember { mutableStateOf(initial.limitUrban.toString()) }
     var limRural by remember { mutableStateOf(initial.limitRural.toString()) }
     var limHighway by remember { mutableStateOf(initial.limitHighway.toString()) }
+    var rate by remember { mutableStateOf(if (initial.ratePerKmMilli > 0) String.format(Locale("sk"), "%.3f", initial.ratePerKm) else "") }
     var btAddress by remember { mutableStateOf(initial.btAddress) }
     var btName by remember { mutableStateOf(initial.btName) }
     var pickBt by remember { mutableStateOf(false) }
@@ -219,6 +322,9 @@ private fun VehicleDialog(
                 }
                 Text("Osobné auto: 50 / 90 / 130. Napr. s prívesom alebo nad 3,5 t zadajte nižšie hodnoty.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(rate, { rate = it }, label = { Text("Sadzba náhrady (€/km)") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),
+                    supportingText = { Text("Pre cestovné náhrady pri služobných jazdách (základná náhrada za 1 km). Aktuálnu sadzbu overte v platnom opatrení.") })
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable {
                     val need = Build.VERSION.SDK_INT >= 31 &&
                         ContextCompat.checkSelfPermission(ctx, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
@@ -242,7 +348,9 @@ private fun VehicleDialog(
                 val pc = num(price)?.let { (it * 100).toInt() }
                 val newOdo = odo.toIntOrNull() ?: 0
                 val lu = limUrban.toIntOrNull(); val lr = limRural.toIntOrNull(); val lh = limHighway.toIntOrNull()
+                val rateMilli = if (rate.isBlank()) 0 else num(rate)?.let { (it * 1000 + 0.5).toInt() }
                 error = when {
+                    rateMilli == null || rateMilli !in 0..9999 -> "Zadajte platnú sadzbu náhrady (napr. 0,313)"
                     lu == null || lu !in 10..150 || lr == null || lr !in 10..150 || lh == null || lh !in 10..200 -> "Zadajte platné rýchlostné limity"
                     name.isBlank() -> "Zadajte názov vozidla"
                     c10 == null || c10 !in 1..1000 -> "Zadajte platnú spotrebu"
@@ -254,7 +362,7 @@ private fun VehicleDialog(
                     odometerKm = newOdo,
                     odometerDate = if (newOdo != initial.odometerKm) System.currentTimeMillis() else initial.odometerDate,
                     btAddress = btAddress, btName = btName,
-                    limitUrban = lu!!, limitRural = lr!!, limitHighway = lh!!,
+                    limitUrban = lu!!, limitRural = lr!!, limitHighway = lh!!, ratePerKmMilli = rateMilli!!,
                 ))
             }) { Text("Uložiť") }
         },

@@ -60,6 +60,17 @@ object MapTiles {
         else -> null
     }
 
+    /** Dá sa podklad uložiť na offline použitie? (OpenStreetMap a OpenTopoMap hromadné sťahovanie zakazujú.) */
+    fun canDownload(style: MapStyle, dark: Boolean) = resolve(style, dark).let { it != MapStyle.STREETS && it != MapStyle.TOPO }
+
+    /** Názov podkladu pre používateľa. */
+    fun label(style: MapStyle, dark: Boolean) = when (resolve(style, dark)) {
+        MapStyle.LIGHT -> "Svetlá (Esri)"; MapStyle.DARK -> "Tmavá (Esri)"; MapStyle.STREETS -> "Klasická (OpenStreetMap)"
+        MapStyle.TOPO -> "Turistická (OpenTopoMap)"; MapStyle.SATELLITE -> "Satelit (Esri)"; else -> "Podrobná (Esri)"
+    }
+
+    fun maxZoom(style: MapStyle, dark: Boolean) = source(style, dark).maximumZoomLevel
+
     fun isDarkBase(style: MapStyle, dark: Boolean) = resolve(style, dark).let { it == MapStyle.DARK || it == MapStyle.SATELLITE }
 }
 

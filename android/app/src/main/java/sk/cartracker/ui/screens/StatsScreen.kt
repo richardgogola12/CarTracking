@@ -123,7 +123,7 @@ private fun range(period: Period, offset: Int): Range {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen() {
+fun StatsScreen(onNavigate: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     val activity = ctx.findActivity()
     val c = ctx.container
@@ -294,6 +294,46 @@ fun StatsScreen() {
             }
         }
 
+        // Kalendár aktivity (mesiac obdobia) a rekordy
+        SectionCard(if (walkMode) "Kalendár krokov" else "Kalendár jázd") {
+            val monthTs = if (period == Period.MONTH) r.from else minOf(System.currentTimeMillis(), r.to - 1)
+            ActivityCalendar(all.filter { walkMode || vehicleFilter.isEmpty() || it.vehicleUuid == vehicleFilter || it.isWalk }, walkMode, monthTs, s.dailyStepGoal)
+        }
+        RecordsCard(if (walkMode) all else all.filter { vehicleFilter.isEmpty() || it.vehicleUuid == vehicleFilter }, walkMode, s)
+
+        if (walkMode) {
+            val work = remember(all, r, s) { workWalking(all, s, r.from, r.to) }
+            SectionCard("Pracovný výkaz chôdze") {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val hours = "%02d:%02d–%02d:%02d".format(s.workFromMin / 60, s.workFromMin % 60, s.workToMin / 60, s.workToMin % 60)
+                    Text("Chôdza v pracovnom čase ($hours, dni podľa Nastavenia → Chôdza) za „${r.title}“.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.fillMaxWidth()) {
+                        StatBox("Kroky", String.format(Locale("sk"), "%,d", work.sumOf { it.steps }), Modifier.weight(1f))
+                        StatBox("Vzdialenosť", formatDistance(work.sumOf { it.distanceM }), Modifier.weight(1f))
+                        StatBox("Dní", "${work.size}", Modifier.weight(1f))
+                    }
+                    if (work.isNotEmpty()) StatBox("Priemer na pracovný deň", String.format(Locale("sk"), "%,d krokov · %s",
+                        work.sumOf { it.steps } / work.size, formatDistance(work.sumOf { it.distanceM } / work.size)), Modifier.fillMaxWidth())
+                    Button(enabled = work.isNotEmpty() && activity != null, modifier = Modifier.fillMaxWidth(), onClick = {
+                        val html = Reports.workWalkHtml(work, r.title, c.session.user()?.name ?: "", s)
+                        activity?.let { Reports.printHtml(it, "Výkaz chôdze ${r.title}", html = html) }
+                    }) { Icon(Icons.Filled.Print, null); Spacer(Modifier.size(8.dp)); Text("Výkaz – tlač / PDF") }
+                    OutlinedButton(enabled = work.isNotEmpty(), modifier = Modifier.fillMaxWidth(), onClick = {
+                        Reports.shareFile(ctx, "vykaz-chodze-${r.title.replace(' ', '-')}.csv", Reports.workWalkCsv(work), "text/csv")
+                    }) { Icon(Icons.Filled.TableChart, null); Spacer(Modifier.size(8.dp)); Text("Export do Excelu (CSV)") }
+                }
+            }
+        }
+
+        if (!walkMode) SectionCard("Časté trasy") {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Opakované cesty (napr. Domov → Práca): priemerný čas a kedy je najlepšie vyraziť.",
+                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick = { onNavigate("routes") }) { Text("Otvoriť") }
+            }
+        }
+
         if (routes.any { it.points.isNotEmpty() }) SectionCard(if (walkMode) "Mapa chôdze" else "Mapa jázd") {
             RouteMap(routes, Modifier.fillMaxWidth().height(320.dp).padding(top = 4.dp), colorBySpeed = false, showEvents = false)
         }
@@ -319,6 +359,40 @@ fun StatsScreen() {
                         Reports.shareFile(ctx, name, Reports.logbookCsv(trips, s, odo, logbookVehicle), "text/csv")
                     }
                 }) { Icon(Icons.Filled.TableChart, null); Spacer(Modifier.size(8.dp)); Text("Export do Excelu (CSV)") }
+                if (logbookVehicle != null) OutlinedButton(enabled = activity != null, modifier = Modifier.fillMaxWidth(), onClick = {
+                    scope.launch {
+                        runCatching { c.trips.syncAll(); c.vehicles.sharedTrips(logbookVehicle.uuid, r.from, r.to) }
+                            .onSuccess { list ->
+                                val html = Reports.sharedLogbookHtml(list, logbookVehicle, r.title)
+                                activity?.let { Reports.printHtml(it, "Spoločná kniha jázd ${r.title}", html = html, landscape = true) }
+                            }
+                            .onFailure { android.widget.Toast.makeText(ctx, c.api.errorMessage(it), android.widget.Toast.LENGTH_LONG).show() }
+                    }
+                }) { Text("👥 Spoločná kniha jázd (všetci vodiči)") }
+            }
+        }
+
+        // Cestovné náhrady za služobné jazdy
+        if (!walkMode && logbookVehicle != null) {
+            val reimb = remember(trips, logbookVehicle, s) { Reports.reimbursements(trips, logbookVehicle, s) }
+            SectionCard("Cestovné náhrady") {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (logbookVehicle.ratePerKmMilli == 0) Text("Pri vozidle nie je zadaná sadzba náhrady €/km (Vozidlá → upraviť). Počíta sa iba náhrada za palivo.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Row(Modifier.fillMaxWidth()) {
+                        StatBox("Služobné km", formatDistance(reimb.sumOf { it.km } * 1000), Modifier.weight(1f))
+                        StatBox("Za km", formatMoney(reimb.sumOf { it.basic }), Modifier.weight(1f))
+                        StatBox("Za palivo", formatMoney(reimb.sumOf { it.fuel }), Modifier.weight(1f))
+                    }
+                    StatBox("Na vyplatenie spolu", formatMoney(reimb.sumOf { it.total }), Modifier.fillMaxWidth())
+                    Button(enabled = reimb.isNotEmpty() && activity != null, modifier = Modifier.fillMaxWidth(), onClick = {
+                        val html = Reports.reimbursementHtml(reimb, logbookVehicle, r.title, c.session.user()?.name ?: "")
+                        activity?.let { Reports.printHtml(it, "Cestovné náhrady ${r.title}", html = html) }
+                    }) { Icon(Icons.Filled.Print, null); Spacer(Modifier.size(8.dp)); Text("Výkaz náhrad – tlač / PDF") }
+                    OutlinedButton(enabled = reimb.isNotEmpty(), modifier = Modifier.fillMaxWidth(), onClick = {
+                        Reports.shareFile(ctx, "nahrady-${r.title.replace(' ', '-')}.csv", Reports.reimbursementCsv(reimb, logbookVehicle), "text/csv")
+                    }) { Icon(Icons.Filled.TableChart, null); Spacer(Modifier.size(8.dp)); Text("Export do Excelu (CSV)") }
+                }
             }
         }
     }

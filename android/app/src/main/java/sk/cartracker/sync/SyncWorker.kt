@@ -24,6 +24,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         return try {
             c.trips.syncAll()
             c.items.syncAll()
+            runCatching { c.vehicles.pullShared() }
             RuntimeState.setLastSyncAt(applicationContext, System.currentTimeMillis())
             Result.success()
         } catch (e: HttpException) {

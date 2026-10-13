@@ -47,7 +47,29 @@ data class VehicleDto(
     val consumption: Double, val fuelPrice: Double, val odometerKm: Int, val odometerDate: Long,
     val btName: String, val archived: Boolean, val updatedAt: Long,
     val limitUrban: Int = 50, val limitRural: Int = 90, val limitHighway: Int = 130,
+    val ratePerKm: Double = 0.0,
 )
+/** Vozidlo zo servera – vlastné aj zdieľané. */
+data class RemoteVehicle(
+    val uuid: String, val name: String?, val plate: String?, val fuelType: String?,
+    val consumption: Double, val fuelPrice: Double, val odometerKm: Int, val odometerDate: Long,
+    val btName: String?, val archived: Boolean, val updatedAt: Long,
+    val limitUrban: Int, val limitRural: Int, val limitHighway: Int, val ratePerKm: Double,
+    val isOwner: Boolean, val ownerName: String?, val shareCount: Int,
+)
+data class VehiclesResponse(val vehicles: List<RemoteVehicle>)
+data class ShareUser(val userId: Int, val name: String, val email: String)
+data class SharesResponse(val shares: List<ShareUser>)
+data class ShareResponse(val share: ShareUser)
+data class ShareRequest(val email: String)
+/** Jazda zo spoločnej knihy jázd (všetci vodiči vozidla). */
+data class SharedTrip(
+    val uuid: String, val startedAt: Long, val endedAt: Long?, val distanceM: Double,
+    val maxSpeedKmh: Double, val avgSpeedKmh: Double, val category: String?, val note: String?,
+    val startAddress: String?, val endAddress: String?, val startPlace: String?, val endPlace: String?,
+    val driverName: String?, val mine: Int,
+)
+data class SharedTripsResponse(val trips: List<SharedTrip>)
 data class VehicleSyncRequest(val vehicles: List<VehicleDto>)
 data class SyncRequest(val trips: List<TripDto>)
 data class SyncResponse(val synced: List<String>)
@@ -63,6 +85,13 @@ interface ApiService {
     @POST("items/sync") suspend fun syncItems(@Body body: ItemSyncRequest): SyncResponse
     @POST("vehicles/sync") suspend fun syncVehicles(@Body body: VehicleSyncRequest): SyncResponse
     @DELETE("trips/{uuid}") suspend fun deleteTrip(@Path("uuid") uuid: String): OkResponse
+    @GET("vehicles") suspend fun vehicles(): VehiclesResponse
+    @GET("vehicles/{uuid}/shares") suspend fun shares(@Path("uuid") uuid: String): SharesResponse
+    @POST("vehicles/{uuid}/shares") suspend fun share(@Path("uuid") uuid: String, @Body body: ShareRequest): ShareResponse
+    @DELETE("vehicles/{uuid}/shares/{user}") suspend fun unshare(@Path("uuid") uuid: String, @Path("user") user: Int): OkResponse
+    @GET("vehicles/{uuid}/trips") suspend fun vehicleTrips(
+        @Path("uuid") uuid: String, @retrofit2.http.Query("from") from: Long, @retrofit2.http.Query("to") to: Long,
+    ): SharedTripsResponse
 }
 
 class ApiProvider(private val settings: SettingsRepository, private val session: SessionStore) {

@@ -99,6 +99,8 @@ private fun AppNavigation(start: String) {
         composable("reminders") { RemindersScreen(onBack = { nav.popBackStack() }) }
         composable("refuels/{vehicle}") { RefuelsScreen(it.arguments?.getString("vehicle") ?: "", onBack = { nav.popBackStack() }) }
         composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
+        composable("offline") { sk.cartracker.ui.screens.OfflineMapScreen(onBack = { nav.popBackStack() }) }
+        composable("routes") { sk.cartracker.ui.screens.RoutesScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
         composable("trip/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
             TripDetailScreen(it.arguments?.getLong("id") ?: 0L, onBack = { nav.popBackStack() })
         }
@@ -127,7 +129,7 @@ private fun MainTabs(
             when (tab) {
                 0 -> HomeScreen(onOpenPermissions, onOpenVehicles, onNavigate)
                 1 -> TripsScreen(onOpenTrip)
-                2 -> StatsScreen()
+                2 -> StatsScreen(onNavigate)
                 else -> SettingsScreen(onOpenPermissions, onLoggedOut, onOpenHelp, onOpenVehicles, onNavigate)
             }
         }

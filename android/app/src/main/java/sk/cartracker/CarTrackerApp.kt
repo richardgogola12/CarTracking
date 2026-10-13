@@ -28,7 +28,7 @@ class AppContainer(ctx: Context) {
     val api = ApiProvider(settings, session)
     val auth = AuthRepository(ctx, api, session, settings)
     val trips = TripRepository(db, api, session, ctx.getSharedPreferences("pending_deletes", Context.MODE_PRIVATE))
-    val vehicles = VehicleRepository(db, session, settings)
+    val vehicles = VehicleRepository(db, session, settings, api)
     val places = PlacesRepository(db, session)
     val refuels = RefuelRepository(db, session)
     val reminders = ReminderRepository(db, session, trips, vehicles)
@@ -46,6 +46,17 @@ class CarTrackerApp : Application() {
         Notifications.createChannels(this)
         sk.cartracker.service.ParkingTimer.createChannel(this)
         Configuration.getInstance().userAgentValue = packageName
+        // Mapové dlaždice sa ukladajú do vyrovnávacej pamäte – aj na offline použitie
+        Configuration.getInstance().apply {
+            tileFileSystemCacheMaxBytes = 500L * 1024 * 1024
+            tileFileSystemCacheTrimBytes = 420L * 1024 * 1024
+            expirationOverrideDuration = 30L * 24 * 3600 * 1000   // stiahnuté dlaždice platia 30 dní
+        }
+        appScope.launch {
+            val mb = container.settings.current().mapCacheMb.coerceIn(100, 4000).toLong()
+            Configuration.getInstance().tileFileSystemCacheMaxBytes = mb * 1024 * 1024
+            Configuration.getInstance().tileFileSystemCacheTrimBytes = mb * 1024 * 1024 * 85 / 100
+        }
         sk.cartracker.sync.ReminderWorker.schedule(this)
         sk.cartracker.widget.CarWidget.updateAll(this)
 

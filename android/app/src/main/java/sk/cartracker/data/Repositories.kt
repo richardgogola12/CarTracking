@@ -236,7 +236,7 @@ class TripRepository(
     private fun VehicleEntity.toDto() = VehicleDto(
         uuid, name, plate, fuelType, consumptionX10 / 10.0, fuelPriceCents / 100.0,
         odometerKm, odometerDate, btName, archived, updatedAt,
-        limitUrban, limitRural, limitHighway,
+        limitUrban, limitRural, limitHighway, ratePerKm,
     )
 }
 
@@ -245,6 +245,7 @@ class VehicleRepository(
     private val db: AppDatabase,
     private val session: SessionStore,
     private val settings: SettingsRepository,
+    private val api: sk.cartracker.data.remote.ApiProvider,
 ) {
     private val dao = db.tripDao()
 
@@ -267,6 +268,45 @@ class VehicleRepository(
         return if (v.id == 0L) toSave.copy(id = dao.insertVehicle(toSave)) else toSave.also { dao.updateVehicle(it) }
     }
 
+    // ---------------- zdieľané vozidlá ----------------
+
+    /** Stiahne zo servera vozidlá, ktoré mi zdieľajú iní používatelia, a odstráni tie, ktoré už zdieľané nie sú. */
+    suspend fun pullShared() = withContext(Dispatchers.IO) {
+        val user = session.user() ?: return@withContext
+        val remote = api.get().vehicles().vehicles.filter { !it.isOwner }
+        val local = dao.allVehicles(user.id).filter { it.ownerName != null }.associateBy { it.uuid }
+        for (r in remote) {
+            val e = VehicleEntity(
+                id = local[r.uuid]?.id ?: 0, uuid = r.uuid, userId = user.id, name = r.name ?: "Vozidlo",
+                plate = r.plate ?: "", fuelType = r.fuelType ?: "petrol",
+                consumptionX10 = (r.consumption * 10).toInt(), fuelPriceCents = (r.fuelPrice * 100).toInt(),
+                odometerKm = r.odometerKm, odometerDate = r.odometerDate,
+                btAddress = local[r.uuid]?.btAddress ?: "", btName = r.btName ?: "",
+                archived = r.archived, synced = true, updatedAt = r.updatedAt,
+                limitUrban = r.limitUrban, limitRural = r.limitRural, limitHighway = r.limitHighway,
+                ratePerKmMilli = (r.ratePerKm * 1000).toInt(), ownerName = r.ownerName ?: "?",
+            )
+            if (e.id == 0L) dao.insertVehicle(e) else dao.updateVehicle(e)
+        }
+        val keep = remote.map { it.uuid }.toSet()
+        local.values.filter { it.uuid !in keep }.forEach { dao.deleteVehicle(it.id) }
+    }
+
+    suspend fun shares(uuid: String) = api.get().shares(uuid).shares
+    suspend fun share(uuid: String, email: String) = api.get().share(uuid, sk.cartracker.data.remote.ShareRequest(email.trim())).share
+    suspend fun unshare(uuid: String, userId: Int) { api.get().unshare(uuid, userId) }
+
+    /** Opustiť vozidlo, ktoré mi niekto zdieľal. */
+    suspend fun leaveShared(v: VehicleEntity) {
+        val me = session.user() ?: return
+        api.get().unshare(v.uuid, me.id)
+        dao.deleteVehicle(v.id)
+        if (settings.current().activeVehicleUuid == v.uuid) setActive(all().firstOrNull { !it.archived }?.uuid ?: "")
+    }
+
+    /** Spoločná kniha jázd – jazdy všetkých vodičov vozidla zo servera. */
+    suspend fun sharedTrips(uuid: String, from: Long, to: Long) = api.get().vehicleTrips(uuid, from, to).trips
+
     /** Vozidlo sa nemaže (jazdy naň odkazujú), iba sa skryje. */
     suspend fun archive(v: VehicleEntity) {
         save(v.copy(archived = true))
@@ -281,7 +321,7 @@ class VehicleRepository(
      */
     suspend fun ensureDefault() {
         val user = session.user() ?: return
-        if (dao.allVehicles(user.id).isNotEmpty()) return
+        if (dao.allVehicles(user.id).any { it.ownerName == null }) return
         val s = settings.current()
         val v = VehicleEntity(
             uuid = java.util.UUID.randomUUID().toString(), userId = user.id,
