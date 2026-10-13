@@ -80,6 +80,8 @@ class AuthRepository(
     }
 
     private suspend fun onLoggedIn() {
+        // údaje a nastavenia zo servera (nový telefón / preinštalovanie); čo v telefóne už je, sa preskočí
+        sk.cartracker.sync.RestoreWorker.start(ctx)
         val s = settings.current()
         if (s.autoDetection || s.walkTracking) ActivityDetectionManager.register(ctx)
         SyncWorker.schedulePeriodic(ctx, s.syncWifiOnly)
@@ -236,7 +238,7 @@ class TripRepository(
     private fun VehicleEntity.toDto() = VehicleDto(
         uuid, name, plate, fuelType, consumptionX10 / 10.0, fuelPriceCents / 100.0,
         odometerKm, odometerDate, btName, archived, updatedAt,
-        limitUrban, limitRural, limitHighway, ratePerKm,
+        limitUrban, limitRural, limitHighway, ratePerKm, btAddress,
     )
 }
 
@@ -246,6 +248,7 @@ class VehicleRepository(
     private val session: SessionStore,
     private val settings: SettingsRepository,
     private val api: sk.cartracker.data.remote.ApiProvider,
+    private val ctx: Context,
 ) {
     private val dao = db.tripDao()
 
@@ -322,6 +325,7 @@ class VehicleRepository(
     suspend fun ensureDefault() {
         val user = session.user() ?: return
         if (dao.allVehicles(user.id).any { it.ownerName == null }) return
+        if (sk.cartracker.data.ServerRestore.isPending(ctx)) return   // vozidlá sa ešte sťahujú zo servera
         val s = settings.current()
         val v = VehicleEntity(
             uuid = java.util.UUID.randomUUID().toString(), userId = user.id,

@@ -28,7 +28,7 @@ class AppContainer(ctx: Context) {
     val api = ApiProvider(settings, session)
     val auth = AuthRepository(ctx, api, session, settings)
     val trips = TripRepository(db, api, session, ctx.getSharedPreferences("pending_deletes", Context.MODE_PRIVATE))
-    val vehicles = VehicleRepository(db, session, settings, api)
+    val vehicles = VehicleRepository(db, session, settings, api, ctx)
     val places = PlacesRepository(db, session)
     val refuels = RefuelRepository(db, session)
     val reminders = ReminderRepository(db, session, trips, vehicles)
@@ -68,6 +68,10 @@ class CarTrackerApp : Application() {
         // Pri každom štarte procesu sa uistíme, že detekcia jazdy je zaregistrovaná
         appScope.launch {
             if (container.session.isLoggedIn) {
+                // po aktualizácii: nastavenia ešte neboli na serveri → raz zosúladiť (stiahne aj chýbajúce údaje)
+                container.session.user()?.let { u ->
+                    if (!sk.cartracker.data.ServerRestore.settingsReady(this@CarTrackerApp, u.id)) sk.cartracker.sync.RestoreWorker.start(this@CarTrackerApp)
+                }
                 container.vehicles.ensureDefault()
                 val s = container.settings.current()
                 if (s.autoDetection || s.walkTracking) ActivityDetectionManager.register(this@CarTrackerApp)

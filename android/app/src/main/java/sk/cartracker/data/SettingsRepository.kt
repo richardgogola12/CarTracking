@@ -193,6 +193,8 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun update(transform: (AppSettings) -> AppSettings) {
         context.dataStore.edit { prefs -> write(prefs, transform(read(prefs))) }
+        // zmenené nastavenia sa po chvíli odošlú na server (obnovia sa na novom telefóne)
+        runCatching { sk.cartracker.sync.SettingsPushWorker.enqueue(context) }
     }
 
     private fun read(p: Preferences): AppSettings {

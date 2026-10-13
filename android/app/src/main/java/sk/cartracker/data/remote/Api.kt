@@ -12,6 +12,9 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Query
+import com.google.gson.JsonObject
 import retrofit2.http.Path
 import sk.cartracker.data.SettingsRepository
 import sk.cartracker.security.SessionStore
@@ -48,7 +51,25 @@ data class VehicleDto(
     val btName: String, val archived: Boolean, val updatedAt: Long,
     val limitUrban: Int = 50, val limitRural: Int = 90, val limitHighway: Int = 130,
     val ratePerKm: Double = 0.0,
+    val btAddress: String = "",
 )
+// ---- obnova údajov po prihlásení (nový telefón / preinštalovanie) ----
+data class SettingsResponse(val settings: JsonObject?, val updatedAt: Long)
+data class SettingsBody(val settings: JsonObject, val updatedAt: Long)
+data class RemoteTrip(
+    val uuid: String, val startedAt: Long, val endedAt: Long?, val distanceM: Double?,
+    val maxSpeedKmh: Double?, val avgSpeedKmh: Double?,
+    val startLat: Double?, val startLng: Double?, val endLat: Double?, val endLng: Double?,
+    val triggerSource: String?, val category: String?, val note: String?,
+    val startAddress: String?, val endAddress: String?, val score: Int?,
+    val hardBrakes: Int?, val hardAccels: Int?, val speedingSec: Int?,
+    val type: String?, val steps: Int?, val vehicleUuid: String?, val startPlace: String?, val endPlace: String?,
+)
+data class RemoteTripsResponse(val trips: List<RemoteTrip>)
+data class PointsRequest(val uuids: List<String>)
+data class PointsResponse(val points: Map<String, List<PointDto>>)
+data class RemoteItem(val kind: String, val uuid: String, val data: JsonObject?, val updatedAt: Long, val deleted: Int)
+data class ItemsResponse(val items: List<RemoteItem>)
 /** Vozidlo zo servera – vlastné aj zdieľané. */
 data class RemoteVehicle(
     val uuid: String, val name: String?, val plate: String?, val fuelType: String?,
@@ -56,6 +77,7 @@ data class RemoteVehicle(
     val btName: String?, val archived: Boolean, val updatedAt: Long,
     val limitUrban: Int, val limitRural: Int, val limitHighway: Int, val ratePerKm: Double,
     val isOwner: Boolean, val ownerName: String?, val shareCount: Int,
+    val btAddress: String? = null,
 )
 data class VehiclesResponse(val vehicles: List<RemoteVehicle>)
 data class ShareUser(val userId: Int, val name: String, val email: String)
@@ -86,6 +108,11 @@ interface ApiService {
     @POST("vehicles/sync") suspend fun syncVehicles(@Body body: VehicleSyncRequest): SyncResponse
     @DELETE("trips/{uuid}") suspend fun deleteTrip(@Path("uuid") uuid: String): OkResponse
     @GET("vehicles") suspend fun vehicles(): VehiclesResponse
+    @GET("settings") suspend fun settings(): SettingsResponse
+    @PUT("settings") suspend fun saveSettings(@Body body: SettingsBody): OkResponse
+    @GET("trips") suspend fun trips(@Query("limit") limit: Int, @Query("offset") offset: Int): RemoteTripsResponse
+    @POST("trips/points") suspend fun tripPoints(@Body body: PointsRequest): PointsResponse
+    @GET("items") suspend fun items(): ItemsResponse
     @GET("vehicles/{uuid}/shares") suspend fun shares(@Path("uuid") uuid: String): SharesResponse
     @POST("vehicles/{uuid}/shares") suspend fun share(@Path("uuid") uuid: String, @Body body: ShareRequest): ShareResponse
     @DELETE("vehicles/{uuid}/shares/{user}") suspend fun unshare(@Path("uuid") uuid: String, @Path("user") user: Int): OkResponse
@@ -95,7 +122,8 @@ interface ApiService {
 }
 
 class ApiProvider(private val settings: SettingsRepository, private val session: SessionStore) {
-    private val gson: Gson = GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create()
+    /** Rovnaké pomenovanie polí ako na serveri (snake_case) – aj pre JSON položiek (miesta, tankovania…). */
+    val gson: Gson = GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create()
     @Volatile private var cached: Pair<String, ApiService>? = null
 
     private val client = OkHttpClient.Builder()

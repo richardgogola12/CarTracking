@@ -377,6 +377,12 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 Text(user?.name ?: "", fontWeight = FontWeight.SemiBold)
                 Text(user?.email ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HorizontalDivider()
+                OutlinedButton(onClick = {
+                    sk.cartracker.sync.RestoreWorker.start(ctx)
+                    message = "Sťahujem údaje zo servera – priebeh je na Prehľade."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Stiahnuť údaje a nastavenia zo servera") }
+                Text("Po prihlásení na novom telefóne sa to stane samo. Čo už v telefóne je, sa nezdvojí.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(onClick = { showDeleteData = true }, modifier = Modifier.fillMaxWidth()) { Text("Vymazať jazdy z telefónu") }
                 Button(onClick = { showLogout = true }, modifier = Modifier.fillMaxWidth()) { Text("Odhlásiť sa") }
             }
