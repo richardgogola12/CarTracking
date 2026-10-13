@@ -64,7 +64,7 @@
 <header class="cover">
   <h1>🚗 Car Tracking</h1>
   <p>Používateľská príručka – automatické sledovanie jázd autom a chôdze, viac vozidiel, kniha jázd a štatistiky</p>
-  <div class="ver">Verzia aplikácie 1.6 · Android 8.0 a novší</div>
+  <div class="ver">Verzia aplikácie 1.7 · Android 8.0 a novší</div>
 </header>
 
 <nav class="toc">
@@ -146,6 +146,22 @@
   <li><b>Odhlásiť</b> – odhlási z aplikácie, prihlásenie odtlačkom ostane funkčné.</li>
   <li><b>Zabudnúť zariadenie</b> – zruší prihlásenie aj na serveri a vymaže uložený odtlačkový kľúč.</li>
   <li>Ak do telefónu pridáte nový odtlačok, z bezpečnostných dôvodov sa treba raz prihlásiť heslom a biometriu zapnúť znova.</li>
+</ul>
+
+<h3>3.4 Nový telefón alebo preinštalovaná aplikácia</h3>
+<p>Stačí sa prihlásiť svojím e-mailom a heslom (na rovnaký server). Aplikácia potom <b>sama stiahne všetko zo servera</b>:</p>
+<ul>
+  <li><b>nastavenia</b> (detekcia, GPS, notifikácie, chôdza, mapa, téma, ciele…),</li>
+  <li><b>vozidlá</b> vrátane Bluetooth auta, limitov a sadzby náhrady, aj vozidlá zdieľané od iných,</li>
+  <li><b>miesta, tankovania a pripomienky</b>,</li>
+  <li><b>všetky jazdy a chôdzu aj s trasami</b> (mapy, grafy rýchlosti, kniha jázd, štatistiky).</li>
+</ul>
+<p>Priebeh sa zobrazuje na <b>Prehľade</b> („Sťahujem vaše údaje zo servera“). Beží na pozadí – aplikáciu môžete medzitým používať a sťahovanie pokračuje aj po jej zatvorení; bez internetu počká na pripojenie. Pri tisícoch jázd to môže trvať niekoľko minút (odporúčame Wi-Fi).</p>
+<ul>
+  <li>Čo už v telefóne je, sa <b>nezdvojí</b> – sťahovanie môžete kedykoľvek spustiť znova: <b>Nastavenia → Účet → Stiahnuť údaje a nastavenia zo servera</b>.</li>
+  <li>Nastavenia sa na server ukladajú priebežne pri každej zmene. Ak používate aplikáciu na dvoch telefónoch, platí naposledy uložená zmena.</li>
+  <li>Adresa servera a prihlásenie odtlačkom sa nesťahujú – patria ku konkrétnemu telefónu (odtlačok si zapnite znova).</li>
+  <li>Povolenia (poloha, aktivita, batéria) treba na novom telefóne udeliť znova – aplikácia vás nimi prevedie.</li>
 </ul>
 
 <h2 id="povolenia">4. Povolenia</h2>
@@ -522,7 +538,7 @@
   <li><b>Obnoviť zo zálohy</b> – údaje zo súboru sa <b>pridajú</b>; nič sa neprepíše ani nezmaže a čo už v telefóne je, sa preskočí. Obnovu preto možno spustiť aj opakovane. Môžete zvoliť, či sa obnovia aj nastavenia (adresa servera a odtlačok ostanú podľa telefónu).</li>
   <li>Obnovené údaje sa automaticky odošlú aj na server.</li>
 </ul>
-<div class="tip">Pri výmene telefónu: v starom telefóne Zálohovať → súbor uložiť na Google Disk → v novom telefóne nainštalovať aplikáciu, prihlásiť sa → Obnoviť zo zálohy.</div>
+<div class="tip">Pri výmene telefónu stačí prihlásenie – údaje aj nastavenia sa stiahnu zo servera samy (kapitola 3.4). Súbor zálohy je navyše poistka, napr. ak by bol server nedostupný alebo pri prechode na iný server.</div>
 
 <h2 id="nastavenia">27. Všetky nastavenia</h2>
 <table>
@@ -583,12 +599,13 @@
   <tr><td>Mesačné zhrnutie</td><td>zapnuté</td><td>Notifikácia 1. deň v mesiaci.</td></tr>
   <tr><td>Zabezpečenie</td><td>vypnuté</td><td>Prihlásenie odtlačkom prsta.</td></tr>
   <tr><td>Vzhľad</td><td>podľa systému</td><td>Svetlá alebo tmavá téma.</td></tr>
-  <tr><td>Účet</td><td>–</td><td>Vymazanie jázd z telefónu, odhlásenie.</td></tr>
+  <tr><td>Účet</td><td>–</td><td>Stiahnuť údaje a nastavenia zo servera, vymazanie jázd z telefónu, odhlásenie.</td></tr>
 </table>
 
 <h2 id="problemy">28. Riešenie problémov</h2>
 <table>
   <tr><th>Problém</th><th>Riešenie</th></tr>
+  <tr><td>Po prihlásení na novom telefóne chýbajú jazdy</td><td>Pozrite na Prehľad – sťahovanie môže ešte bežať alebo čakať na internet. Ak zlyhalo, ťuknite na Skúsiť znova. Na server sa dostanú iba jazdy, ktoré starý telefón stihol odoslať.</td></tr>
   <tr><td>Zdieľanie: „Používateľ s týmto e-mailom nemá účet“</td><td>Vodič sa musí najprv zaregistrovať v aplikácii na rovnakom serveri (rovnaká adresa API).</td></tr>
   <tr><td>Zdieľané vozidlo sa neobjavilo</td><td>Otvorte Nastavenia → Vozidlá (stiahne sa zo servera) alebo počkajte na synchronizáciu. Musíte byť online.</td></tr>
   <tr><td>Offline mapa je sivá</td><td>Oblasť nebola uložená v danej podrobnosti alebo je zvolený iný podklad. Uložte oblasť pre aktuálny typ mapy, prípadne vypnite Režim offline.</td></tr>
@@ -631,6 +648,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>migrate_v4.sql</code></td><td>Prechod na verziu 1.3 (limity vozidla v obci / mimo obce / na diaľnici).</td></tr>
   <tr><td><code>migrate_v5.sql</code></td><td>Prechod na verziu 1.5 (miesta, tankovanie, pripomienky).</td></tr>
   <tr><td><code>migrate_v6.sql</code></td><td>Prechod na verziu 1.6 (sadzba náhrady €/km, zdieľané vozidlá).</td></tr>
+  <tr><td><code>migrate_v7.sql</code></td><td>Prechod na verziu 1.7 (nastavenia na serveri, Bluetooth adresa vozidla – obnova na novom telefóne).</td></tr>
 </table>
 <h3>29.3 Tabuľky</h3>
 <table>
@@ -639,6 +657,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>CarTracking_api_tokens</code></td><td>Prihlasovacie tokeny (iba SHA-256 hash, platnosť 90 dní).</td></tr>
   <tr><td><code>CarTracking_vehicles</code></td><td>Vozidlá: názov, EČV, palivo, spotreba, cena, tachometer, limity, sadzba €/km.</td></tr>
   <tr><td><code>CarTracking_vehicle_shares</code></td><td>Zdieľanie vozidla s ďalšími používateľmi.</td></tr>
+  <tr><td><code>CarTracking_settings</code></td><td>Nastavenia aplikácie používateľa (JSON, novšie vyhráva).</td></tr>
   <tr><td><code>CarTracking_trips</code></td><td>Jazdy a chôdza: typ (car/walk), vozidlo, časy, km, kroky, adresy, účel, skóre.</td></tr>
   <tr><td><code>CarTracking_items</code></td><td>Miesta, tankovania a pripomienky (JSON, novšia verzia vyhráva).</td></tr>
   <tr><td><code>CarTracking_trip_points</code></td><td>Body trasy: čas, poloha, rýchlosť, presnosť, udalosť.</td></tr>
@@ -659,6 +678,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>GET|POST /vehicles/{uuid}/shares</code></td><td>Zoznam / pridanie zdieľania (vlastník, <code>{email}</code>)</td></tr>
   <tr><td><code>DELETE /vehicles/{uuid}/shares/{user_id}</code></td><td>Zrušenie zdieľania (vlastník alebo sám vodič)</td></tr>
   <tr><td><code>GET /vehicles/{uuid}/trips?from=&amp;to=</code></td><td>Spoločná kniha jázd – jazdy všetkých vodičov s menom vodiča</td></tr>
+  <tr><td><code>GET|PUT /settings</code></td><td>Nastavenia aplikácie (<code>{settings, updated_at}</code>)</td></tr>
+  <tr><td><code>POST /trips/points</code></td><td>Body trasy až 50 jázd naraz (<code>{uuids:[…]}</code>) – obnova na novom telefóne</td></tr>
 </table>
 <h3>29.5 Webový prehľad</h3>
 <p>Priečinok <code>backend/web</code> skopírujte vedľa priečinka <code>api</code> (napr. <code>/cartracking/web</code>). Stránka je jeden súbor <code>index.html</code> bez inštalácie; API hľadá v <code>../api/</code> (dá sa zmeniť na prihlasovacej obrazovke). Knižnica mapy Leaflet sa načítava z cdnjs.cloudflare.com.</p>
@@ -678,7 +699,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
 </ul>
 
 <footer>
-  Car Tracking · Používateľská príručka pre verziu 1.6 · © 2026 Richard Gogola<br>
+  Car Tracking · Používateľská príručka pre verziu 1.7 · © 2026 Richard Gogola<br>
   Mapové údaje © Esri, HERE, Garmin, © prispievatelia OpenStreetMap, © OpenTopoMap, snímky © Esri, Maxar.
 </footer>
 

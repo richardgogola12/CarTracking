@@ -25,6 +25,12 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Novinky vo verzii 1.7
+- **Obnova po prihlásení** – na novom telefóne alebo po preinštalovaní sa po prihlásení samy stiahnu nastavenia, vozidlá (aj Bluetooth), miesta, tankovania, pripomienky a všetky jazdy s trasami. Priebeh na Prehľade, beží na pozadí, nič sa nezdvojí.
+- Nastavenia sa ukladajú na server pri každej zmene (`GET/PUT /settings`).
+- Voľba merania vzdialenosti chôdze: z krokov alebo z GPS.
+- Databáza: `backend/migrate_v7.sql` (tabuľka `CarTracking_settings`, stĺpec `bt_address`).
+
 ## Novinky vo verzii 1.6
 - **Webový prehľad** (`backend/web/index.html`) – jazdy a chôdza na počítači: mapa, grafy, kniha jázd, náhrady, spoločná kniha jázd, časté trasy, tlač a Excel.
 - **Zdieľané vozidlo** – vlastník ho zdieľa e-mailom ďalším vodičom, spoločná kniha jázd všetkých vodičov.
@@ -144,4 +150,6 @@ android/app/src/main/java/sk/cartracker/
 | GET/POST | /vehicles/{uuid}/shares | zdieľanie vozidla (`{email}`) |
 | DELETE | /vehicles/{uuid}/shares/{user_id} | zrušenie zdieľania |
 | GET | /vehicles/{uuid}/trips?from=&to= | spoločná kniha jázd |
+| GET/PUT | /settings | nastavenia aplikácie (obnova na novom telefóne) |
+| POST | /trips/points | body až 50 jázd naraz (obnova) |
 | POST/GET | /items/sync, /items?kind= | miesta, tankovania, pripomienky |
