@@ -156,6 +156,7 @@
   <li><b>miesta, tankovania a pripomienky</b>,</li>
   <li><b>všetky jazdy a chôdzu aj s trasami</b> (mapy, grafy rýchlosti, kniha jázd, štatistiky).</li>
 </ul>
+<p>Aplikácia sa najprv len opýta servera, či pre váš účet existuje záloha. Ak nie (nový účet), <b>nič nesťahuje a nič nezobrazuje</b> – rovno začne zálohovať údaje z tohto telefónu.</p>
 <p>Priebeh sa zobrazuje na <b>Prehľade</b> („Sťahujem vaše údaje zo servera“). Beží na pozadí – aplikáciu môžete medzitým používať a sťahovanie pokračuje aj po jej zatvorení; bez internetu počká na pripojenie. Pri tisícoch jázd to môže trvať niekoľko minút (odporúčame Wi-Fi).</p>
 <ul>
   <li>Čo už v telefóne je, sa <b>nezdvojí</b> – sťahovanie môžete kedykoľvek spustiť znova: <b>Nastavenia → Účet → Stiahnuť údaje a nastavenia zo servera</b>.</li>
@@ -688,6 +689,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>DELETE /vehicles/{uuid}/shares/{user_id}</code></td><td>Zrušenie zdieľania (vlastník alebo sám vodič)</td></tr>
   <tr><td><code>GET /vehicles/{uuid}/trips?from=&amp;to=</code></td><td>Spoločná kniha jázd – jazdy všetkých vodičov s menom vodiča</td></tr>
   <tr><td><code>GET|PUT /settings</code></td><td>Nastavenia aplikácie (<code>{settings, updated_at}</code>)</td></tr>
+  <tr><td><code>GET /backup/status</code></td><td>Čo má používateľ na serveri (počty jázd, vozidiel, položiek, nastavenia)</td></tr>
   <tr><td><code>POST /trips/points</code></td><td>Body trasy až 50 jázd naraz (<code>{uuids:[…]}</code>) – obnova na novom telefóne</td></tr>
 </table>
 <h3>29.5 Webový prehľad</h3>

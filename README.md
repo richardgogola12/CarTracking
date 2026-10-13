@@ -153,4 +153,5 @@ android/app/src/main/java/sk/cartracker/
 | GET | /vehicles/{uuid}/trips?from=&to= | spoločná kniha jázd |
 | GET/PUT | /settings | nastavenia aplikácie (obnova na novom telefóne) |
 | POST | /trips/points | body až 50 jázd naraz (obnova) |
+| GET | /backup/status | čo má používateľ zálohované (ak nič, aplikácia nič nesťahuje) |
 | POST/GET | /items/sync, /items?kind= | miesta, tankovania, pripomienky |
