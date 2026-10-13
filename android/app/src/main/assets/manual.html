@@ -215,7 +215,13 @@
 <h2 id="chodza">8. Sledovanie chôdze</h2>
 <p>Keď telefón rozpozná chôdzu (alebo beh), aplikácia začne zaznamenávať <b>kroky, vzdialenosť a trasu</b>. Záznam sa ukončí, keď niekoľko minút neurobíte žiadny krok.</p>
 <ul>
-  <li><b>Kroky</b> sa počítajú krokomerom telefónu. Vzdialenosť = kroky × dĺžka kroku, takže funguje aj vnútri budovy, kde GPS nie je presná.</li>
+  <li><b>Kroky</b> sa počítajú krokomerom telefónu vždy.</li>
+  <li><b>Vzdialenosť</b> – v Nastavenia → Chôdza → <b>Vzdialenosť chôdze merať</b> si vyberiete:
+    <ul>
+      <li><b>Z krokov</b> (predvolené) – kroky × dĺžka kroku. Funguje aj vnútri budovy, kde GPS nie je presná. Presnosť závisí od nastavenej dĺžky kroku (zmerajte si napr. 10 krokov a vydeľte 10).</li>
+      <li><b>Z GPS</b> – skutočne prejdená trasa podľa polohy, presnejšie vonku. Ak GPS nemá signál (budova), použije sa výpočet z krokov. Pre presnejšie meranie skráťte <i>Interval GPS pri chôdzi</i> (napr. na 5 s) – spotrebuje viac batérie.</li>
+    </ul>
+    Zmena platí pre nové záznamy chôdze; už uložené ostanú bez zmeny.</li>
   <li><b>Trasa</b> sa zaznamenáva GPS v dlhšom intervale (predvolene 10 s), aby chôdza počas celého dňa šetrila batériu.</li>
   <li><b>Iba v pracovnom čase</b> – zvolíte dni a čas (napr. Po–Pi 7:00–16:00). Mimo neho sa chôdza nezaznamenáva.</li>
   <li><b>Krátke presuny</b> (predvolene pod 150 m) sa neukladajú.</li>
@@ -543,6 +549,7 @@
   <tr><td colspan="3"><b>Chôdza</b></td></tr>
   <tr><td>Automaticky sledovať chôdzu</td><td>zapnuté</td><td>Kroky, vzdialenosť a trasa pešo.</td></tr>
   <tr><td>Iba v pracovnom čase</td><td>vypnuté</td><td>Dni v týždni, začiatok a koniec práce.</td></tr>
+  <tr><td>Vzdialenosť chôdze merať</td><td>z krokov</td><td><b>Z krokov</b> (kroky × dĺžka kroku, funguje aj v budove) alebo <b>Z GPS</b> (skutočná trasa, presnejšie vonku; bez signálu sa použijú kroky).</td></tr>
   <tr><td>Dĺžka kroku</td><td>75 cm</td><td>Vzdialenosť = kroky × dĺžka kroku.</td></tr>
   <tr><td>Denný cieľ krokov</td><td>8 000</td><td>Cieľ pre krúžok krokov vo widgete.</td></tr>
   <tr><td>Ukončiť po nečinnosti</td><td>3 min</td><td>Minúty bez krokov, ktoré ukončia záznam.</td></tr>

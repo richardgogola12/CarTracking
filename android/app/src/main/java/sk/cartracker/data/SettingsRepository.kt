@@ -85,6 +85,8 @@ data class AppSettings(
     val workFromMin: Int = 7 * 60,
     val workToMin: Int = 16 * 60,
     val strideCm: Int = 75,
+    /** Vzdialenosť chôdze: false = z krokov (aj v budove), true = z GPS (presnejšie vonku). */
+    val walkDistanceGps: Boolean = false,
     val walkStopMin: Int = 3,
     val walkMinDistanceM: Int = 150,
     val walkGpsIntervalSec: Int = 10,
@@ -167,6 +169,7 @@ class SettingsRepository(private val context: Context) {
         val WORK_FROM = intPreferencesKey("work_from_min")
         val WORK_TO = intPreferencesKey("work_to_min")
         val STRIDE = intPreferencesKey("stride_cm")
+        val WALK_DIST_GPS = booleanPreferencesKey("walk_distance_gps")
         val WALK_STOP = intPreferencesKey("walk_stop_min")
         val WALK_MIN = intPreferencesKey("walk_min_distance")
         val WALK_GPS = intPreferencesKey("walk_gps_interval")
@@ -240,6 +243,7 @@ class SettingsRepository(private val context: Context) {
             workFromMin = p[K.WORK_FROM] ?: d.workFromMin,
             workToMin = p[K.WORK_TO] ?: d.workToMin,
             strideCm = p[K.STRIDE] ?: d.strideCm,
+            walkDistanceGps = p[K.WALK_DIST_GPS] ?: d.walkDistanceGps,
             walkStopMin = p[K.WALK_STOP] ?: d.walkStopMin,
             walkMinDistanceM = p[K.WALK_MIN] ?: d.walkMinDistanceM,
             walkGpsIntervalSec = p[K.WALK_GPS] ?: d.walkGpsIntervalSec,
@@ -302,6 +306,7 @@ class SettingsRepository(private val context: Context) {
         p[K.WORK_FROM] = s.workFromMin
         p[K.WORK_TO] = s.workToMin
         p[K.STRIDE] = s.strideCm
+        p[K.WALK_DIST_GPS] = s.walkDistanceGps
         p[K.WALK_STOP] = s.walkStopMin
         p[K.WALK_MIN] = s.walkMinDistanceM
         p[K.WALK_GPS] = s.walkGpsIntervalSec

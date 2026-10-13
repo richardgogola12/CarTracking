@@ -373,7 +373,7 @@ class TrackingService : LifecycleService() {
         trip = t
         source = t.triggerSource
         manual = t.triggerSource == SOURCE_MANUAL
-        distance = if (t.isWalk && t.steps > 0) 0.0 else t.distanceM
+        distance = if (t.isWalk && t.steps > 0 && !settings.walkDistanceGps) 0.0 else t.distanceM
         maxSpeed = t.maxSpeedKmh
         hardBrakes = t.hardBrakes; hardAccels = t.hardAccels; speedingMs = t.speedingSec * 1000L
         speedFix = null; wasSpeeding = false
@@ -476,9 +476,18 @@ class TrackingService : LifecycleService() {
         publishLive(loc)
     }
 
-    /** Pri chôdzi s krokomerom sa vzdialenosť počíta z krokov (funguje aj v budove), inak z GPS. */
-    private fun currentDistance(): Double =
-        if (isWalk && stepSensorActive && steps > 0) steps * settings.strideCm / 100.0 else distance
+    private fun currentDistance(): Double = if (isWalk) walkDistance() else distance
+
+    /**
+     * Vzdialenosť chôdze podľa nastavenia:
+     *  - z krokov (kroky × dĺžka kroku) – funguje aj v budove; bez krokomera sa použije GPS,
+     *  - z GPS – presnejšie vonku; ak GPS nič nenameralo (budova), použijú sa kroky.
+     */
+    private fun walkDistance(): Double {
+        val bySteps = if (steps > 0) steps * settings.strideCm / 100.0 else null
+        return if (settings.walkDistanceGps) (if (distance > 0) distance else bySteps ?: 0.0)
+        else bySteps ?: distance
+    }
 
     /** Typ cesty sa zisťuje po ~400 m alebo každé 2 min (najviac raz za 20 s), na pozadí. */
     private fun maybeLookupRoad(loc: Location) {
@@ -578,7 +587,7 @@ class TrackingService : LifecycleService() {
         val t = trip ?: run { if (then != null) then() else shutdown(); return }
         trip = null
         val last = dao.lastPoint(t.id)
-        val dist = if (t.isWalk && steps > 0 && t.steps >= 0) steps * settings.strideCm / 100.0 else distance
+        val dist = if (t.isWalk) walkDistance() else distance
         val end = max(endedAt, if (t.isWalk) endedAt else (last?.ts ?: endedAt)).coerceAtLeast(t.startedAt)
         val hours = (end - t.startedAt) / 3_600_000.0
         val avg = if (hours > 0) dist / 1000.0 / hours else 0.0

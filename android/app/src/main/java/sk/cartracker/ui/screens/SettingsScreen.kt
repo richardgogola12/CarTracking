@@ -23,6 +23,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -54,6 +57,7 @@ import sk.cartracker.security.BiometricAuth
 import sk.cartracker.service.Notifications
 import sk.cartracker.sync.SyncWorker
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit = {}, onOpenVehicles: () -> Unit = {}, onNavigate: (String) -> Unit = {}) {
     val ctx = LocalContext.current
@@ -181,8 +185,17 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 SliderRow("Začiatok práce", s.workFromMin, 0..1410, 30, "", format = { hm(it) }) { v -> update { it.copy(workFromMin = v) } }
                 SliderRow("Koniec práce", s.workToMin, 30..1440, 30, "", format = { hm(it) }) { v -> update { it.copy(workToMin = v) } }
             }
+            Text("Vzdialenosť chôdze merať", Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), style = MaterialTheme.typography.bodyLarge)
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                SegmentedButton(!s.walkDistanceGps, { update { it.copy(walkDistanceGps = false) } }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("Z krokov") }
+                SegmentedButton(s.walkDistanceGps, { update { it.copy(walkDistanceGps = true) } }, SegmentedButtonDefaults.itemShape(1, 2)) { Text("Z GPS") }
+            }
+            Text(
+                if (s.walkDistanceGps) "GPS meria skutočne prejdenú trasu – presnejšie vonku. V budove GPS nefunguje, vtedy sa použijú kroky × dĺžka kroku. Kroky sa počítajú stále."
+                else "Kroky × dĺžka kroku – funguje aj v budove a šetrí batériu. Presnosť závisí od nastavenej dĺžky kroku.",
+                Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SliderRow("Dĺžka kroku", s.strideCm, 50..100, 1, "cm",
-                "Vzdialenosť sa počíta z krokov – funguje aj v budove bez GPS.") { v -> update { it.copy(strideCm = v) } }
+                if (s.walkDistanceGps) "Použije sa, keď GPS nemá signál." else "Vzdialenosť = kroky × dĺžka kroku.") { v -> update { it.copy(strideCm = v) } }
             SliderRow("Ukončiť po nečinnosti", s.walkStopMin, 1..15, 1, "min",
                 "Koľko minút bez krokov ukončí záznam chôdze.") { v -> update { it.copy(walkStopMin = v) } }
             SliderRow("Minimálna vzdialenosť", s.walkMinDistanceM, 0..1000, 50, "m",
