@@ -25,6 +25,14 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Novinky vo verzii 1.5
+- **Miesta** (Domov, Práca, Klient…) – názvy v jazdách, automatický účel a typ jazdy (súkromná/služobná); výber polohy GPS, na mape alebo z jazdy.
+- **Tankovanie** – skutočná spotreba (metóda plná–plná), cena/km, skutočné náklady v štatistikách.
+- **Pripomienky** – STK, EK, olej, servis, známka, PZP, pneumatiky; podľa dátumu aj km, opakovanie, notifikácie.
+- **Záloha a obnova** všetkých údajov do súboru `.ctbak`; **widget** na ploche.
+- **Iba HTTPS** (cleartext zakázaný), plynulé posuvníky v nastaveniach.
+- Databáza: `backend/migrate_v5.sql` (tabuľka `CarTracking_items`, názvy miest pri jazdách).
+
 ## Novinky vo verzii 1.4
 - **Zlúčenie jázd** – automaticky po krátkej prestávke (auto 10 min, chôdza 5 min, do 1 km, rovnaké vozidlo), ručne výberom v zozname (podržať → označiť → Zlúčiť) alebo „Zlúčiť s nasledujúcou“ v detaile.
 - Mazanie jázd na serveri sa pri výpadku siete dokončí pri ďalšej synchronizácii.

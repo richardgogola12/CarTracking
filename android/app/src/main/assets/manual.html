@@ -64,7 +64,7 @@
 <header class="cover">
   <h1>🚗 Car Tracking</h1>
   <p>Používateľská príručka – automatické sledovanie jázd autom a chôdze, viac vozidiel, kniha jázd a štatistiky</p>
-  <div class="ver">Verzia aplikácie 1.4 · Android 8.0 a novší</div>
+  <div class="ver">Verzia aplikácie 1.5 · Android 8.0 a novší</div>
 </header>
 
 <nav class="toc">
@@ -85,6 +85,11 @@
     <li><a href="#statistiky">Štatistiky</a></li>
     <li><a href="#parkovanie">Kde som zaparkoval</a></li>
     <li><a href="#bluetooth">Bluetooth auta</a></li>
+    <li><a href="#miesta">Miesta (Domov, Práca, Klient)</a></li>
+    <li><a href="#tankovanie">Tankovanie a skutočná spotreba</a></li>
+    <li><a href="#pripomienky">Pripomienky</a></li>
+    <li><a href="#widget">Widget na ploche</a></li>
+    <li><a href="#zaloha">Záloha a obnova</a></li>
     <li><a href="#nastavenia">Všetky nastavenia</a></li>
     <li><a href="#problemy">Riešenie problémov</a></li>
     <li><a href="#server">Server (pre správcu)</a></li>
@@ -104,6 +109,10 @@
   <li><b>Náklady na palivo</b> – odhad pre každú jazdu aj za obdobie.</li>
   <li><b>Štatistiky</b> – týždeň, mesiac, rok, grafy a mapa všetkých jázd.</li>
   <li><b>Kde som zaparkoval</b> – miesto konca poslednej jazdy s navigáciou k autu.</li>
+  <li><b>Miesta</b> (Domov, Práca, Klient) – jazdy sa samy pomenujú a označia ako súkromné / služobné.</li>
+  <li><b>Tankovanie</b> – skutočná spotreba a skutočné náklady na palivo.</li>
+  <li><b>Pripomienky</b> – STK, emisná kontrola, olej, diaľničná známka, poistka…</li>
+  <li><b>Widget na ploche</b>, <b>záloha a obnova</b> všetkých údajov.</li>
   <li><b>Prihlásenie odtlačkom prsta</b> a synchronizácia na vlastný server s databázou MySQL.</li>
 </ul>
 
@@ -118,7 +127,7 @@
 
 <h2 id="start">3. Prvé spustenie</h2>
 <h3>3.1 Adresa servera</h3>
-<p>Na obrazovke prihlásenia ťuknite úplne dole na <b>„Server: …“</b>, zadajte adresu API (napr. <code>https://mojadomena.sk/cartracking/api/</code>) a ťuknite na <b>Otestovať pripojenie</b>. Keď sa zobrazí „Pripojenie funguje ✅“, ťuknite na <b>Uložiť</b>.</p>
+<p>Na obrazovke prihlásenia ťuknite úplne dole na <b>„Server: …“</b>, zadajte adresu API (napr. <code>https://mojadomena.sk/cartracking/api/</code>) a ťuknite na <b>Otestovať pripojenie</b>. Aplikácia komunikuje <b>iba cez HTTPS</b> – adresa musí začínať <code>https://</code> a server musí mať platný certifikát (napr. bezplatný Let's Encrypt). Keď sa zobrazí „Pripojenie funguje ✅“, ťuknite na <b>Uložiť</b>.</p>
 <h3>3.2 Registrácia a prihlásenie</h3>
 <p>Ťuknite na <b>Nemáte účet? Zaregistrujte sa</b>, vyplňte meno, e-mail a heslo (min. 8 znakov). Po registrácii vás aplikácia prevedie povoleniami.</p>
 <h3>3.3 Prihlásenie odtlačkom prsta</h3>
@@ -188,7 +197,7 @@
   <li><b>Automaticky cez Bluetooth</b> – stačí nastúpiť do auta, ktorého Bluetooth je priradené vozidlu.</li>
   <li><b>Dodatočne</b> – v detaile jazdy ťuknite na <i>Vozidlo → Zmeniť</i> (napr. ak ste zabudli prepnúť).</li>
 </ul>
-<p>Vozidlá spravujete v <b>Nastavenia → Vozidlá → Spravovať vozidlá</b> (pridať, upraviť, odstrániť). Odstránené vozidlo sa iba skryje – jeho jazdy ostanú zachované.</p>
+<p>Všetky posuvníky v nastaveniach sú plynulé – hodnotu nastavíte presne po jednotkách. Vozidlá spravujete v <b>Nastavenia → Vozidlá → Spravovať vozidlá</b> (pridať, upraviť, odstrániť, ikona pumpy = tankovanie). Odstránené vozidlo sa iba skryje – jeho jazdy ostanú zachované.</p>
 <div class="note">Pri prechode z verzie 1.1 sa prvé vozidlo vytvorí automaticky z pôvodných nastavení a priradia sa mu všetky doterajšie jazdy.</div>
 
 <h2 id="chodza">8. Sledovanie chôdze</h2>
@@ -312,7 +321,67 @@
 </ol>
 <p>Odpojenie Bluetooth sa berie ako signál vystúpenia z auta.</p>
 
-<h2 id="nastavenia" class="newpage">16. Všetky nastavenia</h2>
+<h2 id="miesta" class="newpage">16. Miesta (Domov, Práca, Klient)</h2>
+<p>Pomenované miesta zjednodušia knihu jázd. Keď jazda začne alebo skončí v okruhu miesta:</p>
+<ul>
+  <li>v zozname a v knihe jázd sa namiesto adresy zobrazí názov, napr. <b>Domov → Práca</b>,</li>
+  <li>ak jazda nemá účel, doplní sa automaticky (napr. „Domov → Klient ABC“),</li>
+  <li>podľa nastavenia miesta sa jazda označí ako <b>súkromná</b> alebo <b>služobná</b> (ak je jedno z miest služobné, jazda je služobná).</li>
+</ul>
+<h3>16.1 Pridanie miesta</h3>
+<ol>
+  <li><b>Nastavenia → Miesta, pripomienky, tankovanie → Miesta → Pridať miesto</b>.</li>
+  <li>Zadajte názov a typ (Domov, Práca, Klient, Iné) a čo sa má stať s typom jazdy (nemeniť / súkromné / služobné).</li>
+  <li>Polohu zadáte tlačidlom <b>Tu som</b> (aktuálna GPS), <b>Na mape</b> (posuňte mapu tak, aby bolo miesto pod zameriavačom) alebo priamo z jazdy: v detaile jazdy <b>Štart ako miesto</b> / <b>Cieľ ako miesto</b>.</li>
+  <li>Okruh (predvolene 150 m) určuje, ako blízko musí jazda začať či skončiť.</li>
+</ol>
+<p>Po uložení aplikácia ponúkne použiť miesta aj na <b>doterajšie jazdy</b> – buď iba doplniť názvy, alebo aj nastaviť typ jazdy.</p>
+
+<h2 id="tankovanie">17. Tankovanie a skutočná spotreba</h2>
+<p>Tankovanie zapisujete pri vozidle: <b>Nastavenia → Vozidlá → ikona pumpy</b> alebo na Prehľade <b>Vozidlo → Tankovanie</b>. Ťuknite na <b>Natankoval som</b> a zadajte:</p>
+<ul>
+  <li>dátum, množstvo (l, pri elektromobile kWh), cenu za liter alebo celkovú sumu (druhá hodnota sa dopočíta),</li>
+  <li><b>stav tachometra</b> – predvyplní sa odhad z jázd, opravte ho podľa tachometra,</li>
+  <li>či ste tankovali <b>do plna</b>.</li>
+</ul>
+<p><b>Skutočná spotreba</b> sa počíta metódou „plná – plná nádrž“: všetko natankované od predchádzajúcej plnej nádrže po aktuálnu plnú nádrž sa vydelí prejdenými km podľa tachometra. Výsledok sa zobrazí pri každom tankovaní a ako priemer; tlačidlom <b>Použiť skutočnú spotrebu a poslednú cenu</b> ho prenesiete do vozidla, takže aj odhad nákladov jázd bude presný.</p>
+<p>V <b>Štatistikách</b> sa za zvolené obdobie zobrazia aj <b>skutočne zaplatené</b> sumy za palivo.</p>
+
+<h2 id="pripomienky">18. Pripomienky</h2>
+<p><b>Nastavenia → Miesta, pripomienky, tankovanie → Pripomienky → Pridať</b>. Typ zvolíte jedným ťuknutím – opakovanie sa nastaví samo:</p>
+<table>
+  <tr><th>Typ</th><th>Predvolené opakovanie</th></tr>
+  <tr><td>STK, emisná kontrola</td><td>každé 2 roky</td></tr>
+  <tr><td>Výmena oleja</td><td>každý rok alebo 15 000 km</td></tr>
+  <tr><td>Servisná prehliadka</td><td>každý rok alebo 20 000 km</td></tr>
+  <tr><td>Diaľničná známka, poistka (PZP)</td><td>každý rok</td></tr>
+  <tr><td>Prezutie pneumatík</td><td>každých 6 mesiacov</td></tr>
+</table>
+<ul>
+  <li>Termín môže byť <b>dátum</b>, <b>stav tachometra</b>, alebo oboje (čo nastane skôr). Tachometer sa dopočítava z jázd a tankovaní vozidla.</li>
+  <li>Notifikácia príde vopred (predvolene 14 dní alebo 500 km), potom každé 3 dni a po termíne denne. Blížiace sa termíny sa zobrazujú aj na <b>Prehľade</b> a vo widgete.</li>
+  <li>Ťuknutím na ✓ označíte pripomienku ako <b>vybavenú</b> – pri opakovaní sa automaticky vytvorí ďalší termín.</li>
+</ul>
+
+<h2 id="widget">19. Widget na ploche</h2>
+<p>Podržte prst na prázdnom mieste plochy → <b>Miniaplikácie / Widgety</b> → <b>Car Tracking</b> a pretiahnite ho na plochu. Widget ukazuje:</p>
+<ul>
+  <li>stav (čakám / overujem / jazda / chôdza) a aktívne vozidlo,</li>
+  <li>dnešné km autom a kroky, počet blížiacich sa pripomienok,</li>
+  <li>tlačidlá <b>🚗 Jazda</b> a <b>🚶 Chôdza</b> na ručné spustenie, počas záznamu <b>⏹ Ukončiť</b>.</li>
+</ul>
+<p>Veľkosť widgetu sa dá meniť. Počas jazdy sa obnovuje približne každých 20 sekúnd.</p>
+
+<h2 id="zaloha">20. Záloha a obnova</h2>
+<p><b>Nastavenia → Záloha a obnova</b>:</p>
+<ul>
+  <li><b>Zálohovať</b> – vytvorí jeden súbor <code>cartracking-zaloha-RRRR-MM-DD.ctbak</code> so všetkými jazdami (aj trasami), chôdzou, vozidlami, miestami, tankovaniami, pripomienkami a nastaveniami. Uložte ho napr. na Google Disk alebo do počítača.</li>
+  <li><b>Obnoviť zo zálohy</b> – údaje zo súboru sa <b>pridajú</b>; nič sa neprepíše ani nezmaže a čo už v telefóne je, sa preskočí. Obnovu preto možno spustiť aj opakovane. Môžete zvoliť, či sa obnovia aj nastavenia (adresa servera a odtlačok ostanú podľa telefónu).</li>
+  <li>Obnovené údaje sa automaticky odošlú aj na server.</li>
+</ul>
+<div class="tip">Pri výmene telefónu: v starom telefóne Zálohovať → súbor uložiť na Google Disk → v novom telefóne nainštalovať aplikáciu, prihlásiť sa → Obnoviť zo zálohy.</div>
+
+<h2 id="nastavenia">21. Všetky nastavenia</h2>
 <table>
   <tr><th>Sekcia / nastavenie</th><th>Predvolené</th><th>Popis</th></tr>
   <tr><td colspan="3"><b>Automatická detekcia jazdy</b></td></tr>
@@ -346,6 +415,9 @@
   <tr><td>Automaticky zlúčiť po krátkej prestávke</td><td>zapnuté</td><td>Zastávka na pumpe nerozdelí jazdu.</td></tr>
   <tr><td>Max. prestávka – auto / chôdza</td><td>10 min / 5 min</td><td>Dlhšia prestávka = nová jazda.</td></tr>
   <tr><td>Max. vzdialenosť konca a začiatku</td><td>1 000 m</td><td>Jazdy iným vozidlom sa nezlučujú.</td></tr>
+  <tr><td colspan="3"><b>Miesta, pripomienky, tankovanie, záloha</b></td></tr>
+  <tr><td>Miesta / Pripomienky / Tankovanie</td><td>–</td><td>Pozri samostatné kapitoly.</td></tr>
+  <tr><td>Záloha a obnova</td><td>–</td><td>Súbor .ctbak so všetkými údajmi.</td></tr>
   <tr><td colspan="3"><b>Kniha jázd</b></td></tr>
   <tr><td>Predvolený typ jazdy</td><td>súkromná</td><td>Typ novo zaznamenanej jazdy.</td></tr>
   <tr><td>Zisťovať adresy</td><td>zapnuté</td><td>Ulica a mesto začiatku a cieľa.</td></tr>
@@ -364,7 +436,7 @@
   <tr><td>Účet</td><td>–</td><td>Vymazanie jázd z telefónu, odhlásenie.</td></tr>
 </table>
 
-<h2 id="problemy">17. Riešenie problémov</h2>
+<h2 id="problemy">22. Riešenie problémov</h2>
 <table>
   <tr><th>Problém</th><th>Riešenie</th></tr>
   <tr><td>Jazda sa nespustila automaticky</td><td>Skontrolujte Povolenia (všetky zelené) a výnimku z batérie. Rozpoznanie trvá 30 s – 2 min od rozbehnutia. Pri telefónoch Xiaomi/Huawei zapnite Automatické spustenie.</td></tr>
@@ -372,6 +444,10 @@
   <tr><td>Jazda sa ukončila v zápche</td><td>Zvýšte <i>Ukončiť jazdu po státí</i> (napr. na 8 min). Ak sa jazda rozdelila, zlúči sa automaticky (do 10 min), prípadne ju zlúčte ručne.</td></tr>
   <tr><td>Zlúčili sa jazdy, ktoré mali byť oddelené</td><td>Znížte <i>Max. prestávka</i> alebo vypnite automatické zlučovanie v Nastavenia → Zlučovanie jázd.</td></tr>
   <tr><td>Jazda sa skončila až dlho po zaparkovaní</td><td>Znížte <i>Ukončiť jazdu po státí</i>. Čas konca jazdy sa aj tak počíta od posledného pohybu.</td></tr>
+  <tr><td>„Server musí používať HTTPS“</td><td>Adresa servera musí začínať https:// a server musí mať platný certifikát. Nešifrované http nie je povolené.</td></tr>
+  <tr><td>Jazda sa nepomenovala podľa miesta</td><td>Zväčšite okruh miesta (napr. na 250 m) – GPS na začiatku jazdy môže byť nepresná. Potom v Miestach ťuknite na ikonu synchronizácie (použiť na doterajšie jazdy).</td></tr>
+  <tr><td>Spotreba z tankovania sa nezobrazuje</td><td>Potrebné sú aspoň dve tankovania „do plna“ so správnym stavom tachometra.</td></tr>
+  <tr><td>Widget sa neaktualizuje</td><td>Otvorte aplikáciu – widget sa obnoví. Pri niektorých výrobcoch povoľte aplikácii beh na pozadí (pozri Povolenia).</td></tr>
   <tr><td>„Server je nedostupný“</td><td>Na prihlasovacej obrazovke ťuknite na „Server: …“ a otestujte adresu. Musí končiť <code>/api/</code>.</td></tr>
   <tr><td>Jazdy sa neodosielajú</td><td>Prehľad → Synchronizovať teraz. Skontrolujte voľbu „Iba cez Wi-Fi“.</td></tr>
   <tr><td>Nezobrazuje sa adresa</td><td>Adresa sa zisťuje pri konci jazdy a potrebuje internet. Bez pripojenia ostane prázdna.</td></tr>
@@ -384,32 +460,34 @@
   <tr><td>Odtlačok prestal fungovať</td><td>Po pridaní nového odtlačku sa prihláste heslom a v Nastaveniach zapnite biometriu znova.</td></tr>
 </table>
 
-<h2 id="server" class="newpage">18. Server (pre správcu)</h2>
+<h2 id="server" class="newpage">23. Server (pre správcu)</h2>
 <p>Aplikácia komunikuje so serverom cez REST API v PHP; databáza je MySQL 8 / MariaDB 10.5+. Aplikácia sa k databáze nepripája priamo (heslo k DB by inak bolo v aplikácii).</p>
-<h3>18.1 Inštalácia</h3>
+<h3>23.1 Inštalácia</h3>
 <pre>mysql -u root -p --default-character-set=utf8mb4 &lt; backend/schema.sql
 
 CREATE USER 'car_tracking'@'localhost' IDENTIFIED BY 'silne_heslo';
 GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localhost';</pre>
-<p>Priečinok <code>backend/api</code> skopírujte na web server (napr. <code>/cartracking/api</code>), upravte <code>config.php</code>. Apache potrebuje <code>mod_rewrite</code> (súbor <code>.htaccess</code> je priložený). Odporúčame HTTPS.</p>
-<h3>18.2 Aktualizácia databázy</h3>
+<p>Priečinok <code>backend/api</code> skopírujte na web server (napr. <code>/cartracking/api</code>), upravte <code>config.php</code>. Apache potrebuje <code>mod_rewrite</code> (súbor <code>.htaccess</code> je priložený). <b>HTTPS je povinné</b> – aplikácia nešifrované spojenie odmietne.</p>
+<h3>23.2 Aktualizácia databázy</h3>
 <table>
   <tr><th>Skript</th><th>Kedy ho spustiť</th></tr>
   <tr><td><code>migrate_prefix.sql</code></td><td>Databáza vznikla ešte s tabuľkami bez prefixu <code>CarTracking_</code>.</td></tr>
   <tr><td><code>migrate_v2.sql</code></td><td>Prechod na verziu 1.1 (kniha jázd, štýl jazdy). Nová inštalácia ho nepotrebuje.</td></tr>
   <tr><td><code>migrate_v3.sql</code></td><td>Prechod na verziu 1.2 (vozidlá, chôdza). Spustite po <code>migrate_v2.sql</code>.</td></tr>
   <tr><td><code>migrate_v4.sql</code></td><td>Prechod na verziu 1.3 (limity vozidla v obci / mimo obce / na diaľnici).</td></tr>
+  <tr><td><code>migrate_v5.sql</code></td><td>Prechod na verziu 1.5 (miesta, tankovanie, pripomienky).</td></tr>
 </table>
-<h3>18.3 Tabuľky</h3>
+<h3>23.3 Tabuľky</h3>
 <table>
   <tr><th>Tabuľka</th><th>Obsah</th></tr>
   <tr><td><code>CarTracking_users</code></td><td>Používatelia (heslo ako bcrypt hash).</td></tr>
   <tr><td><code>CarTracking_api_tokens</code></td><td>Prihlasovacie tokeny (iba SHA-256 hash, platnosť 90 dní).</td></tr>
   <tr><td><code>CarTracking_vehicles</code></td><td>Vozidlá: názov, EČV, palivo, spotreba, cena, tachometer.</td></tr>
   <tr><td><code>CarTracking_trips</code></td><td>Jazdy a chôdza: typ (car/walk), vozidlo, časy, km, kroky, adresy, účel, skóre.</td></tr>
+  <tr><td><code>CarTracking_items</code></td><td>Miesta, tankovania a pripomienky (JSON, novšia verzia vyhráva).</td></tr>
   <tr><td><code>CarTracking_trip_points</code></td><td>Body trasy: čas, poloha, rýchlosť, presnosť, udalosť.</td></tr>
 </table>
-<h3>18.4 API</h3>
+<h3>23.4 API</h3>
 <table>
   <tr><th>Metóda a cesta</th><th>Popis</th></tr>
   <tr><td><code>POST /register</code></td><td>Registrácia → token</td></tr>
@@ -420,12 +498,14 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>GET /trips</code>, <code>GET /trips/{uuid}</code></td><td>Zoznam jázd, detail s bodmi</td></tr>
   <tr><td><code>DELETE /trips/{uuid}</code></td><td>Zmazanie jazdy</td></tr>
   <tr><td><code>POST /vehicles/sync</code>, <code>GET /vehicles</code></td><td>Odoslanie a zoznam vozidiel</td></tr>
+  <tr><td><code>POST /items/sync</code>, <code>GET /items?kind=</code></td><td>Miesta, tankovania, pripomienky</td></tr>
 </table>
 
-<h2 id="sukromie">19. Bezpečnosť a súkromie</h2>
+<h2 id="sukromie">24. Bezpečnosť a súkromie</h2>
 <ul>
   <li>Poloha sa zaznamenáva <b>iba počas jazdy autom a pri zapnutom sledovaní chôdze</b> (prípadne len v pracovnom čase); v pokoji sa GPS nepoužíva.</li>
-  <li>Jazdy sa ukladajú v telefóne a odosielajú <b>iba na váš server</b>, ktorý zadáte.</li>
+  <li>Jazdy sa ukladajú v telefóne a odosielajú <b>iba na váš server</b>, ktorý zadáte – vždy šifrovane (HTTPS).</li>
+  <li>Súbor zálohy nie je šifrovaný – obsahuje vaše trasy, uchovávajte ho na bezpečnom mieste.</li>
   <li>Prihlasovací token je v telefóne šifrovaný kľúčom v Android Keystore; heslo sa v telefóne neukladá.</li>
   <li>Na serveri sa heslá ukladajú ako bcrypt hash a tokeny ako SHA-256 hash.</li>
   <li>Na adresy začiatku a cieľa sa používa geokódovanie systému Android (Google); dá sa vypnúť v Nastaveniach.</li>
@@ -434,7 +514,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
 </ul>
 
 <footer>
-  Car Tracking · Používateľská príručka pre verziu 1.4 · © 2026 Richard Gogola<br>
+  Car Tracking · Používateľská príručka pre verziu 1.5 · © 2026 Richard Gogola<br>
   Mapové údaje © Esri, HERE, Garmin, © prispievatelia OpenStreetMap, © OpenTopoMap, snímky © Esri, Maxar.
 </footer>
 
