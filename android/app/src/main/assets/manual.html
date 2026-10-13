@@ -364,13 +364,21 @@
 </ul>
 
 <h2 id="widget">19. Widget na ploche</h2>
-<p>Podržte prst na prázdnom mieste plochy → <b>Miniaplikácie / Widgety</b> → <b>Car Tracking</b> a pretiahnite ho na plochu. Widget ukazuje:</p>
+<p>Podržte prst na prázdnom mieste plochy → <b>Miniaplikácie / Widgety</b> → <b>Car Tracking</b> a pretiahnite ho na plochu. Ťuknutím na widget sa otvorí aplikácia.</p>
+<p><b>Farba podľa stavu</b>: tmavá = čakám na jazdu, oranžová = overujem, či ide o auto, zelená = jazda, modrá = chôdza. Hore je stav, aktívne vozidlo (EČV) a čas poslednej aktualizácie.</p>
 <ul>
-  <li>stav (čakám / overujem / jazda / chôdza) a aktívne vozidlo,</li>
-  <li>dnešné km autom a kroky, počet blížiacich sa pripomienok,</li>
-  <li>tlačidlá <b>🚗 Jazda</b> a <b>🚶 Chôdza</b> na ručné spustenie, počas záznamu <b>⏹ Ukončiť</b>.</li>
+  <li><b>Počas jazdy</b> – veľká aktuálna rýchlosť, dopravná značka s limitom pre daný typ cesty (pri prekročení limitu značka sčervenie), trvanie jazdy (beží každú sekundu), prejdené km a náklady na palivo.</li>
+  <li><b>Počas chôdze</b> – počet krokov, trvanie a vzdialenosť.</li>
+  <li><b>Dlaždice dňa</b> – dnes km autom, počet jázd, kroky a náklady.</li>
+  <li><b>Tlačidlá</b> – <b>🚗 Jazda</b>, <b>🚶 Chôdza</b> a <b>⟳</b> obnoviť. Pri overovaní <b>✓ Je to jazda</b> (hneď zapne režim jazdy) a <b>✕ Nie je</b>; počas záznamu <b>⏹ Ukončiť</b>.</li>
 </ul>
-<p>Veľkosť widgetu sa dá meniť. Počas jazdy sa obnovuje približne každých 20 sekúnd.</p>
+<p><b>Veľký widget</b> (roztiahnutý aspoň na 3 riadky) ukazuje navyše:</p>
+<ul>
+  <li><b>graf km za posledných 7 dní</b> (dnešok zvýraznený) so súčtom za týždeň,</li>
+  <li><b>krúžok krokov</b> – dnešné kroky voči dennému cieľu (Nastavenia → Chôdza → Denný cieľ krokov); po splnení zezelená,</li>
+  <li>najbližšiu <b>pripomienku</b> (napr. STK o 12 dní) a <b>kde je zaparkované</b> auto.</li>
+</ul>
+<p>Veľkosť widgetu sa dá meniť podržaním a ťahaním okrajov; obsah sa prispôsobí. Počas jazdy sa údaje obnovujú približne každých 20 sekúnd, trvanie beží priebežne.</p>
 
 <h2 id="zaloha">20. Záloha a obnova</h2>
 <p><b>Nastavenia → Záloha a obnova</b>:</p>
@@ -407,6 +415,7 @@
   <tr><td>Automaticky sledovať chôdzu</td><td>zapnuté</td><td>Kroky, vzdialenosť a trasa pešo.</td></tr>
   <tr><td>Iba v pracovnom čase</td><td>vypnuté</td><td>Dni v týždni, začiatok a koniec práce.</td></tr>
   <tr><td>Dĺžka kroku</td><td>75 cm</td><td>Vzdialenosť = kroky × dĺžka kroku.</td></tr>
+  <tr><td>Denný cieľ krokov</td><td>8 000</td><td>Cieľ pre krúžok krokov vo widgete.</td></tr>
   <tr><td>Ukončiť po nečinnosti</td><td>3 min</td><td>Minúty bez krokov, ktoré ukončia záznam.</td></tr>
   <tr><td>Minimálna vzdialenosť</td><td>150 m</td><td>Kratšie presuny sa neukladajú.</td></tr>
   <tr><td>Interval GPS pri chôdzi</td><td>10 s</td><td>Dlhší interval šetrí batériu.</td></tr>

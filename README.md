@@ -25,6 +25,11 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Nový widget
+- Farba podľa stavu (čakám / overujem / jazda / chôdza), počas jazdy rýchlosť, značka s limitom, bežiaci čas, km a náklady; počas chôdze kroky.
+- Dlaždice dňa (km, jazdy, kroky, náklady), tlačidlá Jazda / Chôdza / obnoviť, pri overovaní „✓ Je to jazda / ✕ Nie je“.
+- Veľký widget: graf km za 7 dní, krúžok krokov k dennému cieľu (Nastavenia → Chôdza), najbližšia pripomienka a miesto parkovania.
+
 ## Novinky vo verzii 1.5
 - **Miesta** (Domov, Práca, Klient…) – názvy v jazdách, automatický účel a typ jazdy (súkromná/služobná); výber polohy GPS, na mape alebo z jazdy.
 - **Tankovanie** – skutočná spotreba (metóda plná–plná), cena/km, skutočné náklady v štatistikách.
