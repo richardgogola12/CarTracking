@@ -1,0 +1,31 @@
+name: Overpass check
+on:
+  push:
+    paths: ['.github/workflows/overpass-check.yml']
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          q() { # name lat lng
+            Q="[out:json][timeout:10];way(around:25,$2,$3)[highway~\"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service|road)\$\"];out tags;is_in($2,$3)->.a;area.a[landuse~\"^(residential|commercial|retail|industrial)\$\"];out ids;"
+            for ep in https://overpass-api.de/api/interpreter https://overpass.kumi.systems/api/interpreter; do
+              R=$(curl -s --max-time 20 -A 'sk.cartracker/1.3' --data-urlencode "data=$Q" "$ep")
+              S=$(echo "$R" | python3 -c '
+          import sys,json
+          try:
+            d=json.load(sys.stdin); el=d["elements"]
+            ways=[e.get("tags",{}) for e in el if e["type"]=="way"]
+            areas=[e for e in el if e["type"]=="area"]
+            print(len(ways),"ways",[(w.get("highway"),w.get("maxspeed"),w.get("source:maxspeed"),w.get("name")) for w in ways][:4],"areas",len(areas))
+          except Exception as e: print("ERR",str(e)[:80])')
+              echo "$1 @ ${ep#https://}: $S" >> res.txt
+            done
+          }
+          q bratislava-sancova 48.1556 17.1146
+          q bratislava-d1-prievoz 48.1503 17.1786
+          q imel-center 47.9050 18.1530
+          q rural-road-hurbanovo 47.8700 18.1950
+          q d1-senec 48.2213 17.4207
+          cat res.txt
+          echo "::notice::$(paste -sd '|' res.txt)"
