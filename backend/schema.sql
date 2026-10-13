@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS CarTracking_vehicles (
     limit_rural   SMALLINT UNSIGNED NOT NULL DEFAULT 90  COMMENT 'max km/h mimo obce',
     limit_highway SMALLINT UNSIGNED NOT NULL DEFAULT 130 COMMENT 'max km/h na diaľnici',
     rate_per_km   DECIMAL(6,4) NOT NULL DEFAULT 0 COMMENT 'sadzba základnej náhrady €/km',
+    bt_address    VARCHAR(17)  NOT NULL DEFAULT '' COMMENT 'MAC adresa Bluetooth vozidla',
     INDEX idx_vehicles_user (user_id),
     CONSTRAINT CarTracking_fk_vehicles_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -75,6 +76,14 @@ CREATE TABLE IF NOT EXISTS CarTracking_trips (
     INDEX idx_trips_user_start (user_id, started_at),
     INDEX idx_trips_vehicle (vehicle_uuid),
     CONSTRAINT CarTracking_fk_trips_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Nastavenia aplikácie používateľa (JSON) – obnovia sa po prihlásení na novom telefóne
+CREATE TABLE IF NOT EXISTS CarTracking_settings (
+    user_id    INT UNSIGNED NOT NULL PRIMARY KEY,
+    data       JSON         NOT NULL,
+    updated_at BIGINT       NOT NULL DEFAULT 0 COMMENT 'epoch ms',
+    CONSTRAINT CarTracking_fk_settings_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Zdieľanie vozidla s ďalšími používateľmi (spoločná kniha jázd)

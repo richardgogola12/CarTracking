@@ -21,13 +21,17 @@ declare(strict_types=1);
  *  DELETE /vehicles/{uuid}/shares/{user_id}  (Bearer, vlastník alebo ten, s kým je zdieľané) -> {ok}
  *  GET    /vehicles/{uuid}/trips?from=&to=   (Bearer, vlastník/zdieľané) -> {trips:[... + driver_name]}
  *
+ *  GET    /settings                          (Bearer)            -> {settings, updated_at}  (nastavenia aplikácie)
+ *  PUT    /settings {settings, updated_at}   (Bearer)            -> {ok, updated_at}        (novšie vyhráva)
+ *  POST   /trips/points {uuids:[...]}        (Bearer, max 50)    -> {points:{uuid:[...]}}   (obnova na novom telefóne)
+ *
  *  Webový prehľad (priečinok web/) používa tie isté adresy.
  */
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 $config = require __DIR__ . '/config.php';
@@ -265,6 +269,43 @@ if ($method === 'POST' && $path === '/trips/sync') {
     respond(200, ['synced' => $synced]);
 }
 
+// Nastavenia aplikácie (JSON) – po prihlásení na novom telefóne sa stiahnu
+if ($path === '/settings' && $method === 'GET') {
+    $st = $pdo->prepare('SELECT data, updated_at FROM CarTracking_settings WHERE user_id = ?');
+    $st->execute([$uid]);
+    $r = $st->fetch();
+    respond(200, ['settings' => $r ? json_decode($r['data'], true) : null, 'updated_at' => $r ? (int)$r['updated_at'] : 0]);
+}
+if ($path === '/settings' && ($method === 'PUT' || $method === 'POST')) {
+    $b = body();
+    if (!is_array($b['settings'] ?? null)) fail(422, 'Chýba objekt settings');
+    $data = json_encode($b['settings'], JSON_UNESCAPED_UNICODE);
+    if ($data === false || strlen($data) > 50000) fail(413, 'Nastavenia sú príliš veľké');
+    $ts = max(0, (int)($b['updated_at'] ?? 0));
+    $pdo->prepare('INSERT INTO CarTracking_settings (user_id, data, updated_at) VALUES (?, ?, ?)
+                   ON DUPLICATE KEY UPDATE data = IF(VALUES(updated_at) >= updated_at, VALUES(data), data),
+                                           updated_at = GREATEST(updated_at, VALUES(updated_at))')
+        ->execute([$uid, $data, $ts]);
+    respond(200, ['ok' => true, 'updated_at' => $ts]);
+}
+
+// POST /trips/points – body viacerých vlastných jázd naraz (obnova údajov po prihlásení)
+if ($method === 'POST' && $path === '/trips/points') {
+    $uuids = array_values(array_filter((array)(body()['uuids'] ?? []), fn($u) => is_string($u) && preg_match('/^[0-9a-f-]{36}$/i', $u)));
+    if (count($uuids) > 50) fail(413, 'Najviac 50 jázd naraz');
+    $out = [];
+    if ($uuids) {
+        $in = implode(',', array_fill(0, count($uuids), '?'));
+        $st = $pdo->prepare("SELECT t.uuid, p.ts, p.lat, p.lng, p.speed_kmh, p.accuracy_m, p.bearing, p.altitude_m, p.event
+                             FROM CarTracking_trips t JOIN CarTracking_trip_points p ON p.trip_id = t.id
+                             WHERE t.user_id = ? AND t.uuid IN ($in) ORDER BY t.uuid, p.ts");
+        $st->execute(array_merge([$uid], $uuids));
+        foreach ($uuids as $u) $out[$u] = [];
+        while ($r = $st->fetch()) { $u = $r['uuid']; unset($r['uuid']); $out[$u][] = $r; }
+    }
+    respond(200, ['points' => (object)$out]);
+}
+
 // POST /vehicles/sync – upsert vozidiel
 if ($method === 'POST' && $path === '/vehicles/sync') {
     $b = body();
@@ -274,13 +315,14 @@ if ($method === 'POST' && $path === '/vehicles/sync') {
     $upsert = $pdo->prepare(
         'INSERT INTO CarTracking_vehicles (user_id, uuid, name, plate, fuel_type, consumption, fuel_price,
                                           odometer_km, odometer_date, bt_name, archived, updated_at,
-                                          limit_urban, limit_rural, limit_highway, rate_per_km)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                          limit_urban, limit_rural, limit_highway, rate_per_km, bt_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE name = VALUES(name), plate = VALUES(plate), fuel_type = VALUES(fuel_type),
              consumption = VALUES(consumption), fuel_price = VALUES(fuel_price), odometer_km = VALUES(odometer_km),
              odometer_date = VALUES(odometer_date), bt_name = VALUES(bt_name), archived = VALUES(archived),
              updated_at = VALUES(updated_at), limit_urban = VALUES(limit_urban),
-             limit_rural = VALUES(limit_rural), limit_highway = VALUES(limit_highway), rate_per_km = VALUES(rate_per_km)');
+             limit_rural = VALUES(limit_rural), limit_highway = VALUES(limit_highway), rate_per_km = VALUES(rate_per_km),
+             bt_address = VALUES(bt_address)');
     $synced = [];
     foreach ($vehicles as $v) {
         $uuid = (string)($v['uuid'] ?? '');
@@ -304,6 +346,7 @@ if ($method === 'POST' && $path === '/vehicles/sync') {
             max(10, min(150, (int)($v['limit_rural'] ?? 90))),
             max(10, min(200, (int)($v['limit_highway'] ?? 130))),
             max(0, min(9.9999, (float)($v['rate_per_km'] ?? 0))),
+            preg_match('/^[0-9A-Fa-f:]{0,17}$/', (string)($v['bt_address'] ?? '')) ? (string)($v['bt_address'] ?? '') : '',
         ]);
         $synced[] = $uuid;
     }
@@ -352,12 +395,13 @@ if ($method === 'GET' && $path === '/items') {
 if ($method === 'GET' && $path === '/vehicles') {
     $stmt = $pdo->prepare('SELECT v.uuid, v.name, v.plate, v.fuel_type, v.consumption, v.fuel_price, v.odometer_km, v.odometer_date,
                                   v.bt_name, v.archived, v.updated_at, v.limit_urban, v.limit_rural, v.limit_highway, v.rate_per_km,
+                                  IF(v.user_id = ?, v.bt_address, \'\') AS bt_address,
                                   (v.user_id = ?) AS is_owner, u.name AS owner_name,
                                   (SELECT COUNT(*) FROM CarTracking_vehicle_shares s2 WHERE s2.vehicle_uuid = v.uuid) AS share_count
                            FROM CarTracking_vehicles v JOIN CarTracking_users u ON u.id = v.user_id
                            WHERE v.user_id = ? OR v.uuid IN (SELECT vehicle_uuid FROM CarTracking_vehicle_shares WHERE user_id = ?)
                            ORDER BY v.name');
-    $stmt->execute([$uid, $uid, $uid]);
+    $stmt->execute([$uid, $uid, $uid, $uid]);
     $rows = array_map(function ($r) {
         $r['is_owner'] = (bool)$r['is_owner']; $r['archived'] = (bool)$r['archived'];
         foreach (['consumption', 'fuel_price', 'rate_per_km'] as $k) $r[$k] = (float)$r[$k];
