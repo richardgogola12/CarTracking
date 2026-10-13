@@ -64,7 +64,7 @@
 <header class="cover">
   <h1>🚗 Car Tracking</h1>
   <p>Používateľská príručka – automatické sledovanie jázd autom a chôdze, viac vozidiel, kniha jázd a štatistiky</p>
-  <div class="ver">Verzia aplikácie 1.7 · Android 8.0 a novší</div>
+  <div class="ver">Verzia aplikácie 1.8 · Android 8.0 a novší</div>
 </header>
 
 <nav class="toc">
@@ -88,7 +88,7 @@
     <li><a href="#miesta">Miesta (Domov, Práca, Klient)</a></li>
     <li><a href="#tankovanie">Tankovanie a skutočná spotreba</a></li>
     <li><a href="#pripomienky">Pripomienky</a></li>
-    <li><a href="#widget">Widget na ploche</a></li>
+    <li><a href="#widget">Widgety na ploche</a></li>
     <li><a href="#lista">Tlačidlá v rýchlej lište</a></li>
     <li><a href="#trasy">Časté trasy</a></li>
     <li><a href="#nahrady">Cestovné náhrady</a></li>
@@ -235,7 +235,7 @@
   <li><b>Automaticky cez Bluetooth</b> – stačí nastúpiť do auta, ktorého Bluetooth je priradené vozidlu.</li>
   <li><b>Dodatočne</b> – v detaile jazdy ťuknite na <i>Vozidlo → Zmeniť</i> (napr. ak ste zabudli prepnúť).</li>
 </ul>
-<p>Všetky posuvníky v nastaveniach sú plynulé – hodnotu nastavíte presne po jednotkách. Vozidlá spravujete v <b>Nastavenia → Vozidlá → Spravovať vozidlá</b> (pridať, upraviť, odstrániť, ikona pumpy = tankovanie). Odstránené vozidlo sa iba skryje – jeho jazdy ostanú zachované.</p>
+<p>Vozidlá spravujete v <b>Nastavenia → Vozidlá → Spravovať vozidlá</b> (pridať, upraviť, odstrániť, ikona pumpy = tankovanie). Odstránené vozidlo sa iba skryje – jeho jazdy ostanú zachované.</p>
 <div class="note">Pri prechode z verzie 1.1 sa prvé vozidlo vytvorí automaticky z pôvodných nastavení a priradia sa mu všetky doterajšie jazdy.</div>
 
 <h2 id="chodza">8. Sledovanie chôdze</h2>
@@ -436,7 +436,7 @@
   <li>Ťuknutím na ✓ označíte pripomienku ako <b>vybavenú</b> – pri opakovaní sa automaticky vytvorí ďalší termín.</li>
 </ul>
 
-<h2 id="widget">19. Widget na ploche</h2>
+<h2 id="widget">19. Widgety na ploche</h2>
 <p>Podržte prst na prázdnom mieste plochy → <b>Miniaplikácie / Widgety</b> → <b>Car Tracking</b> a pretiahnite ho na plochu. Ťuknutím na widget sa otvorí aplikácia.</p>
 <p><b>Farba podľa stavu</b>: tmavá = čakám na jazdu, oranžová = overujem, či ide o auto, zelená = jazda, modrá = chôdza. Hore je stav, aktívne vozidlo (EČV) a čas poslednej aktualizácie.</p>
 <ul>
@@ -458,6 +458,16 @@
   <li>najbližšiu <b>pripomienku</b> (napr. STK o 12 dní) a <b>kde je zaparkované</b> auto.</li>
 </ul>
 <p>Veľkosť widgetu sa dá meniť podržaním a ťahaním okrajov; obsah sa prispôsobí. Počas jazdy sa údaje obnovujú približne každých 20 sekúnd, trvanie beží priebežne.</p>
+<h3>Ďalšie widgety</h3>
+<p>V zozname widgetov nájdete okrem hlavného ešte štyri menšie – na plochu ich pridáte rovnako (podržať prst na ploche → Widgety → Car Tracking):</p>
+<table>
+  <tr><th>Widget</th><th>Veľkosť</th><th>Čo ukazuje</th></tr>
+  <tr><td><b>Car Tracking – tlačidlá</b></td><td>3 × 1</td><td>Stav (farba ako hlavný widget) a dve tlačidlá: <b>🚗 Jazda</b> a <b>🚶 Chôdza</b>; počas záznamu <b>⏹ Ukončiť</b> a rýchlosť / km alebo kroky; pri overovaní <b>✓ Je to jazda</b> / <b>✕ Nie je</b>.</td></tr>
+  <tr><td><b>Car Tracking – kroky</b></td><td>3 × 2</td><td>Krúžok dnešných krokov k dennému cieľu, dnešné km pešo, koľko krokov chýba do cieľa, <b>🔥 séria</b> dní so splneným cieľom a rekord, graf krokov za 7 dní.</td></tr>
+  <tr><td><b>Car Tracking – parkovanie</b></td><td>4 × 2</td><td>Adresa zaparkovaného auta a ako dlho tam stojí, <b>parkovací lístok</b> s odpočtom zostávajúceho času (beží každú sekundu), tlačidlá <b>🧭 Nájsť auto</b> (navigácia pešo) a <b>🎫 Lístok</b> (otvorí aplikáciu na nastavenie).</td></tr>
+  <tr><td><b>Car Tracking – mesiac</b></td><td>4 × 2</td><td>Tento mesiac: km autom, počet jázd, náklady, služobné km, kroky, km pešo, <b>porovnanie km s minulým mesiacom</b> (za rovnaký počet dní) a graf km po dňoch.</td></tr>
+</table>
+<p>Všetky widgety sa obnovujú spolu s hlavným – pri začiatku a konci jazdy, pri zmene parkovacieho lístka, po synchronizácii a najmenej raz za 30 minút. Ťuknutím na widget (mimo tlačidiel) sa otvorí aplikácia.</p>
 
 <h2 id="lista">20. Tlačidlá v rýchlej lište</h2>
 <p>Jazdu alebo chôdzu spustíte či ukončíte aj zo stiahnutej hornej lišty – bez odomykania aplikácie a hľadania widgetu.</p>
@@ -551,6 +561,12 @@
 <div class="tip">Pri výmene telefónu stačí prihlásenie – údaje aj nastavenia sa stiahnu zo servera samy (kapitola 3.4). Súbor zálohy je navyše poistka, napr. ak by bol server nedostupný alebo pri prechode na iný server.</div>
 
 <h2 id="nastavenia">27. Všetky nastavenia</h2>
+<h3>Posuvníky a vlastné hodnoty</h3>
+<ul>
+  <li>Všetky posuvníky sú <b>plynulé a začínajú od 0</b> – hodnotu nastavíte po jednotkách.</li>
+  <li><b>Ťuknutím na číslo</b> vpravo (rámček s ceruzkou) zapíšete <b>vlastnú hodnotu</b> klávesnicou – aj väčšiu, než je koniec posuvníka (napr. denný cieľ 40 000 krokov). Pri pracovnom čase zapíšete čas, napr. <code>7:30</code>.</li>
+  <li>Hodnota 0 znamená „vypnuté / bez obmedzenia“ tam, kde to dáva zmysel (napr. minimálna dĺžka jazdy, tolerancia, opakovanie pripomienky). Pri časoch, ktoré musia trvať aspoň chvíľu (čas na potvrdenie jazdy, ukončenie po státí či nečinnosti, interval GPS), sa 0 správa ako najmenšia možná hodnota – 1 minúta, resp. 1 sekunda.</li>
+</ul>
 <table>
   <tr><th>Sekcia / nastavenie</th><th>Predvolené</th><th>Popis</th></tr>
   <tr><td colspan="3"><b>Automatická detekcia jazdy</b></td></tr>
@@ -710,7 +726,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
 </ul>
 
 <footer>
-  Car Tracking · Používateľská príručka pre verziu 1.7 · © 2026 Richard Gogola<br>
+  Car Tracking · Používateľská príručka pre verziu 1.8 · © 2026 Richard Gogola<br>
   Mapové údaje © Esri, HERE, Garmin, © prispievatelia OpenStreetMap, © OpenTopoMap, snímky © Esri, Maxar.
 </footer>
 

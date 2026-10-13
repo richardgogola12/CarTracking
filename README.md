@@ -25,6 +25,11 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Novinky vo verzii 1.8
+- **4 nové widgety**: tlačidlá (Jazda/Chôdza), kroky (krúžok, séria, týždeň), parkovanie (miesto, čas, odpočet lístka, Nájsť auto), mesiac (km, jazdy, náklady, kroky, porovnanie, graf).
+- **Posuvníky od 0** a **vlastná hodnota** ťuknutím na číslo (aj nad koniec posuvníka, čas ako 7:30).
+- Oprava obnovy pri prázdnych nastaveniach; ak účet na serveri nič nemá, nič sa nesťahuje (`GET /backup/status`).
+
 ## Novinky vo verzii 1.7
 - **Obnova po prihlásení** – na novom telefóne alebo po preinštalovaní sa po prihlásení samy stiahnu nastavenia, vozidlá (aj Bluetooth), miesta, tankovania, pripomienky a všetky jazdy s trasami. Priebeh na Prehľade, beží na pozadí, nič sa nezdvojí.
 - Nastavenia sa ukladajú na server pri každej zmene (`GET/PUT /settings`).
