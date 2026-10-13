@@ -23,6 +23,7 @@ jobs:
         run: |
           set -o pipefail
           M="mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4"
+          for i in $(seq 1 30); do $M -e "SELECT 1" >/dev/null 2>&1 && break; echo "čakám na MySQL…"; sleep 2; done
           $M < backend/schema.sql 2>&1 | tee schema.log || { while IFS= read -r l; do echo "::error::$l"; done < schema.log; exit 1; }
           $M -e "CREATE USER 'car_tracking'@'%' IDENTIFIED BY 'test'; GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'%';" 2>&1 | tee user.log || { while IFS= read -r l; do echo "::error::$l"; done < user.log; exit 1; }
       - name: Spustiť PHP server
