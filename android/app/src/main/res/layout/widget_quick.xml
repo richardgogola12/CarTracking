@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rýchle tlačidlá: stav + Jazda / Chôdza -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/q_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_idle" android:gravity="center_vertical" android:orientation="vertical" android:padding="10dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+        <ImageView android:id="@+id/q_dot" android:layout_width="9dp" android:layout_height="9dp" android:src="@drawable/widget_dot" />
+        <TextView android:id="@+id/q_status" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="6dp" android:ellipsize="end" android:maxLines="1" android:text="Čakám na jazdu"
+            android:textColor="#FFFFFFFF" android:textSize="13sp" android:textStyle="bold" />
+        <TextView android:id="@+id/q_info" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:maxLines="1" android:textColor="#CCFFFFFF" android:textSize="12sp" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal">
+        <TextView android:id="@+id/q_btn1" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+            android:layout_marginEnd="6dp" android:background="@drawable/widget_btn" android:gravity="center" android:maxLines="1"
+            android:text="🚗 Jazda" android:textColor="#FFFFFFFF" android:textSize="14sp" android:textStyle="bold" />
+        <TextView android:id="@+id/q_btn2" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+            android:background="@drawable/widget_btn" android:gravity="center" android:maxLines="1"
+            android:text="🚶 Chôdza" android:textColor="#FFFFFFFF" android:textSize="14sp" android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

@@ -14,7 +14,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -71,21 +77,75 @@ fun SwitchRow(title: String, subtitle: String? = null, checked: Boolean, enabled
     }
 }
 
-/** Plynulý posuvník (bez krokov) – hodnota sa uloží po pustení prsta. Parameter step sa už nepoužíva. */
+/**
+ * Plynulý posuvník od 0 – hodnota sa uloží po pustení prsta.
+ * Ťuknutím na číslo sa dá zapísať vlastná hodnota (aj väčšia než koniec posuvníka).
+ * [range] určuje už len horný koniec posuvníka; parameter step sa nepoužíva.
+ */
 @Composable
 fun SliderRow(title: String, value: Int, range: IntRange, step: Int = 1, unit: String, subtitle: String? = null, format: ((Int) -> String)? = null, onChange: (Int) -> Unit) {
+    val max = range.last.coerceAtLeast(1)
     var temp by remember(value) { mutableFloatStateOf(value.toFloat()) }
+    var editing by remember { mutableStateOf(false) }
+    fun label(v: Int) = format?.invoke(v) ?: "$v $unit".trim()
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text(format?.invoke(temp.roundToInt()) ?: "${temp.roundToInt()} $unit", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+            Surface(
+                onClick = { editing = true },
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(label(temp.roundToInt()), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Icon(Icons.Filled.Edit, "Zadať hodnotu", Modifier.padding(start = 4.dp).size(14.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+            }
         }
         if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Slider(
-            value = temp,
-            onValueChange = { temp = it.coerceIn(range.first.toFloat(), range.last.toFloat()) },
+            value = temp.coerceIn(0f, max.toFloat()),
+            onValueChange = { temp = it.coerceIn(0f, max.toFloat()) },
             onValueChangeFinished = { onChange(temp.roundToInt()) },
-            valueRange = range.first.toFloat()..range.last.toFloat(),
+            valueRange = 0f..max.toFloat(),
+        )
+    }
+    if (editing) {
+        val timeInput = format != null && unit.isBlank()   // napr. pracovný čas „7:30“
+        var text by remember { mutableStateOf(if (timeInput) label(value) else value.toString()) }
+        var error by remember { mutableStateOf<String?>(null) }
+        fun parse(): Int? {
+            val t = text.trim().replace(" ", "").replace('\u00A0'.toString(), "")
+            if (timeInput && t.contains(':')) {
+                val (h, m) = t.split(':', limit = 2).map { it.toIntOrNull() ?: return null }
+                return if (h in 0..24 && m in 0..59) h * 60 + m else null
+            }
+            return t.replace(',', '.').toDoubleOrNull()?.roundToInt()
+        }
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text(title) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(
+                        text, { text = it; error = null }, singleLine = true,
+                        label = { Text(if (timeInput) "Čas (hh:mm)" else "Hodnota" + if (unit.isNotBlank()) " ($unit)" else "") },
+                        keyboardOptions = KeyboardOptions(keyboardType = if (timeInput) KeyboardType.Text else KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text("Posuvník ide od 0 do ${label(max)}; zapísať môžete aj väčšiu hodnotu.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val v = parse()
+                    if (v == null || v < 0) { error = "Zadajte číslo 0 alebo väčšie"; return@TextButton }
+                    temp = v.toFloat(); onChange(v); editing = false
+                }) { Text("Uložiť") }
+            },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text("Zrušiť") } },
         )
     }
 }

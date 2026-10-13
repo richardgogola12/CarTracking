@@ -152,6 +152,52 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
+        <!-- Ďalšie widgety -->
+        <receiver
+            android:name=".widget.QuickWidget"
+            android:exported="false"
+            android:label="Car Tracking – tlačidlá">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.StepsWidget"
+            android:exported="false"
+            android:label="Car Tracking – kroky">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_steps_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.ParkingWidget"
+            android:exported="false"
+            android:label="Car Tracking – parkovanie">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_parking_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.MonthWidget"
+            android:exported="false"
+            android:label="Car Tracking – mesiac">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_month_info" />
+        </receiver>
+
         <!-- Zdieľanie exportu knihy jázd (CSV) -->
         <provider
             android:name="androidx.core.content.FileProvider"

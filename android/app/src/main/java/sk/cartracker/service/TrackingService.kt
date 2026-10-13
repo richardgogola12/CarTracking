@@ -553,14 +553,14 @@ class TrackingService : LifecycleService() {
         when (state) {
             DriveState.CANDIDATE -> {
                 val factor = if (source == SOURCE_BLUETOOTH) 2 else 1
-                if (now - candidateSince > settings.confirmTimeoutMin * 60_000L * factor) discard()
+                if (now - candidateSince > settings.confirmTimeoutMin.coerceAtLeast(1) * 60_000L * factor) discard()
             }
             DriveState.DRIVING -> {
                 if (manual) { updateNotification(); return }
                 val exit = exitSignalAt
                 when {
                     exit != null && now - exit >= EXIT_CONFIRM_MS && lastSpeed < 15 -> finishTrip(lastMovingAt)
-                    now - lastMovingAt >= settings.stopDelayMin * 60_000L -> finishTrip(lastMovingAt)
+                    now - lastMovingAt >= settings.stopDelayMin.coerceAtLeast(1) * 60_000L -> finishTrip(lastMovingAt)
                     else -> updateNotification()
                 }
             }
@@ -568,7 +568,7 @@ class TrackingService : LifecycleService() {
                 publishLive(null)
                 if (manual) { updateNotification(); return }
                 when {
-                    now - lastMovingAt >= settings.walkStopMin * 60_000L -> finishTrip(lastMovingAt)
+                    now - lastMovingAt >= settings.walkStopMin.coerceAtLeast(1) * 60_000L -> finishTrip(lastMovingAt)
                     settings.walkWorkHoursOnly && !settings.walkActiveNow(now) -> finishTrip(now)
                     else -> updateNotification()
                 }
@@ -744,7 +744,7 @@ class TrackingService : LifecycleService() {
     private fun startLocation() {
         if (locationActive) return
         val walking = state == DriveState.WALKING
-        val intervalMs = (if (walking) settings.walkGpsIntervalSec else settings.gpsIntervalSec) * 1000L
+        val intervalMs = (if (walking) settings.walkGpsIntervalSec else settings.gpsIntervalSec).coerceAtLeast(1) * 1000L
         val priority = when {
             walking -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
             settings.highAccuracy -> Priority.PRIORITY_HIGH_ACCURACY

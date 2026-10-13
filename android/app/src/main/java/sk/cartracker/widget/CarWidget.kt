@@ -97,6 +97,7 @@ class CarWidget : AppWidgetProvider() {
             val now = System.currentTimeMillis()
             if (throttle && now - lastUpdate < 20_000) return
             lastUpdate = now
+            ExtraWidgets.updateAll(app)   // ďalšie widgety (tlačidlá, kroky, parkovanie, mesiac)
             val mgr = AppWidgetManager.getInstance(app)
             val ids = mgr.getAppWidgetIds(ComponentName(app, CarWidget::class.java))
             if (ids.isEmpty()) return
@@ -352,13 +353,13 @@ class CarWidget : AppWidgetProvider() {
             return v
         }
 
-        private fun compact(n: Int): String = when {
+        internal fun compact(n: Int): String = when {
             n >= 10_000 -> String.format(Locale("sk"), "%.1fk", n / 1000.0)
             else -> String.format(Locale("sk"), "%,d", n)
         }
 
         /** Stĺpcový graf km po dňoch, dnešný deň zvýraznený. */
-        private fun weekChart(
+        internal fun weekChart(
             week: List<Pair<String, Double>>, w: Int, h: Int, d: Float,
             todayColor: Int = Color.rgb(0x69, 0xF0, 0xAE), steps: Boolean = false,
         ): Bitmap {
@@ -457,7 +458,7 @@ class CarWidget : AppWidgetProvider() {
         }
 
         /** Krúžok krokov k dennému cieľu. */
-        private fun stepRing(steps: Int, goal: Int, size: Int, d: Float): Bitmap {
+        internal fun stepRing(steps: Int, goal: Int, size: Int, d: Float): Bitmap {
             val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val c = Canvas(bmp)
             val stroke = 7 * d
@@ -494,7 +495,7 @@ class CarWidget : AppWidgetProvider() {
             return bmp
         }
 
-        private fun openApp(ctx: Context) = PendingIntent.getActivity(
+        internal fun openApp(ctx: Context) = PendingIntent.getActivity(
             ctx, 10, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
@@ -512,7 +513,7 @@ class CarWidget : AppWidgetProvider() {
         )
 
         /** Ťuknutie na widget = interakcia používateľa → služba v popredí sa smie spustiť. */
-        private fun service(ctx: Context, action: String, code: Int) = PendingIntent.getForegroundService(
+        internal fun service(ctx: Context, action: String, code: Int) = PendingIntent.getForegroundService(
             ctx, code, Intent(ctx, TrackingService::class.java).setAction(action),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )

@@ -134,6 +134,7 @@ fun ActivityCalendar(all: List<TripEntity>, walk: Boolean, monthTs: Long, stepGo
 
 /** Série dní so splneným cieľom krokov: (aktuálna, najdlhšia). */
 fun stepStreaks(totals: Map<Long, Double>, goal: Int): Pair<Int, Int> {
+    if (goal <= 0) return 0 to 0
     val goalDays = totals.filter { it.value >= goal }.keys.sorted()
     var best = 0; var run = 0; var prev: Long? = null
     for (d in goalDays) {

@@ -309,7 +309,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 }
             }
             SwitchRow("Režim offline", "Mapy iba z uložených dlaždíc – bez internetu", s.offlineMaps) { on -> update { it.copy(offlineMaps = on) } }
-            SliderRow("Miesto pre uložené mapy", s.mapCacheMb.coerceIn(100, 4000), 100..4000, 1, "MB",
+            SliderRow("Miesto pre uložené mapy", s.mapCacheMb, 100..4000, 1, "MB",
                 "Po zmene sa prejaví pri ďalšom spustení aplikácie.") { v -> update { it.copy(mapCacheMb = v) } }
             Text("Offline mapy – uložiť oblasť", Modifier.fillMaxWidth().clickable { onNavigate("offline") }.padding(16.dp),
                 color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
