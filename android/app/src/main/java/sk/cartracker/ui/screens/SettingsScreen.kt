@@ -191,6 +191,8 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 "Dlhší interval šetrí batériu počas celého pracovného dňa.") { v -> update { it.copy(walkGpsIntervalSec = v) } }
             SwitchRow("Notifikácia pri začiatku a konci chôdze", null, s.walkNotify) { on -> update { it.copy(walkNotify = on) } }
             SwitchRow("Vibrovať pri začiatku a konci chôdze", null, s.walkVibrate) { on -> update { it.copy(walkVibrate = on) } }
+            SliderRow("Denný cieľ krokov", s.dailyStepGoal, 1000..30000, 1, "", "Zobrazuje sa vo widgete ako krúžok.",
+                format = { String.format(java.util.Locale("sk"), "%,d krokov", it) }) { v -> update { it.copy(dailyStepGoal = v) } }
         }
 
         // ---------- Synchronizácia ----------

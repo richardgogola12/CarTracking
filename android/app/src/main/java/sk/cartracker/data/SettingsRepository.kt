@@ -90,6 +90,7 @@ data class AppSettings(
     val walkGpsIntervalSec: Int = 10,
     val walkNotify: Boolean = false,
     val walkVibrate: Boolean = false,
+    val dailyStepGoal: Int = 8000,
     // Automatické zlučovanie (zastávka na pumpe, v obchode…)
     val autoMerge: Boolean = true,
     val autoMergeGapMin: Int = 10,        // auto: max. dĺžka prestávky
@@ -167,6 +168,7 @@ class SettingsRepository(private val context: Context) {
         val WALK_GPS = intPreferencesKey("walk_gps_interval")
         val WALK_NOTIFY = booleanPreferencesKey("walk_notify")
         val WALK_VIBRATE = booleanPreferencesKey("walk_vibrate")
+        val STEP_GOAL = intPreferencesKey("daily_step_goal")
         val AUTO_MERGE = booleanPreferencesKey("auto_merge")
         val MERGE_GAP = intPreferencesKey("auto_merge_gap")
         val WALK_MERGE_GAP = intPreferencesKey("walk_merge_gap")
@@ -236,6 +238,7 @@ class SettingsRepository(private val context: Context) {
             walkGpsIntervalSec = p[K.WALK_GPS] ?: d.walkGpsIntervalSec,
             walkNotify = p[K.WALK_NOTIFY] ?: d.walkNotify,
             walkVibrate = p[K.WALK_VIBRATE] ?: d.walkVibrate,
+            dailyStepGoal = p[K.STEP_GOAL] ?: d.dailyStepGoal,
             autoMerge = p[K.AUTO_MERGE] ?: d.autoMerge,
             autoMergeGapMin = p[K.MERGE_GAP] ?: d.autoMergeGapMin,
             walkMergeGapMin = p[K.WALK_MERGE_GAP] ?: d.walkMergeGapMin,
@@ -294,6 +297,7 @@ class SettingsRepository(private val context: Context) {
         p[K.WALK_GPS] = s.walkGpsIntervalSec
         p[K.WALK_NOTIFY] = s.walkNotify
         p[K.WALK_VIBRATE] = s.walkVibrate
+        p[K.STEP_GOAL] = s.dailyStepGoal
         p[K.AUTO_MERGE] = s.autoMerge
         p[K.MERGE_GAP] = s.autoMergeGapMin
         p[K.WALK_MERGE_GAP] = s.walkMergeGapMin
