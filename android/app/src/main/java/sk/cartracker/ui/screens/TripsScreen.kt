@@ -3,6 +3,8 @@ package sk.cartracker.ui.screens
 import android.content.Intent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BusinessCenter
 import androidx.compose.material.icons.filled.CloudDone
@@ -31,6 +34,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -69,6 +74,11 @@ import kotlinx.coroutines.launch
 import sk.cartracker.container
 import sk.cartracker.data.AppSettings
 import sk.cartracker.data.DrivingScore
+import sk.cartracker.data.cost
+import sk.cartracker.data.liters
+import sk.cartracker.data.local.TYPE_CAR
+import sk.cartracker.data.local.TYPE_WALK
+import sk.cartracker.data.local.VehicleEntity
 import sk.cartracker.data.local.CATEGORY_BUSINESS
 import sk.cartracker.data.local.CATEGORY_PRIVATE
 import sk.cartracker.data.local.PointEntity
@@ -102,6 +112,9 @@ fun TripsScreen(onOpenTrip: (Long) -> Unit) {
     val c = LocalContext.current.container
     val trips by remember { c.trips.trips() }.collectAsStateWithLifecycle(emptyList())
     val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
+    val vehicleList by remember { c.vehicles.vehicles() }.collectAsStateWithLifecycle(emptyList())
+    var allVehicles by remember { mutableStateOf<Map<String, VehicleEntity>>(emptyMap()) }
+    LaunchedEffect(vehicleList) { allVehicles = c.vehicles.all().associateBy { it.uuid } }
     var filter by rememberSaveable { mutableStateOf("all") }
 
     if (trips.isEmpty()) {
@@ -117,16 +130,27 @@ fun TripsScreen(onOpenTrip: (Long) -> Unit) {
         return
     }
 
-    val shown = remember(trips, filter) { if (filter == "all") trips else trips.filter { it.category == filter } }
+    val shown = remember(trips, filter) {
+        when (filter) {
+            "all" -> trips
+            TYPE_CAR -> trips.filter { !it.isWalk }
+            TYPE_WALK -> trips.filter { it.isWalk }
+            else -> trips.filter { !it.isWalk && it.category == filter }
+        }
+    }
     val grouped = remember(shown) { shown.groupBy { formatDay(it.startedAt) } }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item(key = "filter") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(filter == "all", { filter = "all" }, { Text("Všetky (${trips.size})") })
-                FilterChip(filter == CATEGORY_PRIVATE, { filter = CATEGORY_PRIVATE }, { Text("Súkromné") },
-                    leadingIcon = { Icon(Icons.Filled.Home, null, Modifier.size(16.dp)) })
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(filter == "all", { filter = "all" }, { Text("Všetko") })
+                FilterChip(filter == TYPE_CAR, { filter = TYPE_CAR }, { Text("Auto") },
+                    leadingIcon = { Icon(Icons.Filled.DirectionsCar, null, Modifier.size(16.dp)) })
+                FilterChip(filter == TYPE_WALK, { filter = TYPE_WALK }, { Text("Chôdza") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, Modifier.size(16.dp)) })
                 FilterChip(filter == CATEGORY_BUSINESS, { filter = CATEGORY_BUSINESS }, { Text("Služobné") },
                     leadingIcon = { Icon(Icons.Filled.BusinessCenter, null, Modifier.size(16.dp)) })
+                FilterChip(filter == CATEGORY_PRIVATE, { filter = CATEGORY_PRIVATE }, { Text("Súkromné") },
+                    leadingIcon = { Icon(Icons.Filled.Home, null, Modifier.size(16.dp)) })
             }
         }
         grouped.forEach { (day, list) ->
@@ -138,13 +162,13 @@ fun TripsScreen(onOpenTrip: (Long) -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            items(list, key = { it.id }) { TripRow(it, s) { onOpenTrip(it.id) } }
+            items(list, key = { it.id }) { TripRow(it, s, allVehicles[it.vehicleUuid]) { onOpenTrip(it.id) } }
         }
     }
 }
 
 @Composable
-private fun TripRow(t: TripEntity, s: AppSettings, onClick: () -> Unit) {
+private fun TripRow(t: TripEntity, s: AppSettings, vehicle: VehicleEntity?, onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -153,6 +177,7 @@ private fun TripRow(t: TripEntity, s: AppSettings, onClick: () -> Unit) {
             ) {
                 Icon(
                     when {
+                        t.isWalk -> Icons.AutoMirrored.Filled.DirectionsWalk
                         t.category == CATEGORY_BUSINESS -> Icons.Filled.BusinessCenter
                         t.triggerSource == "bluetooth" -> Icons.Filled.Bluetooth
                         t.triggerSource == "manual" -> Icons.Filled.TouchApp
@@ -163,7 +188,9 @@ private fun TripRow(t: TripEntity, s: AppSettings, onClick: () -> Unit) {
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(t.routeTitle(), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${formatTime(t.startedAt)} · ${formatDuration((t.endedAt ?: t.startedAt) - t.startedAt)} · Ø ${t.avgSpeedKmh.toInt()} km/h · ${formatMoney(s.fuelCost(t.distanceM))}",
+                Text(if (t.isWalk) "${formatTime(t.startedAt)} · ${formatDuration((t.endedAt ?: t.startedAt) - t.startedAt)} · ${t.steps} krokov"
+                    else "${formatTime(t.startedAt)} · ${formatDuration((t.endedAt ?: t.startedAt) - t.startedAt)} · ${formatMoney(t.cost(vehicle, s))}" +
+                        (vehicle?.let { " · ${it.plate.ifBlank { it.name }}" } ?: ""),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (t.note.isNotBlank()) Text(t.note, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -194,10 +221,13 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
     val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
     var points by remember { mutableStateOf<List<PointEntity>>(emptyList()) }
     var odometer by remember { mutableStateOf<Double?>(null) }
+    val vehicles by remember { c.vehicles.vehicles() }.collectAsStateWithLifecycle(emptyList())
+    var vehicle by remember { mutableStateOf<VehicleEntity?>(null) }
+    LaunchedEffect(trip?.vehicleUuid, vehicles) { vehicle = c.vehicles.byUuid(trip?.vehicleUuid) }
     var confirmDelete by remember { mutableStateOf(false) }
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(tripId) { points = c.trips.points(tripId) }
-    LaunchedEffect(trip?.startedAt, s.odometerKm, s.odometerDate) { trip?.let { odometer = c.trips.odometerAt(it.startedAt, s) } }
+    LaunchedEffect(trip?.startedAt, vehicle) { trip?.let { odometer = c.trips.odometerAt(it.startedAt, vehicle) } }
 
     val routes = remember(points, trip?.startAddress, trip?.endAddress) {
         listOf(MapRoute(points, trip?.startAddress, trip?.endAddress))
@@ -225,11 +255,13 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
     }) { pad ->
         val t = trip ?: return@Scaffold
         if (fullscreen) {
-            RouteMap(routes, Modifier.padding(pad).fillMaxSize(), fullscreen = true, onToggleFullscreen = { fullscreen = false })
+            RouteMap(routes, Modifier.padding(pad).fillMaxSize(), colorBySpeed = !t.isWalk, showEvents = !t.isWalk,
+                fullscreen = true, onToggleFullscreen = { fullscreen = false })
             return@Scaffold
         }
         Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState())) {
-            RouteMap(routes, Modifier.fillMaxWidth().height(380.dp), onToggleFullscreen = { fullscreen = true })
+            RouteMap(routes, Modifier.fillMaxWidth().height(380.dp), colorBySpeed = !t.isWalk, showEvents = !t.isWalk,
+                onToggleFullscreen = { fullscreen = true })
 
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Trasa
@@ -239,8 +271,29 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                         PlaceRow("B", Color(0xFFC62828), t.endAddress ?: "Adresa nezistená", t.endedAt?.let { formatDateTime(it) } ?: "")
                     }
                 }
+                // Vozidlo jazdy – dá sa zmeniť aj dodatočne
+                if (!t.isWalk) TripVehicleCard(vehicle, vehicles) { v ->
+                    scope.launch {
+                        c.trips.setVehicle(t, v.uuid)
+                        if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
+                    }
+                }
+                // Chôdza
+                if (t.isWalk) SectionCard("Chôdza") {
+                    val mins = ((t.endedAt ?: t.startedAt) - t.startedAt) / 60_000.0
+                    Row(Modifier.fillMaxWidth().padding(12.dp)) {
+                        StatBox("Kroky", "${t.steps}", Modifier.weight(1f))
+                        StatBox("Vzdialenosť", formatDistance(t.distanceM), Modifier.weight(1f))
+                        StatBox("Trvanie", formatDuration((t.endedAt ?: t.startedAt) - t.startedAt), Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                        StatBox("Tempo", if (t.distanceM > 50) paceText(mins / (t.distanceM / 1000.0)) else "–", Modifier.weight(1f))
+                        StatBox("Priemer", String.format(java.util.Locale("sk"), "%.1f km/h", t.avgSpeedKmh), Modifier.weight(1f))
+                        StatBox("Kroky/min", if (mins > 0) "${(t.steps / mins).toInt()}" else "–", Modifier.weight(1f))
+                    }
+                }
                 // Štatistiky
-                SectionCard("Štatistiky") {
+                if (!t.isWalk) SectionCard("Štatistiky") {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(Modifier.fillMaxWidth()) {
                             StatBox("Vzdialenosť", formatDistance(t.distanceM), Modifier.weight(1f))
@@ -249,8 +302,8 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                         }
                         Row(Modifier.fillMaxWidth()) {
                             StatBox("Maximum", "${t.maxSpeedKmh.toInt()} km/h", Modifier.weight(1f))
-                            StatBox("Palivo", String.format(java.util.Locale("sk"), "%.1f l", s.fuelLiters(t.distanceM)), Modifier.weight(1f))
-                            StatBox("Náklady", formatMoney(s.fuelCost(t.distanceM)), Modifier.weight(1f))
+                            StatBox("Palivo", String.format(java.util.Locale("sk"), "%.1f %s", t.liters(vehicle, s), vehicle?.unit ?: "l"), Modifier.weight(1f))
+                            StatBox("Náklady", formatMoney(t.cost(vehicle, s)), Modifier.weight(1f))
                         }
                     }
                 }
@@ -268,7 +321,7 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                     }
                 }
                 // Kniha jázd
-                TripLogbookCard(t, odometer) { category, note ->
+                if (!t.isWalk) TripLogbookCard(t, odometer) { category, note ->
                     scope.launch {
                         c.trips.updateMeta(t, category, note)
                         if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
@@ -356,6 +409,33 @@ private fun TripLogbookCard(t: TripEntity, odometer: Double?, onSave: (String, S
             odometer?.let {
                 Text("Tachometer: ${it.toLong()} km → ${(it + t.distanceM / 1000).toLong()} km",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+fun paceText(minPerKm: Double): String {
+    val m = minPerKm.toInt()
+    val sec = ((minPerKm - m) * 60).toInt()
+    return String.format(java.util.Locale("sk"), "%d:%02d min/km", m, sec)
+}
+
+@Composable
+private fun TripVehicleCard(current: VehicleEntity?, vehicles: List<VehicleEntity>, onChange: (VehicleEntity) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    SectionCard("Vozidlo") {
+        Box {
+            Row(Modifier.fillMaxWidth().clickable { open = true }.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.DirectionsCar, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.size(12.dp))
+                Text(current?.label ?: "Nepriradené", Modifier.weight(1f), fontWeight = FontWeight.Medium)
+                Text("Zmeniť", color = MaterialTheme.colorScheme.primary)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                vehicles.forEach { v ->
+                    DropdownMenuItem(text = { Text(v.label) }, onClick = { open = false; if (v.uuid != current?.uuid) onChange(v) })
+                }
             }
         }
     }

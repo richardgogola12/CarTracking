@@ -17,6 +17,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.HourglassTop
@@ -65,7 +75,7 @@ import sk.cartracker.ui.permissionItems
 import java.util.Calendar
 
 @Composable
-fun HomeScreen(onOpenPermissions: () -> Unit) {
+fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}) {
     val ctx = LocalContext.current
     val c = ctx.container
     val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
@@ -73,6 +83,10 @@ fun HomeScreen(onOpenPermissions: () -> Unit) {
     val live by TrackingState.live.collectAsState()
     val trips by remember { c.trips.trips() }.collectAsStateWithLifecycle(emptyList())
     val pending by remember { c.trips.pendingCount() }.collectAsStateWithLifecycle(0)
+    val vehicles by remember { c.vehicles.vehicles() }.collectAsStateWithLifecycle(emptyList())
+    val scope = rememberCoroutineScope()
+    var vehicleMenu by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { c.vehicles.ensureDefault() }
 
     var resumeTick by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) { resumeTick++; onPauseOrDispose { } }
@@ -86,6 +100,34 @@ fun HomeScreen(onOpenPermissions: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Ahoj, ${c.session.user()?.name ?: ""}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+
+        // ---- Aktívne vozidlo – prepínateľné kedykoľvek, aj počas jazdy ----
+        val activeVehicle = vehicles.firstOrNull { it.uuid == s.activeVehicleUuid } ?: vehicles.firstOrNull()
+        Box {
+            Card(onClick = { vehicleMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.DirectionsCar, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.size(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Vozidlo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(activeVehicle?.label ?: "Pridajte vozidlo", fontWeight = FontWeight.SemiBold)
+                    }
+                    Icon(Icons.Filled.ArrowDropDown, "Zmeniť vozidlo")
+                }
+            }
+            DropdownMenu(expanded = vehicleMenu, onDismissRequest = { vehicleMenu = false }) {
+                vehicles.forEach { v ->
+                    DropdownMenuItem(
+                        text = { Text(v.label) },
+                        leadingIcon = { if (v.uuid == activeVehicle?.uuid) Icon(Icons.Filled.Check, null) else Spacer(Modifier.size(24.dp)) },
+                        onClick = { vehicleMenu = false; scope.launch { c.vehicles.setActive(v.uuid) } },
+                    )
+                }
+                HorizontalDivider()
+                DropdownMenuItem(text = { Text("Spravovať vozidlá…") }, leadingIcon = { Icon(Icons.Filled.Settings, null) },
+                    onClick = { vehicleMenu = false; onOpenVehicles() })
+            }
+        }
 
         if (missing.isNotEmpty()) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), onClick = onOpenPermissions) {
@@ -106,8 +148,13 @@ fun HomeScreen(onOpenPermissions: () -> Unit) {
                 if (live?.manual == true) "Ručne spustená jazda" else "Automaticky rozpoznaná jazda")
             DriveState.CANDIDATE -> Quad(Color(0xFFEF6C00), Icons.Filled.HourglassTop, "Overujem jazdu…",
                 "Čakám, kým rýchlosť potvrdí, že ide o auto")
+            DriveState.WALKING -> Quad(Color(0xFF1565C0), Icons.AutoMirrored.Filled.DirectionsWalk, "Chôdza sa zaznamenáva",
+                if (live?.manual == true) "Ručne spustená chôdza" else "Automaticky rozpoznaná chôdza")
             DriveState.IDLE -> Quad(MaterialTheme.colorScheme.outline, Icons.Filled.LocalParking, "Čakám na jazdu",
-                if (s.autoDetection) "Automatická detekcia je zapnutá" else "Automatická detekcia je VYPNUTÁ")
+                listOf(
+                    if (s.autoDetection) "auto: zapnuté" else "auto: VYPNUTÉ",
+                    if (!s.walkTracking) "chôdza: vypnutá" else if (s.walkWorkHoursOnly) "chôdza: v pracovnom čase" else "chôdza: zapnutá",
+                ).joinToString(" · "))
         }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -119,7 +166,16 @@ fun HomeScreen(onOpenPermissions: () -> Unit) {
                 Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 val l = live
+                if (state == DriveState.WALKING && l != null) {
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth()) {
+                        StatBox("Kroky", "${l.steps}", Modifier.weight(1f))
+                        StatBox("Vzdialenosť", formatDistance(l.distanceM), Modifier.weight(1f))
+                        StatBox("Čas", formatDuration(now - l.startedAt), Modifier.weight(1f))
+                    }
+                }
                 if (state == DriveState.DRIVING && l != null) {
+                    l.vehicleName?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
                     Spacer(Modifier.height(16.dp))
                     Row(Modifier.fillMaxWidth()) {
                         StatBox("Vzdialenosť", formatDistance(l.distanceM), Modifier.weight(1f))
@@ -132,20 +188,25 @@ fun HomeScreen(onOpenPermissions: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                if (state == DriveState.DRIVING) {
+                val hasLoc = { ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED }
+                if (state == DriveState.DRIVING || state == DriveState.WALKING) {
                     Button(
                         onClick = { TrackingService.signal(ctx, TrackingService.ACTION_STOP) },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Icon(Icons.Filled.Stop, null); Spacer(Modifier.size(8.dp)); Text("Ukončiť jazdu") }
-                } else {
-                    OutlinedButton(
-                        onClick = {
-                            val ok = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                            if (ok) TrackingService.startManual(ctx) else onOpenPermissions()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Icon(Icons.Filled.PlayArrow, null); Spacer(Modifier.size(8.dp)); Text("Spustiť jazdu ručne") }
+                    ) { Icon(Icons.Filled.Stop, null); Spacer(Modifier.size(8.dp)); Text(if (state == DriveState.WALKING) "Ukončiť chôdzu" else "Ukončiť jazdu") }
+                }
+                if (state != DriveState.DRIVING) {
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { if (hasLoc()) TrackingService.startManual(ctx) else onOpenPermissions() },
+                            modifier = Modifier.weight(1f),
+                        ) { Icon(Icons.Filled.DirectionsCar, null); Spacer(Modifier.size(6.dp)); Text("Jazda") }
+                        if (state != DriveState.WALKING) OutlinedButton(
+                            onClick = { if (hasLoc()) TrackingService.startManualWalk(ctx) else onOpenPermissions() },
+                            modifier = Modifier.weight(1f),
+                        ) { Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null); Spacer(Modifier.size(6.dp)); Text("Chôdza") }
+                    }
                 }
             }
         }
@@ -181,10 +242,21 @@ fun HomeScreen(onOpenPermissions: () -> Unit) {
         val today = trips.filter { it.startedAt >= startOfDay }
         val week = trips.filter { it.startedAt >= startOfWeek }
         SectionCard("Prehľad") {
-            Row(Modifier.fillMaxWidth().padding(12.dp)) {
-                StatBox("Dnes", formatDistance(today.sumOf { it.distanceM }), Modifier.weight(1f))
-                StatBox("Tento týždeň", formatDistance(week.sumOf { it.distanceM }), Modifier.weight(1f))
-                StatBox("Jázd spolu", trips.size.toString(), Modifier.weight(1f))
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("🚗 Auto", style = MaterialTheme.typography.labelLarge)
+                Row(Modifier.fillMaxWidth()) {
+                    StatBox("Dnes", formatDistance(today.filter { !it.isWalk }.sumOf { it.distanceM }), Modifier.weight(1f))
+                    StatBox("Tento týždeň", formatDistance(week.filter { !it.isWalk }.sumOf { it.distanceM }), Modifier.weight(1f))
+                    StatBox("Jázd spolu", trips.count { !it.isWalk }.toString(), Modifier.weight(1f))
+                }
+                if (s.walkTracking || trips.any { it.isWalk }) {
+                    Text("🚶 Chôdza", style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.fillMaxWidth()) {
+                        StatBox("Kroky dnes", today.filter { it.isWalk }.sumOf { it.steps }.toString(), Modifier.weight(1f))
+                        StatBox("Dnes", formatDistance(today.filter { it.isWalk }.sumOf { it.distanceM }), Modifier.weight(1f))
+                        StatBox("Tento týždeň", formatDistance(week.filter { it.isWalk }.sumOf { it.distanceM }), Modifier.weight(1f))
+                    }
+                }
             }
         }
 
@@ -196,7 +268,7 @@ fun HomeScreen(onOpenPermissions: () -> Unit) {
                 val last = remember(resumeTick, state) { RuntimeState.lastActivity(ctx) }
                 if (last != null) Text("Posledná zmena: $last (${formatDateTime(RuntimeState.lastActivityAt(ctx))})",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (s.carBtAddress.isNotEmpty()) Text("Bluetooth auta (${s.carBtName}): " +
+                if (vehicles.any { it.btAddress.isNotEmpty() }) Text("Bluetooth vozidla: " +
                     if (RuntimeState.isCarBtConnected(ctx)) "pripojené" else "odpojené", style = MaterialTheme.typography.bodySmall)
                 Text("Čaká na odoslanie: $pending jázd", style = MaterialTheme.typography.bodySmall)
                 val lastSync = remember(resumeTick, pending) { RuntimeState.lastSyncAt(ctx) }

@@ -42,6 +42,7 @@ import sk.cartracker.ui.screens.SettingsScreen
 import sk.cartracker.ui.screens.StatsScreen
 import sk.cartracker.ui.screens.TripDetailScreen
 import sk.cartracker.ui.screens.TripsScreen
+import sk.cartracker.ui.screens.VehiclesScreen
 import sk.cartracker.ui.theme.CarTrackerTheme
 
 /** FragmentActivity – potrebné pre BiometricPrompt. Zatvorenie okna sledovanie NEzastaví (beží v službe). */
@@ -86,8 +87,10 @@ private fun AppNavigation(start: String) {
                 onOpenPermissions = { nav.navigate("permissions") },
                 onLoggedOut = { nav.goClean("login") },
                 onOpenHelp = { nav.navigate("help") },
+                onOpenVehicles = { nav.navigate("vehicles") },
             )
         }
+        composable("vehicles") { VehiclesScreen(onBack = { nav.popBackStack() }) }
         composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
         composable("trip/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
             TripDetailScreen(it.arguments?.getLong("id") ?: 0L, onBack = { nav.popBackStack() })
@@ -99,7 +102,7 @@ private fun AppNavigation(start: String) {
 }
 
 @Composable
-private fun MainTabs(onOpenTrip: (Long) -> Unit, onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit) {
+private fun MainTabs(onOpenTrip: (Long) -> Unit, onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit, onOpenVehicles: () -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Scaffold(bottomBar = {
         NavigationBar {
@@ -112,10 +115,10 @@ private fun MainTabs(onOpenTrip: (Long) -> Unit, onOpenPermissions: () -> Unit, 
         val m = Modifier.padding(pad)
         Surface(m) {
             when (tab) {
-                0 -> HomeScreen(onOpenPermissions)
+                0 -> HomeScreen(onOpenPermissions, onOpenVehicles)
                 1 -> TripsScreen(onOpenTrip)
                 2 -> StatsScreen()
-                else -> SettingsScreen(onOpenPermissions, onLoggedOut, onOpenHelp)
+                else -> SettingsScreen(onOpenPermissions, onLoggedOut, onOpenHelp, onOpenVehicles)
             }
         }
     }

@@ -19,6 +19,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -54,7 +55,7 @@ import sk.cartracker.service.Notifications
 import sk.cartracker.sync.SyncWorker
 
 @Composable
-fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit = {}) {
+fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit = {}, onOpenVehicles: () -> Unit = {}) {
     val ctx = LocalContext.current
     val activity = ctx.findActivity()
     val c = ctx.container
@@ -83,7 +84,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
             SwitchRow("Automaticky sledovať jazdu autom", "Spustí sa sama, keď telefón rozpozná jazdu vo vozidle",
                 s.autoDetection) { on ->
                 update { it.copy(autoDetection = on) }
-                scope.launch { if (on) ActivityDetectionManager.register(ctx) else ActivityDetectionManager.unregister(ctx) }
+                scope.launch { if (on || s.walkTracking) ActivityDetectionManager.register(ctx) else ActivityDetectionManager.unregister(ctx) }
             }
             SwitchRow("Spustiť po reštarte telefónu", null, s.startOnBoot, enabled = s.autoDetection) { on -> update { it.copy(startOnBoot = on) } }
             SliderRow("Rýchlosť potvrdzujúca auto", s.minDriveSpeedKmh, 15..50, 5, "km/h",
@@ -125,27 +126,50 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
             }
         }
 
-        // ---------- Bluetooth ----------
-        SectionCard("Bluetooth auta (voliteľné)") {
-            Text("Ak má auto Bluetooth, jeho pripojenie je spoľahlivý signál, že sedíte v aute – a odlíši ho aj od autobusu či vlaku.",
+        // ---------- Vozidlá ----------
+        SectionCard("Vozidlá") {
+            Text("Názov, EČV, palivo, spotreba, cena, tachometer a Bluetooth sa nastavujú pri každom vozidle.",
                 Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(Modifier.fillMaxWidth().clickable {
-                val needs = Build.VERSION.SDK_INT >= 31 &&
-                    ContextCompat.checkSelfPermission(ctx, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
-                if (needs) btPermLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT) else showBtPicker = true
-            }.padding(16.dp)) {
-                Column(Modifier.weight(1f)) {
-                    Text("Bluetooth zariadenie auta")
-                    Text(if (s.carBtName.isEmpty()) "Nevybrané – ťuknite pre výber" else s.carBtName,
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (s.carBtAddress.isNotEmpty()) TextButton(onClick = {
-                    update { it.copy(carBtAddress = "", carBtName = "", bluetoothTrigger = false, bluetoothRequired = false) }
-                }) { Text("Zrušiť") }
+            Text("Spravovať vozidlá", Modifier.fillMaxWidth().clickable(onClick = onOpenVehicles).padding(16.dp),
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            SwitchRow("Spustiť sledovanie po pripojení Bluetooth vozidla", "Vozidlo sa zároveň samo nastaví ako aktívne",
+                s.bluetoothTrigger) { on -> update { it.copy(bluetoothTrigger = on) } }
+            SwitchRow("Sledovať iba keď je pripojené vozidlo", "Ignoruje autobus, vlak, taxík…", s.bluetoothRequired) { on -> update { it.copy(bluetoothRequired = on) } }
+        }
+
+        // ---------- Chôdza ----------
+        SectionCard("Chôdza") {
+            SwitchRow("Automaticky sledovať chôdzu", "Kroky, vzdialenosť a trasa pešo", s.walkTracking) { on ->
+                update { it.copy(walkTracking = on) }
+                scope.launch { if (on || s.autoDetection) ActivityDetectionManager.register(ctx) else ActivityDetectionManager.unregister(ctx) }
             }
-            val hasCar = s.carBtAddress.isNotEmpty()
-            SwitchRow("Spustiť sledovanie po pripojení k autu", null, s.bluetoothTrigger, enabled = hasCar) { on -> update { it.copy(bluetoothTrigger = on) } }
-            SwitchRow("Sledovať iba keď je pripojené auto", "Ignoruje autobus, vlak, taxík…", s.bluetoothRequired, enabled = hasCar) { on -> update { it.copy(bluetoothRequired = on) } }
+            SwitchRow("Iba v pracovnom čase", "Mimo pracovného času sa chôdza nezaznamenáva", s.walkWorkHoursOnly, enabled = s.walkTracking) { on ->
+                update { it.copy(walkWorkHoursOnly = on) }
+            }
+            if (s.walkTracking && s.walkWorkHoursOnly) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("Po", "Ut", "St", "Št", "Pi", "So", "Ne").forEachIndexed { i, d ->
+                        val day = i + 1
+                        val on = day in s.workDaySet
+                        FilterChip(on, {
+                            val set = if (on) s.workDaySet - day else s.workDaySet + day
+                            update { it.copy(workDays = set.sorted().joinToString(",")) }
+                        }, { Text(d) })
+                    }
+                }
+                SliderRow("Začiatok práce", s.workFromMin, 0..1410, 30, "", format = { hm(it) }) { v -> update { it.copy(workFromMin = v) } }
+                SliderRow("Koniec práce", s.workToMin, 30..1440, 30, "", format = { hm(it) }) { v -> update { it.copy(workToMin = v) } }
+            }
+            SliderRow("Dĺžka kroku", s.strideCm, 50..100, 1, "cm",
+                "Vzdialenosť sa počíta z krokov – funguje aj v budove bez GPS.") { v -> update { it.copy(strideCm = v) } }
+            SliderRow("Ukončiť po nečinnosti", s.walkStopMin, 1..15, 1, "min",
+                "Koľko minút bez krokov ukončí záznam chôdze.") { v -> update { it.copy(walkStopMin = v) } }
+            SliderRow("Minimálna vzdialenosť", s.walkMinDistanceM, 0..1000, 50, "m",
+                "Kratšie presuny (napr. ku kávovaru) sa neukladajú.") { v -> update { it.copy(walkMinDistanceM = v) } }
+            SliderRow("Interval GPS pri chôdzi", s.walkGpsIntervalSec, 5..60, 5, "s",
+                "Dlhší interval šetrí batériu počas celého pracovného dňa.") { v -> update { it.copy(walkGpsIntervalSec = v) } }
+            SwitchRow("Notifikácia pri začiatku a konci chôdze", null, s.walkNotify) { on -> update { it.copy(walkNotify = on) } }
+            SwitchRow("Vibrovať pri začiatku a konci chôdze", null, s.walkVibrate) { on -> update { it.copy(walkVibrate = on) } }
         }
 
         // ---------- Synchronizácia ----------
@@ -178,36 +202,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                     Text(label)
                 }
             }
-            var carName by remember(s.carName) { mutableStateOf(s.carName) }
-            var plate by remember(s.licensePlate) { mutableStateOf(s.licensePlate) }
-            var odo by remember(s.odometerKm) { mutableStateOf(if (s.odometerKm > 0) s.odometerKm.toString() else "") }
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(carName, { carName = it }, label = { Text("Vozidlo (napr. Škoda Octavia)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(plate, { plate = it.uppercase() }, label = { Text("EČV (ŠPZ)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(odo, { odo = it.filter(Char::isDigit).take(7) }, label = { Text("Aktuálny stav tachometra (km)") }, singleLine = true,
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                    supportingText = { if (s.odometerDate > 0) Text("Zadané ${sk.cartracker.ui.formatDateTime(s.odometerDate)} – ďalej sa dopočítava z jázd") },
-                    modifier = Modifier.fillMaxWidth())
-                val changed = carName != s.carName || plate != s.licensePlate || odo != (if (s.odometerKm > 0) s.odometerKm.toString() else "")
-                Button(enabled = changed, onClick = {
-                    val newOdo = odo.toIntOrNull() ?: 0
-                    update {
-                        it.copy(carName = carName.trim(), licensePlate = plate.trim(), odometerKm = newOdo,
-                            odometerDate = if (newOdo != it.odometerKm) System.currentTimeMillis() else it.odometerDate)
-                    }
-                    message = "Údaje o vozidle uložené"
-                }) { Text("Uložiť údaje o vozidle") }
-            }
             SwitchRow("Zisťovať adresy začiatku a cieľa", "Ulica a mesto v zozname jázd a v knihe jázd (potrebuje internet)", s.detectAddresses) { on -> update { it.copy(detectAddresses = on) } }
-        }
-
-        // ---------- Palivo ----------
-        SectionCard("Palivo a náklady") {
-            SliderRow("Priemerná spotreba", s.fuelConsumptionX10, 30..200, 5, "l/100 km",
-                format = { String.format(java.util.Locale("sk"), "%.1f l/100 km", it / 10.0) }) { v -> update { it.copy(fuelConsumptionX10 = v) } }
-            SliderRow("Cena paliva", s.fuelPriceCents, 100..250, 1, "€/l",
-                "Náklady sú odhad: km × spotreba × cena.",
-                format = { String.format(java.util.Locale("sk"), "%.2f €/l", it / 100.0) }) { v -> update { it.copy(fuelPriceCents = v) } }
         }
 
         // ---------- Štýl jazdy ----------
@@ -345,3 +340,5 @@ private fun bondedDevices(ctx: android.content.Context): List<Pair<String, Strin
     ctx.getSystemService(BluetoothManager::class.java)?.adapter?.bondedDevices
         ?.map { (it.name ?: it.address) to it.address }?.sortedBy { it.first } ?: emptyList()
 } catch (e: SecurityException) { emptyList() }
+
+private fun hm(min: Int): String = String.format(java.util.Locale("sk"), "%d:%02d", min / 60, min % 60)

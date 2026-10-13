@@ -8,11 +8,14 @@ import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import sk.cartracker.data.local.AppDatabase
 import sk.cartracker.data.local.TripEntity
+import sk.cartracker.data.local.VehicleEntity
 import sk.cartracker.data.remote.ApiProvider
 import sk.cartracker.data.remote.AuthRequest
 import sk.cartracker.data.remote.PointDto
 import sk.cartracker.data.remote.SyncRequest
 import sk.cartracker.data.remote.TripDto
+import sk.cartracker.data.remote.VehicleDto
+import sk.cartracker.data.remote.VehicleSyncRequest
 import sk.cartracker.detection.ActivityDetectionManager
 import sk.cartracker.security.SessionStore
 import sk.cartracker.sync.SyncWorker
@@ -76,7 +79,7 @@ class AuthRepository(
 
     private suspend fun onLoggedIn() {
         val s = settings.current()
-        if (s.autoDetection) ActivityDetectionManager.register(ctx)
+        if (s.autoDetection || s.walkTracking) ActivityDetectionManager.register(ctx)
         SyncWorker.schedulePeriodic(ctx, s.syncWifiOnly)
     }
 }
@@ -106,12 +109,17 @@ class TripRepository(
     suspend fun tripsBetween(from: Long, to: Long): List<TripEntity> =
         session.user()?.let { dao.tripsBetween(it.id, from, to) } ?: emptyList()
 
-    /** Stav tachometra na začiatku jazdy: zadaný stav + km najazdené od dátumu zadania. */
-    suspend fun odometerAt(ts: Long, s: AppSettings): Double? {
+    /** Priradenie jazdy inému vozidlu. */
+    suspend fun setVehicle(trip: TripEntity, vehicleUuid: String) {
+        dao.updateTrip(trip.copy(vehicleUuid = vehicleUuid, synced = false))
+    }
+
+    /** Stav tachometra vozidla v čase [ts]: zadaný stav + km tohto vozidla od dátumu zadania. */
+    suspend fun odometerAt(ts: Long, v: VehicleEntity?): Double? {
         val user = session.user() ?: return null
-        if (s.odometerKm <= 0 || s.odometerDate <= 0) return null
-        return if (ts >= s.odometerDate) s.odometerKm + dao.distanceBetween(user.id, s.odometerDate, ts) / 1000.0
-        else s.odometerKm - dao.distanceBetween(user.id, ts, s.odometerDate) / 1000.0
+        if (v == null || v.odometerKm <= 0 || v.odometerDate <= 0) return null
+        return if (ts >= v.odometerDate) v.odometerKm + dao.vehicleDistanceBetween(user.id, v.uuid, v.odometerDate, ts) / 1000.0
+        else v.odometerKm - dao.vehicleDistanceBetween(user.id, v.uuid, ts, v.odometerDate) / 1000.0
     }
 
     suspend fun deleteAllLocal() {
@@ -121,6 +129,12 @@ class TripRepository(
     /** Pošle na server všetky ukončené jazdy, ktoré tam ešte nie sú (po dávkach bodov). */
     suspend fun syncAll(): Int = withContext(Dispatchers.IO) {
         val user = session.user() ?: return@withContext 0
+        // najprv vozidlá (jazdy sa na ne odkazujú)
+        val vehicles = dao.vehiclesToSync(user.id)
+        if (vehicles.isNotEmpty()) {
+            val res = api.get().syncVehicles(VehicleSyncRequest(vehicles.map { it.toDto() }))
+            vehicles.filter { it.uuid in res.synced }.forEach { dao.updateVehicle(it.copy(synced = true)) }
+        }
         var count = 0
         for (trip in dao.tripsToSync(user.id)) {
             while (true) {
@@ -141,5 +155,74 @@ class TripRepository(
         uuid, startedAt, endedAt, distanceM, maxSpeedKmh, avgSpeedKmh,
         startLat, startLng, endLat, endLng, triggerSource, points,
         category, note, startAddress, endAddress, score, hardBrakes, hardAccels, speedingSec,
+        type, steps, vehicleUuid,
+    )
+
+    private fun VehicleEntity.toDto() = VehicleDto(
+        uuid, name, plate, fuelType, consumptionX10 / 10.0, fuelPriceCents / 100.0,
+        odometerKm, odometerDate, btName, archived, updatedAt,
     )
 }
+
+/** Vozidlá používateľa a aktívne vozidlo. */
+class VehicleRepository(
+    private val db: AppDatabase,
+    private val session: SessionStore,
+    private val settings: SettingsRepository,
+) {
+    private val dao = db.tripDao()
+
+    fun vehicles(): Flow<List<VehicleEntity>> = session.user()?.let { dao.vehiclesFlow(it.id) } ?: emptyFlow()
+    suspend fun all(): List<VehicleEntity> = session.user()?.let { dao.allVehicles(it.id) } ?: emptyList()
+    suspend fun byUuid(uuid: String?): VehicleEntity? = uuid?.takeIf { it.isNotEmpty() }?.let { dao.vehicle(it) }
+    suspend fun byBluetooth(address: String): VehicleEntity? = session.user()?.let { dao.vehicleByBt(it.id, address) }
+
+    suspend fun active(): VehicleEntity? {
+        ensureDefault()
+        val s = settings.current()
+        return byUuid(s.activeVehicleUuid)?.takeIf { !it.archived } ?: all().firstOrNull { !it.archived }
+    }
+
+    suspend fun setActive(uuid: String) = settings.update { it.copy(activeVehicleUuid = uuid) }
+
+    suspend fun save(v: VehicleEntity): VehicleEntity {
+        val user = session.user() ?: return v
+        val toSave = v.copy(userId = user.id, synced = false, updatedAt = System.currentTimeMillis())
+        return if (v.id == 0L) toSave.copy(id = dao.insertVehicle(toSave)) else toSave.also { dao.updateVehicle(it) }
+    }
+
+    /** Vozidlo sa nemaže (jazdy naň odkazujú), iba sa skryje. */
+    suspend fun archive(v: VehicleEntity) {
+        save(v.copy(archived = true))
+        if (settings.current().activeVehicleUuid == v.uuid) {
+            all().firstOrNull { !it.archived && it.uuid != v.uuid }?.let { setActive(it.uuid) } ?: setActive("")
+        }
+    }
+
+    /**
+     * Prvé vozidlo vznikne automaticky z pôvodných nastavení (verzia 1.1 mala jedno auto v nastaveniach)
+     * a priradia sa mu všetky doterajšie jazdy autom.
+     */
+    suspend fun ensureDefault() {
+        val user = session.user() ?: return
+        if (dao.allVehicles(user.id).isNotEmpty()) return
+        val s = settings.current()
+        val v = VehicleEntity(
+            uuid = java.util.UUID.randomUUID().toString(), userId = user.id,
+            name = s.carName.ifBlank { "Moje auto" }, plate = s.licensePlate,
+            consumptionX10 = s.fuelConsumptionX10, fuelPriceCents = s.fuelPriceCents,
+            odometerKm = s.odometerKm, odometerDate = s.odometerDate,
+            btAddress = s.carBtAddress, btName = s.carBtName,
+        )
+        dao.insertVehicle(v)
+        dao.assignVehicleToUnassigned(user.id, v.uuid)
+        settings.update { it.copy(activeVehicleUuid = v.uuid) }
+    }
+}
+
+/** Palivo a náklady jazdy podľa jej vozidla (chôdza = 0). */
+fun TripEntity.liters(v: VehicleEntity?, s: AppSettings): Double =
+    if (isWalk) 0.0 else v?.liters(distanceM) ?: s.fuelLiters(distanceM)
+
+fun TripEntity.cost(v: VehicleEntity?, s: AppSettings): Double =
+    if (isWalk) 0.0 else v?.cost(distanceM) ?: s.fuelCost(distanceM)

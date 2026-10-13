@@ -62,13 +62,19 @@ object Notifications {
     fun ongoing(ctx: Context, state: DriveState, live: LiveTrip?, s: AppSettings): Notification {
         val title = when (state) {
             DriveState.CANDIDATE -> "Overujem, či ide o jazdu autom…"
-            DriveState.DRIVING -> "Režim jazdy je zapnutý"
+            DriveState.DRIVING -> "Režim jazdy je zapnutý" + (live?.vehicleName?.let { " · $it" } ?: "")
+            DriveState.WALKING -> "🚶 Chôdza sa zaznamenáva"
             DriveState.IDLE -> "Car Tracking"
         }
-        val text = if (state == DriveState.DRIVING && live != null) buildString {
-            append(formatDistance(live.distanceM)).append(" · ").append(formatDuration(System.currentTimeMillis() - live.startedAt))
-            if (s.showSpeedInNotification) append(" · ").append(live.speedKmh.toInt()).append(" km/h")
-        } else "Čakám na potvrdenie rýchlosťou (chôdza a bicykel sa ignorujú)"
+        val text = when {
+            state == DriveState.DRIVING && live != null -> buildString {
+                append(formatDistance(live.distanceM)).append(" · ").append(formatDuration(System.currentTimeMillis() - live.startedAt))
+                if (s.showSpeedInNotification) append(" · ").append(live.speedKmh.toInt()).append(" km/h")
+            }
+            state == DriveState.WALKING && live != null ->
+                "${live.steps} krokov · ${formatDistance(live.distanceM)} · ${formatDuration(System.currentTimeMillis() - live.startedAt)}"
+            else -> "Čakám na potvrdenie rýchlosťou (chôdza a bicykel sa ignorujú)"
+        }
 
         val stopIntent = PendingIntent.getBroadcast(
             ctx, 1, Intent(ctx, NotificationActionReceiver::class.java).setAction(TrackingService.ACTION_STOP),
@@ -86,6 +92,7 @@ object Notifications {
             .setContentIntent(openAppIntent(ctx))
             .apply {
                 if (state == DriveState.DRIVING) addAction(0, "Ukončiť jazdu", stopIntent)
+                else if (state == DriveState.WALKING) addAction(0, "Ukončiť chôdzu", stopIntent)
                 else addAction(0, "Nie je to jazda", stopIntent)
             }
             .build()
@@ -103,6 +110,25 @@ object Notifications {
             .setContentText(summary ?: if (started) "Sledujem polohu počas jazdy" else "Jazda bola uložená")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(openAppIntent(ctx))
+            .build()
+        NotificationManagerCompat.from(ctx).notify(ID_EVENT, n)
+    }
+
+    /** Začiatok / koniec chôdze – predvolene bez notifikácie a vibrácie (v práci by rušili). */
+    fun walkEvent(ctx: Context, started: Boolean, s: AppSettings, summary: String? = null) {
+        if (s.walkVibrate) vibrate(ctx, VibrationPattern.SHORT)
+        if (!s.walkNotify) return
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        if (!started && summary == null) return
+        val n = NotificationCompat.Builder(ctx, CH_EVENTS_SILENT)
+            .setSmallIcon(R.drawable.ic_car)
+            .setContentTitle(if (started) "🚶 Chôdza sa zaznamenáva" else "🚶 Chôdza ukončená")
+            .setContentText(summary ?: "Počítam kroky a trasu")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setTimeoutAfter(60_000)
             .setContentIntent(openAppIntent(ctx))
             .build()
         NotificationManagerCompat.from(ctx).notify(ID_EVENT, n)

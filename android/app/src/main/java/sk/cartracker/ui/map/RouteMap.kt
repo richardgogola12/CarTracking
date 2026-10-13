@@ -52,6 +52,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
+import org.osmdroid.tileprovider.MapTileProviderBasic
+import org.osmdroid.tileprovider.tilesource.ITileSource
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
@@ -60,6 +62,7 @@ import org.osmdroid.views.overlay.CopyrightOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.views.overlay.ScaleBarOverlay
+import org.osmdroid.views.overlay.TilesOverlay
 import sk.cartracker.container
 import sk.cartracker.data.AppSettings
 import sk.cartracker.data.MapStyle
@@ -141,7 +144,7 @@ fun RouteMap(
 
     // Obsah mapy
     LaunchedEffect(routes, colorBySpeed, showEvents, s.mapStyle, appDark) {
-        buildOverlays(map, routes, colorBySpeed, showEvents, MapTiles.isDarkBase(s.mapStyle, appDark))
+        buildOverlays(map, routes, colorBySpeed, showEvents, MapTiles.isDarkBase(s.mapStyle, appDark), MapTiles.labels(s.mapStyle, appDark))
         fitRoutes(map, routes, animate = false)
     }
     LaunchedEffect(fitRequest) { if (fitRequest > 0) fitRoutes(map, routes, animate = true) }
@@ -219,10 +222,21 @@ private fun LegendDot(color: Color, label: String) {
 
 // ---------------- kreslenie ----------------
 
-private fun buildOverlays(map: MapView, routes: List<MapRoute>, colorBySpeed: Boolean, showEvents: Boolean, darkBase: Boolean) {
+private fun buildOverlays(
+    map: MapView, routes: List<MapRoute>, colorBySpeed: Boolean, showEvents: Boolean, darkBase: Boolean, labels: ITileSource?,
+) {
     val ctx = map.context
     val d = ctx.resources.displayMetrics.density
+    map.overlays.filterIsInstance<TilesOverlay>().forEach { it.onDetach(map) }
     map.overlays.clear()
+
+    // Popisky (ulice, obce) nad šedým podkladom
+    if (labels != null) {
+        map.overlays.add(TilesOverlay(MapTileProviderBasic(ctx, labels), ctx).apply {
+            loadingBackgroundColor = AColor.TRANSPARENT
+            loadingLineColor = AColor.TRANSPARENT
+        })
+    }
 
     routes.forEachIndexed { idx, route ->
         val pts = route.points

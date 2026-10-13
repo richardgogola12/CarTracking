@@ -1,0 +1,47 @@
+name: Backend API test
+
+on:
+  push:
+    paths: ['backend/**', '.github/workflows/backend.yml']
+  workflow_dispatch:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Schéma databázy
+        run: |
+          mysql -h127.0.0.1 -uroot -proot < backend/schema.sql
+          mysql -h127.0.0.1 -uroot -proot -e "CREATE USER 'car_tracking'@'%' IDENTIFIED BY 'test'; GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'%';"
+      - name: Spustiť PHP server
+        env:
+          CT_DB_HOST: 127.0.0.1
+          CT_DB_USER: car_tracking
+          CT_DB_PASS: test
+        run: |
+          php -v | head -1
+          php -S 127.0.0.1:8080 backend/api/index.php > php.log 2>&1 &
+          sleep 2
+      - name: Test API
+        run: bash backend/tests/api_test.sh http://127.0.0.1:8080
+      - name: Log PHP servera
+        if: failure()
+        run: tail -50 php.log | while IFS= read -r l; do echo "::error::$l"; done
+      - name: Test migrácií (starší stav → v3)
+        run: |
+          mysql -h127.0.0.1 -uroot -proot -e "DROP DATABASE car_tracking"
+          git show c958f61~1:backend/schema.sql > /tmp/old.sql
+          mysql -h127.0.0.1 -uroot -proot < /tmp/old.sql
+          mysql -h127.0.0.1 -uroot -proot < backend/migrate_v2.sql
+          mysql -h127.0.0.1 -uroot -proot < backend/migrate_v3.sql
+          echo "::notice::Migrácie v2 a v3 prešli"

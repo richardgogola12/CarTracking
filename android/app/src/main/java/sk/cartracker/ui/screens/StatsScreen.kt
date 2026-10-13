@@ -16,11 +16,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,7 +59,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import sk.cartracker.container
 import sk.cartracker.data.AppSettings
+import sk.cartracker.data.cost
+import sk.cartracker.data.liters
 import sk.cartracker.data.local.CATEGORY_BUSINESS
+import sk.cartracker.data.local.VehicleEntity
 import sk.cartracker.data.local.TripEntity
 import sk.cartracker.ui.Reports
 import sk.cartracker.ui.formatDate
@@ -122,12 +130,24 @@ fun StatsScreen() {
     val scope = rememberCoroutineScope()
     val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
     val all by remember { c.trips.trips() }.collectAsStateWithLifecycle(emptyList())
+    val vehicleList by remember { c.vehicles.vehicles() }.collectAsStateWithLifecycle(emptyList())
+    var vehicleMap by remember { mutableStateOf<Map<String, VehicleEntity>>(emptyMap()) }
+    LaunchedEffect(vehicleList) { vehicleMap = c.vehicles.all().associateBy { it.uuid } }
+
+    var walkMode by rememberSaveable { mutableStateOf(false) }
+    var vehicleFilter by rememberSaveable { mutableStateOf("") }   // "" = všetky vozidlá
+    var vehicleMenu by remember { mutableStateOf(false) }
     var period by rememberSaveable { mutableStateOf(Period.MONTH) }
     var offset by rememberSaveable { mutableIntStateOf(0) }
     val r = remember(period, offset) { range(period, offset) }
-    val trips = remember(all, r) { all.filter { it.startedAt >= r.from && it.startedAt < r.to }.sortedBy { it.startedAt } }
+    val trips = remember(all, r, walkMode, vehicleFilter) {
+        all.filter { it.startedAt >= r.from && it.startedAt < r.to && it.isWalk == walkMode &&
+            (walkMode || vehicleFilter.isEmpty() || it.vehicleUuid == vehicleFilter) }.sortedBy { it.startedAt }
+    }
+    val selectedVehicle = vehicleMap[vehicleFilter]
+    // Kniha jázd sa vedie po vozidlách: vybrané vozidlo, prípadne jediné existujúce
+    val logbookVehicle = selectedVehicle ?: vehicleList.singleOrNull()
 
-    // Trasy na mape obdobia (max. 40 jázd, body preriedené)
     var routes by remember { mutableStateOf<List<MapRoute>>(emptyList()) }
     LaunchedEffect(trips) {
         routes = trips.takeLast(40).map { t ->
@@ -143,6 +163,24 @@ fun StatsScreen() {
     ) {
         Text("Štatistiky", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            SegmentedButton(!walkMode, { walkMode = false }, SegmentedButtonDefaults.itemShape(0, 2),
+                icon = { Icon(Icons.Filled.DirectionsCar, null, Modifier.size(18.dp)) }) { Text("Auto") }
+            SegmentedButton(walkMode, { walkMode = true }, SegmentedButtonDefaults.itemShape(1, 2),
+                icon = { Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null, Modifier.size(18.dp)) }) { Text("Chôdza") }
+        }
+        if (!walkMode && vehicleList.size > 1) Box {
+            OutlinedButton(onClick = { vehicleMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(selectedVehicle?.label ?: "Všetky vozidlá", Modifier.weight(1f))
+                Icon(Icons.Filled.ArrowDropDown, null)
+            }
+            DropdownMenu(expanded = vehicleMenu, onDismissRequest = { vehicleMenu = false }) {
+                DropdownMenuItem(text = { Text("Všetky vozidlá") }, onClick = { vehicleFilter = ""; vehicleMenu = false })
+                vehicleList.forEach { v ->
+                    DropdownMenuItem(text = { Text(v.label) }, onClick = { vehicleFilter = v.uuid; vehicleMenu = false })
+                }
+            }
+        }
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             Period.entries.forEachIndexed { i, p ->
                 SegmentedButton(period == p, { period = p; offset = 0 }, SegmentedButtonDefaults.itemShape(i, Period.entries.size)) { Text(p.label) }
             }
@@ -155,74 +193,120 @@ fun StatsScreen() {
 
         val total = trips.sumOf { it.distanceM }
         val time = trips.sumOf { (it.endedAt ?: it.startedAt) - it.startedAt }
-        val business = trips.filter { it.category == CATEGORY_BUSINESS }.sumOf { it.distanceM }
-        SectionCard("Súhrn") {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth()) {
-                    StatBox("Vzdialenosť", formatDistance(total), Modifier.weight(1f))
-                    StatBox("Čas za volantom", formatDuration(time), Modifier.weight(1f))
-                    StatBox("Jázd", "${trips.size}", Modifier.weight(1f))
-                }
-                Row(Modifier.fillMaxWidth()) {
-                    StatBox("Ø rýchlosť", if (time > 0) "${(total / 1000 / (time / 3_600_000.0)).toInt()} km/h" else "–", Modifier.weight(1f))
-                    StatBox("Palivo", String.format(Locale("sk"), "%.1f l", s.fuelLiters(total)), Modifier.weight(1f))
-                    StatBox("Náklady", formatMoney(s.fuelCost(total)), Modifier.weight(1f))
+
+        if (walkMode) {
+            val stepsTotal = trips.sumOf { it.steps }
+            val activeDays = trips.map { formatDate(it.startedAt) }.distinct().size
+            SectionCard("Súhrn chôdze") {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        StatBox("Kroky", String.format(Locale("sk"), "%,d", stepsTotal), Modifier.weight(1f))
+                        StatBox("Vzdialenosť", formatDistance(total), Modifier.weight(1f))
+                        StatBox("Čas", formatDuration(time), Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth()) {
+                        StatBox("Záznamov", "${trips.size}", Modifier.weight(1f))
+                        StatBox("Kroky / deň", if (activeDays > 0) "${stepsTotal / activeDays}" else "–", Modifier.weight(1f))
+                        StatBox("Tempo", if (total > 100) paceText(time / 60_000.0 / (total / 1000.0)) else "–", Modifier.weight(1f))
+                    }
                 }
             }
-        }
-
-        SectionCard("Najazdené km") {
-            BarChart(r.buckets.map { (label, range) -> label to trips.filter { it.startedAt in range }.sumOf { it.distanceM } / 1000.0 },
-                Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 12.dp, vertical = 8.dp))
-        }
-
-        if (total > 0) SectionCard("Súkromné vs. služobné") {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                val share = (business / total).toFloat()
-                Box(Modifier.fillMaxWidth().height(14.dp).background(Color(0xFF43A047), RoundedCornerShape(7.dp))) {
-                    Box(Modifier.fillMaxWidth(share).height(14.dp).background(Color(0xFF1565C0), RoundedCornerShape(7.dp)))
-                }
-                Row {
-                    Text("● Služobné ${formatDistance(business)}", color = Color(0xFF1565C0), modifier = Modifier.weight(1f), fontSize = 13.sp)
-                    Text("● Súkromné ${formatDistance(total - business)}", color = Color(0xFF43A047), fontSize = 13.sp)
+            SectionCard("Kroky") {
+                BarChart(r.buckets.map { (label, range) -> label to trips.filter { it.startedAt in range }.sumOf { it.steps }.toDouble() },
+                    Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 12.dp, vertical = 8.dp), unit = "krokov")
+            }
+        } else {
+            val business = trips.filter { it.category == CATEGORY_BUSINESS }.sumOf { it.distanceM }
+            val liters = trips.sumOf { it.liters(vehicleMap[it.vehicleUuid], s) }
+            val cost = trips.sumOf { it.cost(vehicleMap[it.vehicleUuid], s) }
+            SectionCard("Súhrn") {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        StatBox("Vzdialenosť", formatDistance(total), Modifier.weight(1f))
+                        StatBox("Čas za volantom", formatDuration(time), Modifier.weight(1f))
+                        StatBox("Jázd", "${trips.size}", Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth()) {
+                        StatBox("Ø rýchlosť", if (time > 0) "${(total / 1000 / (time / 3_600_000.0)).toInt()} km/h" else "–", Modifier.weight(1f))
+                        StatBox("Palivo", String.format(Locale("sk"), "%.1f", liters), Modifier.weight(1f))
+                        StatBox("Náklady", formatMoney(cost), Modifier.weight(1f))
+                    }
                 }
             }
-        }
 
-        val scored = trips.mapNotNull { it.score }
-        if (scored.isNotEmpty()) SectionCard("Štýl jazdy") {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                ScoreRing(scored.average().toInt(), Modifier.size(80.dp))
-                Spacer(Modifier.size(16.dp))
-                Column {
-                    Text("Priemerné skóre z ${scored.size} jázd")
-                    Text("Prudké brzdenia: ${trips.sumOf { it.hardBrakes }}", style = MaterialTheme.typography.bodySmall)
-                    Text("Prudké zrýchlenia: ${trips.sumOf { it.hardAccels }}", style = MaterialTheme.typography.bodySmall)
-                    trips.maxByOrNull { it.distanceM }?.let {
-                        Text("Najdlhšia jazda: ${formatDistance(it.distanceM)} (${formatDate(it.startedAt)})", style = MaterialTheme.typography.bodySmall)
+            SectionCard("Najazdené km") {
+                BarChart(r.buckets.map { (label, range) -> label to trips.filter { it.startedAt in range }.sumOf { it.distanceM } / 1000.0 },
+                    Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 12.dp, vertical = 8.dp), unit = "km")
+            }
+
+            if (vehicleFilter.isEmpty() && vehicleList.size > 1 && total > 0) SectionCard("Podľa vozidiel") {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    trips.groupBy { it.vehicleUuid }.entries.sortedByDescending { e -> e.value.sumOf { it.distanceM } }.forEach { (uuid, list) ->
+                        val km = list.sumOf { it.distanceM }
+                        Column {
+                            Row {
+                                Text(vehicleMap[uuid]?.label ?: "Nepriradené", Modifier.weight(1f), fontSize = 13.sp)
+                                Text("${formatDistance(km)} · ${formatMoney(list.sumOf { it.cost(vehicleMap[it.vehicleUuid], s) })}", fontSize = 13.sp)
+                            }
+                            Box(Modifier.fillMaxWidth((km / total).toFloat()).height(8.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp)))
+                        }
+                    }
+                }
+            }
+
+            if (total > 0) SectionCard("Súkromné vs. služobné") {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val share = (business / total).toFloat()
+                    Box(Modifier.fillMaxWidth().height(14.dp).background(Color(0xFF43A047), RoundedCornerShape(7.dp))) {
+                        Box(Modifier.fillMaxWidth(share).height(14.dp).background(Color(0xFF1565C0), RoundedCornerShape(7.dp)))
+                    }
+                    Row {
+                        Text("● Služobné ${formatDistance(business)}", color = Color(0xFF1565C0), modifier = Modifier.weight(1f), fontSize = 13.sp)
+                        Text("● Súkromné ${formatDistance(total - business)}", color = Color(0xFF43A047), fontSize = 13.sp)
+                    }
+                }
+            }
+
+            val scored = trips.mapNotNull { it.score }
+            if (scored.isNotEmpty()) SectionCard("Štýl jazdy") {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ScoreRing(scored.average().toInt(), Modifier.size(80.dp))
+                    Spacer(Modifier.size(16.dp))
+                    Column {
+                        Text("Priemerné skóre z ${scored.size} jázd")
+                        Text("Prudké brzdenia: ${trips.sumOf { it.hardBrakes }}", style = MaterialTheme.typography.bodySmall)
+                        Text("Prudké zrýchlenia: ${trips.sumOf { it.hardAccels }}", style = MaterialTheme.typography.bodySmall)
+                        trips.maxByOrNull { it.distanceM }?.let {
+                            Text("Najdlhšia jazda: ${formatDistance(it.distanceM)} (${formatDate(it.startedAt)})", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
         }
 
-        if (routes.any { it.points.isNotEmpty() }) SectionCard("Mapa jázd") {
+        if (routes.any { it.points.isNotEmpty() }) SectionCard(if (walkMode) "Mapa chôdze" else "Mapa jázd") {
             RouteMap(routes, Modifier.fillMaxWidth().height(320.dp).padding(top = 4.dp), colorBySpeed = false, showEvents = false)
         }
 
-        SectionCard("Kniha jázd a export") {
+        if (!walkMode) SectionCard("Kniha jázd a export") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Exportuje ${trips.size} jázd za obdobie „${r.title}“.", style = MaterialTheme.typography.bodySmall)
-                Button(enabled = trips.isNotEmpty() && activity != null, modifier = Modifier.fillMaxWidth(), onClick = {
+                if (logbookVehicle == null) {
+                    Text("Kniha jázd sa vedie pre každé vozidlo zvlášť – vyberte vozidlo vyššie.", style = MaterialTheme.typography.bodySmall)
+                } else {
+                    Text("${logbookVehicle.label}: ${trips.size} jázd za obdobie „${r.title}“.", style = MaterialTheme.typography.bodySmall)
+                }
+                Button(enabled = trips.isNotEmpty() && activity != null && logbookVehicle != null, modifier = Modifier.fillMaxWidth(), onClick = {
                     scope.launch {
-                        val odo = trips.firstOrNull()?.let { c.trips.odometerAt(it.startedAt, s) }
-                        val html = Reports.logbookHtml(trips, s, r.title, c.session.user()?.name ?: "", odo)
+                        val odo = trips.firstOrNull()?.let { c.trips.odometerAt(it.startedAt, logbookVehicle) }
+                        val html = Reports.logbookHtml(trips, s, r.title, c.session.user()?.name ?: "", odo, logbookVehicle)
                         activity?.let { Reports.printHtml(it, "Kniha jázd ${r.title}", html = html, landscape = true) }
                     }
                 }) { Icon(Icons.Filled.Print, null); Spacer(Modifier.size(8.dp)); Text("Kniha jázd – tlač / PDF") }
-                OutlinedButton(enabled = trips.isNotEmpty(), modifier = Modifier.fillMaxWidth(), onClick = {
+                OutlinedButton(enabled = trips.isNotEmpty() && logbookVehicle != null, modifier = Modifier.fillMaxWidth(), onClick = {
                     scope.launch {
-                        val odo = trips.firstOrNull()?.let { c.trips.odometerAt(it.startedAt, s) }
-                        Reports.shareFile(ctx, "kniha-jazd-${r.title.replace(' ', '-')}.csv", Reports.logbookCsv(trips, s, odo), "text/csv")
+                        val odo = trips.firstOrNull()?.let { c.trips.odometerAt(it.startedAt, logbookVehicle) }
+                        val name = "kniha-jazd-${(logbookVehicle?.plate?.ifBlank { null } ?: logbookVehicle?.name ?: "").replace(' ', '-')}-${r.title.replace(' ', '-')}.csv"
+                        Reports.shareFile(ctx, name, Reports.logbookCsv(trips, s, odo, logbookVehicle), "text/csv")
                     }
                 }) { Icon(Icons.Filled.TableChart, null); Spacer(Modifier.size(8.dp)); Text("Export do Excelu (CSV)") }
             }
@@ -231,13 +315,13 @@ fun StatsScreen() {
 }
 
 @Composable
-private fun BarChart(data: List<Pair<String, Double>>, modifier: Modifier) {
+private fun BarChart(data: List<Pair<String, Double>>, modifier: Modifier, unit: String = "km") {
     val max = (data.maxOfOrNull { it.second } ?: 0.0).coerceAtLeast(1.0)
     val barColor = MaterialTheme.colorScheme.primary
     val grid = MaterialTheme.colorScheme.outlineVariant
     Column(modifier) {
         Row(Modifier.fillMaxWidth()) {
-            Text("max ${max.toInt()} km", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("max ${max.toInt()} $unit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Canvas(Modifier.fillMaxWidth().weight(1f)) {
             val n = data.size

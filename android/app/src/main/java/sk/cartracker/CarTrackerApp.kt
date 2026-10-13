@@ -10,6 +10,7 @@ import org.osmdroid.config.Configuration
 import sk.cartracker.data.AuthRepository
 import sk.cartracker.data.SettingsRepository
 import sk.cartracker.data.TripRepository
+import sk.cartracker.data.VehicleRepository
 import sk.cartracker.data.local.AppDatabase
 import sk.cartracker.data.remote.ApiProvider
 import sk.cartracker.detection.ActivityDetectionManager
@@ -23,6 +24,7 @@ class AppContainer(ctx: Context) {
     val api = ApiProvider(settings, session)
     val auth = AuthRepository(ctx, api, session, settings)
     val trips = TripRepository(db, api, session)
+    val vehicles = VehicleRepository(db, session, settings)
 }
 
 class CarTrackerApp : Application() {
@@ -38,8 +40,10 @@ class CarTrackerApp : Application() {
 
         // Pri každom štarte procesu sa uistíme, že detekcia jazdy je zaregistrovaná
         appScope.launch {
-            if (container.session.isLoggedIn && container.settings.current().autoDetection) {
-                ActivityDetectionManager.register(this@CarTrackerApp)
+            if (container.session.isLoggedIn) {
+                container.vehicles.ensureDefault()
+                val s = container.settings.current()
+                if (s.autoDetection || s.walkTracking) ActivityDetectionManager.register(this@CarTrackerApp)
             }
         }
     }

@@ -36,7 +36,14 @@ data class TripDto(
     val category: String = "private", val note: String = "",
     val startAddress: String? = null, val endAddress: String? = null,
     val score: Int? = null, val hardBrakes: Int = 0, val hardAccels: Int = 0, val speedingSec: Int = 0,
+    val type: String = "car", val steps: Int = 0, val vehicleUuid: String? = null,
 )
+data class VehicleDto(
+    val uuid: String, val name: String, val plate: String, val fuelType: String,
+    val consumption: Double, val fuelPrice: Double, val odometerKm: Int, val odometerDate: Long,
+    val btName: String, val archived: Boolean, val updatedAt: Long,
+)
+data class VehicleSyncRequest(val vehicles: List<VehicleDto>)
 data class SyncRequest(val trips: List<TripDto>)
 data class SyncResponse(val synced: List<String>)
 data class OkResponse(val ok: Boolean?)
@@ -48,6 +55,7 @@ interface ApiService {
     @POST("logout") suspend fun logout(): OkResponse
     @GET("me") suspend fun me(): MeResponse
     @POST("trips/sync") suspend fun sync(@Body body: SyncRequest): SyncResponse
+    @POST("vehicles/sync") suspend fun syncVehicles(@Body body: VehicleSyncRequest): SyncResponse
     @DELETE("trips/{uuid}") suspend fun deleteTrip(@Path("uuid") uuid: String): OkResponse
 }
 

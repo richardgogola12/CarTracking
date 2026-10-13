@@ -23,7 +23,8 @@ const val DEFAULT_SERVER_URL = "http://10.0.2.2/cartracking/api/"
 enum class VibrationPattern(val label: String) { SHORT("Krátka"), LONG("Dlhá"), DOUBLE("Dvojitá") }
 enum class ThemeMode(val label: String) { SYSTEM("Podľa systému"), LIGHT("Svetlý"), DARK("Tmavý") }
 enum class MapStyle(val label: String) {
-    AUTO("Podľa témy aplikácie"), LIGHT("Svetlá"), DARK("Tmavá"), STREETS("Klasická OSM"), TOPO("Terénna"), SATELLITE("Satelitná")
+    AUTO("Podľa témy aplikácie"), LIGHT("Svetlá (Esri)"), DARK("Tmavá (Esri)"), STREETS("Klasická (OpenStreetMap)"),
+    DETAILED("Podrobná (Esri)"), TOPO("Terénna (OpenTopoMap)"), SATELLITE("Satelitná (Esri)")
 }
 
 data class AppSettings(
@@ -72,7 +73,33 @@ data class AppSettings(
     val speedAlertKmh: Int = 130,
     // Mapa
     val mapStyle: MapStyle = MapStyle.AUTO,
+    // Vozidlá
+    val activeVehicleUuid: String = "",
+    // Chôdza
+    val walkTracking: Boolean = true,
+    val walkWorkHoursOnly: Boolean = false,
+    val workDays: String = "1,2,3,4,5",   // 1 = pondelok … 7 = nedeľa
+    val workFromMin: Int = 7 * 60,
+    val workToMin: Int = 16 * 60,
+    val strideCm: Int = 75,
+    val walkStopMin: Int = 3,
+    val walkMinDistanceM: Int = 150,
+    val walkGpsIntervalSec: Int = 10,
+    val walkNotify: Boolean = false,
+    val walkVibrate: Boolean = false,
 ) {
+    val workDaySet: Set<Int> get() = workDays.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
+
+    /** Je teraz čas, keď sa má chôdza sledovať? */
+    fun walkActiveNow(now: Long = System.currentTimeMillis()): Boolean {
+        if (!walkTracking) return false
+        if (!walkWorkHoursOnly) return true
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = now }
+        val day = ((cal.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7) + 1 // Po = 1
+        val min = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
+        return day in workDaySet && min in workFromMin until workToMin
+    }
+
     val fuelConsumption get() = fuelConsumptionX10 / 10.0
     val fuelPrice get() = fuelPriceCents / 100.0
     fun fuelCost(distanceM: Double) = distanceM / 1000.0 / 100.0 * fuelConsumption * fuelPrice
@@ -117,6 +144,18 @@ class SettingsRepository(private val context: Context) {
         val SPEED_ALERT = booleanPreferencesKey("speed_alert")
         val SPEED_ALERT_KMH = intPreferencesKey("speed_alert_kmh")
         val MAP_STYLE = stringPreferencesKey("map_style")
+        val ACTIVE_VEHICLE = stringPreferencesKey("active_vehicle")
+        val WALK = booleanPreferencesKey("walk_tracking")
+        val WALK_WORK = booleanPreferencesKey("walk_work_hours_only")
+        val WORK_DAYS = stringPreferencesKey("work_days")
+        val WORK_FROM = intPreferencesKey("work_from_min")
+        val WORK_TO = intPreferencesKey("work_to_min")
+        val STRIDE = intPreferencesKey("stride_cm")
+        val WALK_STOP = intPreferencesKey("walk_stop_min")
+        val WALK_MIN = intPreferencesKey("walk_min_distance")
+        val WALK_GPS = intPreferencesKey("walk_gps_interval")
+        val WALK_NOTIFY = booleanPreferencesKey("walk_notify")
+        val WALK_VIBRATE = booleanPreferencesKey("walk_vibrate")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data
@@ -167,6 +206,18 @@ class SettingsRepository(private val context: Context) {
             speedAlert = p[K.SPEED_ALERT] ?: d.speedAlert,
             speedAlertKmh = p[K.SPEED_ALERT_KMH] ?: d.speedAlertKmh,
             mapStyle = p[K.MAP_STYLE]?.let { runCatching { MapStyle.valueOf(it) }.getOrNull() } ?: d.mapStyle,
+            activeVehicleUuid = p[K.ACTIVE_VEHICLE] ?: d.activeVehicleUuid,
+            walkTracking = p[K.WALK] ?: d.walkTracking,
+            walkWorkHoursOnly = p[K.WALK_WORK] ?: d.walkWorkHoursOnly,
+            workDays = p[K.WORK_DAYS] ?: d.workDays,
+            workFromMin = p[K.WORK_FROM] ?: d.workFromMin,
+            workToMin = p[K.WORK_TO] ?: d.workToMin,
+            strideCm = p[K.STRIDE] ?: d.strideCm,
+            walkStopMin = p[K.WALK_STOP] ?: d.walkStopMin,
+            walkMinDistanceM = p[K.WALK_MIN] ?: d.walkMinDistanceM,
+            walkGpsIntervalSec = p[K.WALK_GPS] ?: d.walkGpsIntervalSec,
+            walkNotify = p[K.WALK_NOTIFY] ?: d.walkNotify,
+            walkVibrate = p[K.WALK_VIBRATE] ?: d.walkVibrate,
         )
     }
 
@@ -206,5 +257,17 @@ class SettingsRepository(private val context: Context) {
         p[K.SPEED_ALERT] = s.speedAlert
         p[K.SPEED_ALERT_KMH] = s.speedAlertKmh
         p[K.MAP_STYLE] = s.mapStyle.name
+        p[K.ACTIVE_VEHICLE] = s.activeVehicleUuid
+        p[K.WALK] = s.walkTracking
+        p[K.WALK_WORK] = s.walkWorkHoursOnly
+        p[K.WORK_DAYS] = s.workDays
+        p[K.WORK_FROM] = s.workFromMin
+        p[K.WORK_TO] = s.workToMin
+        p[K.STRIDE] = s.strideCm
+        p[K.WALK_STOP] = s.walkStopMin
+        p[K.WALK_MIN] = s.walkMinDistanceM
+        p[K.WALK_GPS] = s.walkGpsIntervalSec
+        p[K.WALK_NOTIFY] = s.walkNotify
+        p[K.WALK_VIBRATE] = s.walkVibrate
     }
 }

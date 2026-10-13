@@ -14,50 +14,53 @@ import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.MapTileIndex
 import sk.cartracker.data.MapStyle
 
-/** Mapové podklady. Všetky sú bezplatné a nevyžadujú API kľúč. */
+/**
+ * Mapové podklady – všetky fungujú BEZ API kľúča (overené).
+ * CARTO od roku 2025/26 vyžaduje kľúč, preto sa nepoužíva.
+ */
 object MapTiles {
-    private val CARTO_LIGHT = XYTileSource(
-        "CartoPositron", 0, 20, 512, "@2x.png",
-        arrayOf("https://a.basemaps.cartocdn.com/light_all/", "https://b.basemaps.cartocdn.com/light_all/", "https://c.basemaps.cartocdn.com/light_all/"),
-        "© OpenStreetMap © CARTO",
-    )
-    private val CARTO_DARK = XYTileSource(
-        "CartoDarkMatter", 0, 20, 512, "@2x.png",
-        arrayOf("https://a.basemaps.cartocdn.com/dark_all/", "https://b.basemaps.cartocdn.com/dark_all/", "https://c.basemaps.cartocdn.com/dark_all/"),
-        "© OpenStreetMap © CARTO",
-    )
-    private val CARTO_VOYAGER = XYTileSource(
-        "CartoVoyager", 0, 20, 512, "@2x.png",
-        arrayOf("https://a.basemaps.cartocdn.com/rastertiles/voyager/", "https://b.basemaps.cartocdn.com/rastertiles/voyager/"),
-        "© OpenStreetMap © CARTO",
-    )
+    private const val ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/"
+
+    /** Esri dlaždice majú poradie z/y/x. */
+    private class Esri(name: String, path: String, maxZoom: Int, copyright: String) : OnlineTileSourceBase(
+        name, 0, maxZoom, 256, "", arrayOf(ESRI + path + "/MapServer/tile/"), copyright,
+    ) {
+        override fun getTileURLString(index: Long): String =
+            baseUrl + "${MapTileIndex.getZoom(index)}/${MapTileIndex.getY(index)}/${MapTileIndex.getX(index)}"
+    }
+
+    private val ESRI_STREETS = Esri("EsriWorldStreet", "World_Street_Map", 18, "Mapa © Esri, HERE, Garmin, OpenStreetMap")
+    private val ESRI_LIGHT = Esri("EsriLightGray", "Canvas/World_Light_Gray_Base", 16, "Mapa © Esri, HERE, Garmin, OpenStreetMap")
+    private val ESRI_LIGHT_LABELS = Esri("EsriLightGrayRef", "Canvas/World_Light_Gray_Reference", 16, "")
+    private val ESRI_DARK = Esri("EsriDarkGray", "Canvas/World_Dark_Gray_Base", 16, "Mapa © Esri, HERE, Garmin, OpenStreetMap")
+    private val ESRI_DARK_LABELS = Esri("EsriDarkGrayRef", "Canvas/World_Dark_Gray_Reference", 16, "")
+    private val ESRI_IMAGERY = Esri("EsriWorldImagery", "World_Imagery", 18, "Snímky © Esri, Maxar, Earthstar Geographics")
     private val TOPO = XYTileSource(
         "OpenTopoMap", 0, 17, 256, ".png",
         arrayOf("https://a.tile.opentopomap.org/", "https://b.tile.opentopomap.org/", "https://c.tile.opentopomap.org/"),
         "© OpenStreetMap © OpenTopoMap (CC-BY-SA)",
     )
 
-    /** Esri používa poradie z/y/x, preto vlastná trieda. */
-    private val SATELLITE = object : OnlineTileSourceBase(
-        "EsriWorldImagery", 0, 19, 256, "",
-        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
-        "Snímky © Esri, Maxar, Earthstar Geographics",
-    ) {
-        override fun getTileURLString(index: Long): String =
-            baseUrl + "${MapTileIndex.getZoom(index)}/${MapTileIndex.getY(index)}/${MapTileIndex.getX(index)}"
-    }
+    private fun resolve(style: MapStyle, dark: Boolean): MapStyle =
+        if (style == MapStyle.AUTO) (if (dark) MapStyle.DARK else MapStyle.DETAILED) else style
 
-    fun source(style: MapStyle, dark: Boolean): ITileSource = when (style) {
-        MapStyle.AUTO -> if (dark) CARTO_DARK else CARTO_VOYAGER
-        MapStyle.LIGHT -> CARTO_LIGHT
-        MapStyle.DARK -> CARTO_DARK
+    fun source(style: MapStyle, dark: Boolean): ITileSource = when (resolve(style, dark)) {
+        MapStyle.LIGHT -> ESRI_LIGHT
+        MapStyle.DARK -> ESRI_DARK
         MapStyle.STREETS -> TileSourceFactory.MAPNIK
         MapStyle.TOPO -> TOPO
-        MapStyle.SATELLITE -> SATELLITE
+        MapStyle.SATELLITE -> ESRI_IMAGERY
+        else -> ESRI_STREETS
     }
 
-    fun isDarkBase(style: MapStyle, dark: Boolean) =
-        style == MapStyle.DARK || style == MapStyle.SATELLITE || (style == MapStyle.AUTO && dark)
+    /** Šedé podklady majú popisky (ulice, mestá) v samostatnej priehľadnej vrstve. */
+    fun labels(style: MapStyle, dark: Boolean): ITileSource? = when (resolve(style, dark)) {
+        MapStyle.LIGHT -> ESRI_LIGHT_LABELS
+        MapStyle.DARK -> ESRI_DARK_LABELS
+        else -> null
+    }
+
+    fun isDarkBase(style: MapStyle, dark: Boolean) = resolve(style, dark).let { it == MapStyle.DARK || it == MapStyle.SATELLITE }
 }
 
 /** Farba trasy podľa rýchlosti: zelená → žltá → oranžová → červená → fialová. */

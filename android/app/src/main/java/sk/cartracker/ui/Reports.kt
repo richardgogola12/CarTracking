@@ -11,7 +11,10 @@ import android.webkit.WebViewClient
 import androidx.core.content.FileProvider
 import sk.cartracker.data.AppSettings
 import sk.cartracker.data.local.CATEGORY_BUSINESS
+import sk.cartracker.data.cost
+import sk.cartracker.data.liters
 import sk.cartracker.data.local.TripEntity
+import sk.cartracker.data.local.VehicleEntity
 import java.io.File
 import java.util.Locale
 
@@ -21,7 +24,7 @@ object Reports {
     private fun km(m: Double) = String.format(sk, "%.1f", m / 1000.0)
 
     /** Kniha jázd v HTML pripravená na tlač (A4 na šírku). */
-    fun logbookHtml(trips: List<TripEntity>, s: AppSettings, period: String, driver: String, odometerStart: Double?): String {
+    fun logbookHtml(trips: List<TripEntity>, s: AppSettings, period: String, driver: String, odometerStart: Double?, vehicle: VehicleEntity?): String {
         var odo = odometerStart
         val rows = StringBuilder()
         trips.forEachIndexed { i, t ->
@@ -39,8 +42,8 @@ object Reports {
                 .append("<td class='r'>${odoFrom?.let { it.toLong().toString() } ?: ""}</td>")
                 .append("<td class='r'>${odoTo?.let { it.toLong().toString() } ?: ""}</td>")
                 .append("<td class='r'><b>${km(t.distanceM)}</b></td>")
-                .append("<td class='r'>${String.format(sk, "%.2f", s.fuelLiters(t.distanceM))}</td>")
-                .append("<td class='r'>${String.format(sk, "%.2f", s.fuelCost(t.distanceM))}</td>")
+                .append("<td class='r'>${String.format(sk, "%.2f", t.liters(vehicle, s))}</td>")
+                .append("<td class='r'>${String.format(sk, "%.2f", t.cost(vehicle, s))}</td>")
                 .append("</tr>\n")
         }
         val total = trips.sumOf { it.distanceM }
@@ -70,13 +73,13 @@ object Reports {
 <div class="meta">
  <div><b>Obdobie:</b> ${esc(period)}</div>
  <div><b>Vodič:</b> ${esc(driver)}</div>
- <div><b>Vozidlo:</b> ${esc(s.carName.ifBlank { "—" })}</div>
- <div><b>EČV:</b> ${esc(s.licensePlate.ifBlank { "—" })}</div>
- <div><b>Spotreba:</b> ${String.format(sk, "%.1f", s.fuelConsumption)} l/100 km, ${String.format(sk, "%.2f", s.fuelPrice)} €/l</div>
+ <div><b>Vozidlo:</b> ${esc(vehicle?.name ?: "—")}</div>
+ <div><b>EČV:</b> ${esc(vehicle?.plate?.ifBlank { null } ?: "—")}</div>
+ <div><b>Spotreba:</b> ${String.format(sk, "%.1f", (vehicle?.consumptionX10 ?: s.fuelConsumptionX10) / 10.0)} ${vehicle?.unit ?: "l"}/100 km, ${String.format(sk, "%.2f", (vehicle?.fuelPriceCents ?: s.fuelPriceCents) / 100.0)} €/${vehicle?.unit ?: "l"}</div>
 </div>
 <table><thead><tr>
  <th>#</th><th>Dátum</th><th>Čas</th><th>Odkiaľ</th><th>Kam</th><th>Účel jazdy</th><th>Typ</th>
- <th>Tach. začiatok</th><th>Tach. koniec</th><th>km</th><th>Palivo (l)</th><th>Náklady (€)</th>
+ <th>Tach. začiatok</th><th>Tach. koniec</th><th>km</th><th>Palivo (${vehicle?.unit ?: "l"})</th><th>Náklady (€)</th>
 </tr></thead><tbody>
 $rows
 </tbody></table>
@@ -85,8 +88,8 @@ $rows
  <div class="box"><div>Spolu</div><b>${km(total)} km</b></div>
  <div class="box"><div>Služobné (S)</div><b>${km(business)} km</b></div>
  <div class="box"><div>Súkromné (P)</div><b>${km(total - business)} km</b></div>
- <div class="box"><div>Palivo</div><b>${String.format(sk, "%.1f", s.fuelLiters(total))} l</b></div>
- <div class="box"><div>Náklady (odhad)</div><b>${String.format(sk, "%.2f", s.fuelCost(total))} €</b></div>
+ <div class="box"><div>Palivo</div><b>${String.format(sk, "%.1f", trips.sumOf { it.liters(vehicle, s) })} ${vehicle?.unit ?: "l"}</b></div>
+ <div class="box"><div>Náklady (odhad)</div><b>${String.format(sk, "%.2f", trips.sumOf { it.cost(vehicle, s) })} €</b></div>
 </div>
 <div class="sign"><span>Dátum</span><span>Podpis vodiča</span></div>
 <div class="foot">Vygenerované aplikáciou Car Tracking ${esc(formatDateTime(System.currentTimeMillis()))}. Vzdialenosti sú merané GPS,
@@ -95,9 +98,10 @@ náklady na palivo sú odhad podľa nastavenej spotreby a ceny. Typ: S = služob
     }
 
     /** CSV (oddeľovač „;“ – Excel v slovenskom prostredí ho otvorí priamo). */
-    fun logbookCsv(trips: List<TripEntity>, s: AppSettings, odometerStart: Double?): String {
+    fun logbookCsv(trips: List<TripEntity>, s: AppSettings, odometerStart: Double?, vehicle: VehicleEntity?): String {
         fun q(v: String?) = "\"" + (v ?: "").replace("\"", "\"\"") + "\""
         val sb = StringBuilder("﻿") // BOM kvôli diakritike v Exceli
+        vehicle?.let { sb.append("Vozidlo;").append(q(it.name)).append(";EČV;").append(q(it.plate)).append("\r\n") }
         sb.append("Dátum;Začiatok;Koniec;Odkiaľ;Kam;Účel;Typ;Tachometer začiatok;Tachometer koniec;km;Trvanie min;Ø km/h;Max km/h;Palivo l;Náklady €;Skóre štýlu;Prudké brzdenia;Prudké zrýchlenia\r\n")
         var odo = odometerStart
         for (t in trips) {
@@ -112,7 +116,7 @@ náklady na palivo sú odhad podľa nastavenej spotreby a ceny. Typ: S = služob
                 String.format(sk, "%.2f", t.distanceM / 1000.0),
                 (((t.endedAt ?: t.startedAt) - t.startedAt) / 60_000).toString(),
                 t.avgSpeedKmh.toInt().toString(), t.maxSpeedKmh.toInt().toString(),
-                String.format(sk, "%.2f", s.fuelLiters(t.distanceM)), String.format(sk, "%.2f", s.fuelCost(t.distanceM)),
+                String.format(sk, "%.2f", t.liters(vehicle, s)), String.format(sk, "%.2f", t.cost(vehicle, s)),
                 t.score?.toString() ?: "", t.hardBrakes.toString(), t.hardAccels.toString(),
             ).joinToString(";")).append("\r\n")
         }
