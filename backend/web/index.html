@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car Tracking – prehľad</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root {
+  --bg: #f4f6fa; --card: #ffffff; --ink: #172033; --muted: #5d6b82; --line: #e2e7f0;
+  --primary: #1565c0; --primary-soft: #e3eefb; --green: #2e7d32; --red: #c62828; --amber: #f9a825;
+  --radius: 14px; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 2px 8px rgba(16,24,40,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141c; --card: #171e29; --ink: #e7ecf3; --muted: #9aa7ba; --line: #263142;
+    --primary: #64a8f0; --primary-soft: #1b2b42; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141c; --card: #171e29; --ink: #e7ecf3; --muted: #9aa7ba; --line: #263142;
+  --primary: #64a8f0; --primary-soft: #1b2b42; --shadow: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+a { color: var(--primary); }
+.wrap { max-width: 1280px; margin: 0 auto; padding: 16px; }
+header.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 1000; }
+header.top h1 { font-size: 18px; margin: 0; display: flex; align-items: center; gap: 8px; }
+header.top .sp { flex: 1; }
+.logo { width: 30px; height: 30px; border-radius: 8px; background: var(--primary); display: grid; place-items: center; color: #fff; font-size: 16px; }
+.btn { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: var(--primary); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn.small { padding: 4px 9px; font-size: 13px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 7px 12px; cursor: pointer; }
+.seg button.on { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+select, input[type=text], input[type=email], input[type=password], input[type=url] { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 7px 10px; max-width: 100%; }
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.period { display: inline-flex; align-items: center; gap: 4px; }
+.period b { min-width: 170px; text-align: center; display: inline-block; }
+.grid { display: grid; gap: 14px; }
+.tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; min-width: 0; }
+.card h2 { font-size: 14px; margin: 0 0 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.tile .v { font-size: 24px; font-weight: 700; }
+.tile .l { color: var(--muted); font-size: 13px; }
+.two { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .two { grid-template-columns: minmax(0, 1fr); } .period b { min-width: 120px; } }
+#map { height: 430px; border-radius: 10px; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr.trip { cursor: pointer; }
+tr.trip:hover td, tr.trip.sel td { background: var(--primary-soft); }
+.r { text-align: right; white-space: nowrap; }
+.muted { color: var(--muted); }
+.chip { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; background: var(--primary-soft); color: var(--primary); }
+.chip.b { background: #e8f1fd; color: #0d47a1; }
+.chip.p { background: #e8f5e9; color: #1b5e20; }
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 150px; }
+.bars div { flex: 1; background: var(--primary); border-radius: 4px 4px 0 0; min-height: 2px; position: relative; }
+.bars div:hover::after { content: attr(data-t); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--card); font-size: 12px; padding: 2px 6px; border-radius: 6px; white-space: nowrap; margin-bottom: 4px; }
+.barlabels { display: flex; gap: 3px; font-size: 11px; color: var(--muted); }
+.barlabels span { flex: 1; text-align: center; overflow: hidden; }
+#login { max-width: 400px; margin: 9vh auto; }
+#login .card { padding: 24px; }
+#login label { display: block; margin: 12px 0 4px; font-size: 13px; color: var(--muted); }
+#login input { width: 100%; }
+.err { color: var(--red); margin-top: 10px; min-height: 1.2em; }
+.hidden { display: none !important; }
+.speed svg { width: 100%; height: 170px; display: block; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.tabs button { border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 6px 14px; cursor: pointer; }
+.tabs button.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+.legend { display: flex; gap: 10px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; align-items: center; }
+.grad { width: 140px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #2e7d32, #c0ca33, #fdd835, #fb8c00, #e53935, #6a1b9a); }
+.empty { padding: 30px; text-align: center; color: var(--muted); }
+@media print {
+  header.top, .toolbar, .tabs, .noprint, #mapCard, #chartCard, .tiles { display: none !important; }
+  body { background: #fff; color: #000; }
+  .card { border: 0; box-shadow: none; padding: 0; }
+  .wrap { max-width: none; padding: 0; }
+  #printHead { display: block !important; }
+  td, th { font-size: 10pt; padding: 4px; }
+}
+#printHead { display: none; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- Prihlásenie -->
+<div id="login" class="wrap hidden">
+  <div class="card">
+    <h1 style="margin:0 0 4px;display:flex;gap:10px;align-items:center"><span class="logo">🚗</span> Car Tracking</h1>
+    <div class="muted">Webový prehľad jázd, chôdze a knihy jázd</div>
+    <form id="loginForm">
+      <label for="em">E-mail</label><input id="em" type="email" autocomplete="username" required>
+      <label for="pw">Heslo</label><input id="pw" type="password" autocomplete="current-password" required>
+      <label><input id="remember" type="checkbox" checked style="width:auto"> Zapamätať prihlásenie v tomto prehliadači</label>
+      <div class="err" id="loginErr"></div>
+      <button class="btn primary" style="width:100%;margin-top:8px" type="submit">Prihlásiť sa</button>
+    </form>
+    <details style="margin-top:14px"><summary class="muted">Adresa API servera</summary>
+      <input id="apiUrl" type="url" style="width:100%;margin-top:6px" placeholder="https://server/cartracking/api/">
+      <div class="muted" style="font-size:12px;margin-top:4px">Predvolene priečinok <code>api</code> vedľa tejto stránky.</div>
+    </details>
+  </div>
+</div>
+
+<!-- Aplikácia -->
+<div id="app" class="hidden">
+  <header class="top">
+    <h1><span class="logo">🚗</span> Car Tracking</h1>
+    <div class="seg" id="modeSeg"><button data-m="car" class="on">🚗 Auto</button><button data-m="walk">🚶 Chôdza</button></div>
+    <span class="sp"></span>
+    <span class="muted" id="who"></span>
+    <button class="btn small" id="themeBtn" title="Svetlý / tmavý režim">🌓</button>
+    <button class="btn small" id="logoutBtn">Odhlásiť</button>
+  </header>
+
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="seg" id="periodSeg"><button data-p="week">Týždeň</button><button data-p="month" class="on">Mesiac</button><button data-p="year">Rok</button></div>
+      <span class="period"><button class="btn small" id="prev">‹</button><b id="periodTitle"></b><button class="btn small" id="next">›</button></span>
+      <select id="vehicleSel" class="carOnly"><option value="">Všetky vozidlá</option></select>
+      <span class="sp" style="flex:1"></span>
+      <button class="btn small" id="reload">⟳ Obnoviť</button>
+    </div>
+
+    <div class="grid tiles" id="tiles"></div>
+
+    <div class="grid two" style="margin-top:14px">
+      <div class="card" id="mapCard">
+        <h2 id="mapTitle">Mapa</h2>
+        <div id="map"></div>
+        <div class="legend"><span>pomaly</span><span class="grad"></span><span>rýchlo</span>
+          <button class="btn small" id="showAll">Zobraziť všetky jazdy obdobia</button></div>
+      </div>
+      <div class="grid" style="align-content:start">
+        <div class="card" id="chartCard"><h2 id="chartTitle">Po dňoch</h2><div class="bars" id="bars"></div><div class="barlabels" id="barLabels"></div></div>
+        <div class="card speed hidden" id="speedCard"><h2>Rýchlosť vybranej jazdy</h2><div id="speedSvg"></div><div class="muted" id="speedInfo" style="font-size:13px"></div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="tabs noprint" id="tabs">
+        <button data-t="list" class="on">Jazdy</button>
+        <button data-t="logbook" class="carOnly">Kniha jázd</button>
+        <button data-t="reimb" class="carOnly">Cestovné náhrady</button>
+        <button data-t="shared" class="carOnly">Spoločná kniha jázd</button>
+        <button data-t="routes" class="carOnly">Časté trasy</button>
+      </div>
+      <div id="printHead"></div>
+      <div class="toolbar noprint" id="tabTools"></div>
+      <div class="tablewrap" id="tabBody"></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:14px">Údaje sú z vášho servera Car Tracking. Mapa © Esri, HERE, Garmin, OpenStreetMap.</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+// ---------------- stav ----------------
+const LS = {
+  get(k, d) { try { return localStorage.getItem(k) ?? sessionStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v, persist = true) { try { (persist ? localStorage : sessionStorage).setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch {} },
+};
+const S = {
+  api: LS.get("ct_api", new URL("../api/", location.href).href),
+  token: LS.get("ct_token", null), user: JSON.parse(LS.get("ct_user", "null")),
+  mode: "car", period: "month", offset: 0, vehicle: "", tab: "list",
+  trips: [], vehicles: [], vmap: {}, selected: null, range: null,
+};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const nf = (v, d = 1) => Number(v || 0).toLocaleString("sk-SK", { minimumFractionDigits: d, maximumFractionDigits: d });
+const km = (m) => nf(m / 1000, 1) + " km";
+const eur = (v) => nf(v, 2) + " €";
+const dt = (ts) => new Date(+ts).toLocaleDateString("sk-SK", { day: "numeric", month: "numeric", year: "numeric" });
+const tm = (ts) => new Date(+ts).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" });
+const dur = (ms) => { const m = Math.round(ms / 60000); return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + (m % 60) + " min"; };
+
+// ---------------- API ----------------
+async function api(path, opt = {}) {
+  const base = S.api.endsWith("/") ? S.api : S.api + "/";
+  const res = await fetch(base + path, {
+    ...opt, headers: { "Content-Type": "application/json", ...(S.token ? { Authorization: "Bearer " + S.token } : {}), ...(opt.headers || {}) },
+  });
+  let data = {};
+  try { data = await res.json(); } catch {}
+  if (res.status === 401 && S.token) { logout(); throw new Error("Prihlásenie vypršalo"); }
+  if (!res.ok) throw new Error(data.error || ("Chyba servera " + res.status));
+  return data;
+}
+
+// ---------------- prihlásenie ----------------
+$("apiUrl").value = S.api;
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  S.api = $("apiUrl").value.trim() || S.api;
+  if (!S.api.startsWith("https://") && !/^https?:\/\/(localhost|127\.)/.test(S.api)) { $("loginErr").textContent = "Adresa API musí začínať https://"; return; }
+  try {
+    const r = await api("login", { method: "POST", body: JSON.stringify({ email: $("em").value, password: $("pw").value, device_name: "Web" }) });
+    const keep = $("remember").checked;
+    S.token = r.token; S.user = r.user;
+    LS.set("ct_api", S.api); LS.set("ct_token", r.token, keep); LS.set("ct_user", JSON.stringify(r.user), keep);
+    start();
+  } catch (err) { $("loginErr").textContent = err.message; }
+});
+function logout() {
+  if (S.token) fetch((S.api.endsWith("/") ? S.api : S.api + "/") + "logout", { method: "POST", headers: { Authorization: "Bearer " + S.token } }).catch(() => {});
+  S.token = null; LS.del("ct_token"); LS.del("ct_user");
+  $("app").classList.add("hidden"); $("login").classList.remove("hidden");
+}
+$("logoutBtn").onclick = logout;
+
+// ---------------- téma ----------------
+function applyTheme(t) { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
+applyTheme(LS.get("ct_theme", ""));
+$("themeBtn").onclick = () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const t = dark ? "light" : "dark"; applyTheme(t); LS.set("ct_theme", t);
+};
+
+// ---------------- obdobie ----------------
+function range() {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  let from, to, title, buckets = [];
+  if (S.period === "week") {
+    const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow + 7 * S.offset);
+    from = new Date(d); to = new Date(d); to.setDate(to.getDate() + 7);
+    const names = ["Po", "Ut", "St", "Št", "Pi", "So", "Ne"];
+    for (let i = 0; i < 7; i++) { const a = new Date(from); a.setDate(a.getDate() + i); const b = new Date(a); b.setDate(b.getDate() + 1); buckets.push([names[i], +a, +b]); }
+    title = dt(from) + " – " + dt(+to - 1);
+  } else if (S.period === "month") {
+    from = new Date(d.getFullYear(), d.getMonth() + S.offset, 1); to = new Date(from.getFullYear(), from.getMonth() + 1, 1);
+    for (let a = new Date(from); a < to; a.setDate(a.getDate() + 1)) { const b = new Date(a); b.setDate(b.getDate() + 1); buckets.push([String(a.getDate()), +a, +b]); }
+    title = from.toLocaleDateString("sk-SK", { month: "long", year: "numeric" });
+  } else {
+    from = new Date(d.getFullYear() + S.offset, 0, 1); to = new Date(from.getFullYear() + 1, 0, 1);
+    const names = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+    for (let i = 0; i < 12; i++) buckets.push([names[i], +new Date(from.getFullYear(), i, 1), +new Date(from.getFullYear(), i + 1, 1)]);
+    title = "Rok " + from.getFullYear();
+  }
+  return { from: +from, to: +to, title, buckets };
+}
+
+// ---------------- načítanie ----------------
+async function load() {
+  S.range = range();
+  $("periodTitle").textContent = S.range.title;
+  $("next").disabled = S.offset >= 0;
+  $("tabBody").innerHTML = '<div class="empty">Načítavam…</div>';
+  try {
+    const [v, t] = await Promise.all([
+      api("vehicles"),
+      api(`trips?from=${S.range.from}&to=${S.range.to}&type=${S.mode}&limit=2000`),
+    ]);
+    S.vehicles = v.vehicles; S.vmap = Object.fromEntries(v.vehicles.map(x => [x.uuid, x]));
+    S.trips = t.trips.map(x => ({ ...x, started_at: +x.started_at, ended_at: x.ended_at ? +x.ended_at : null, distance_m: +x.distance_m }))
+      .filter(x => S.mode === "walk" || !S.vehicle || x.vehicle_uuid === S.vehicle)
+      .sort((a, b) => a.started_at - b.started_at);
+    fillVehicles(); render();
+  } catch (e) { $("tabBody").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+function fillVehicles() {
+  const sel = $("vehicleSel");
+  sel.innerHTML = '<option value="">Všetky vozidlá</option>' + S.vehicles.filter(v => !v.archived)
+    .map(v => `<option value="${v.uuid}" ${v.uuid === S.vehicle ? "selected" : ""}>${esc(v.name)}${v.plate ? " · " + esc(v.plate) : ""}${v.is_owner ? "" : " (👥 " + esc(v.owner_name) + ")"}</option>`).join("");
+}
+const cost = (t) => { const v = S.vmap[t.vehicle_uuid]; return v ? t.distance_m / 1000 / 100 * v.consumption * v.fuel_price : 0; };
+const liters = (t) => { const v = S.vmap[t.vehicle_uuid]; return v ? t.distance_m / 1000 / 100 * v.consumption : 0; };
+const place = (p, a) => p || (a ? a.split(",").slice(0, 2).join(",") : "—");
+
+// ---------------- vykreslenie ----------------
+function render() {
+  document.querySelectorAll(".carOnly").forEach(e => e.classList.toggle("hidden", S.mode !== "car"));
+  if (S.mode === "walk" && S.tab !== "list") S.tab = "list";
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === S.tab));
+  renderTiles(); renderBars(); renderTab(); clearMap();
+  $("speedCard").classList.add("hidden");
+  if (S.trips.length) showTrip(S.trips[S.trips.length - 1].uuid, false);
+}
+function renderTiles() {
+  const T = S.trips;
+  const total = T.reduce((s, t) => s + t.distance_m, 0);
+  const time = T.reduce((s, t) => s + ((t.ended_at || t.started_at) - t.started_at), 0);
+  let tiles;
+  if (S.mode === "car") {
+    const bus = T.filter(t => t.category === "business").reduce((s, t) => s + t.distance_m, 0);
+    tiles = [["Najazdené", km(total)], ["Jázd", T.length], ["Za volantom", dur(time)], ["Ø rýchlosť", time ? nf(total / 1000 / (time / 3.6e6), 0) + " km/h" : "–"],
+      ["Služobne", km(bus)], ["Palivo (odhad)", nf(T.reduce((s, t) => s + liters(t), 0), 1) + " l"], ["Náklady (odhad)", eur(T.reduce((s, t) => s + cost(t), 0))]];
+  } else {
+    const steps = T.reduce((s, t) => s + (+t.steps || 0), 0);
+    const days = new Set(T.map(t => dt(t.started_at))).size;
+    tiles = [["Kroky", steps.toLocaleString("sk-SK")], ["Vzdialenosť", km(total)], ["Čas chôdze", dur(time)], ["Záznamov", T.length], ["Kroky / deň", days ? Math.round(steps / days).toLocaleString("sk-SK") : "–"]];
+  }
+  $("tiles").innerHTML = tiles.map(([l, v]) => `<div class="card tile"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+}
+function renderBars() {
+  const b = S.range.buckets;
+  const vals = b.map(([, a, z]) => S.trips.filter(t => t.started_at >= a && t.started_at < z)
+    .reduce((s, t) => s + (S.mode === "car" ? t.distance_m / 1000 : (+t.steps || 0)), 0));
+  const max = Math.max(1, ...vals);
+  $("chartTitle").textContent = S.mode === "car" ? "Kilometre po dňoch" : "Kroky po dňoch";
+  $("bars").innerHTML = vals.map((v, i) => `<div style="height:${Math.max(1, v / max * 100)}%" data-t="${esc(b[i][0])}: ${S.mode === "car" ? nf(v, 1) + " km" : Math.round(v).toLocaleString("sk-SK")}"></div>`).join("");
+  $("barLabels").innerHTML = b.map(([l], i) => `<span>${b.length > 12 && (i + 1) % 5 && i ? "" : esc(l)}</span>`).join("");
+}
+
+// ---------------- záložky ----------------
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { S.tab = b.dataset.t; render(); });
+function renderTab() {
+  ({ list: tabList, logbook: tabLogbook, reimb: tabReimb, shared: tabShared, routes: tabRoutes })[S.tab]();
+}
+function tools(html) { $("tabTools").innerHTML = html; }
+function printHead(title, extra = "") {
+  const v = S.vmap[S.vehicle];
+  $("printHead").innerHTML = `<h2 style="margin:0">${esc(title)}</h2><div>Obdobie: <b>${esc(S.range.title)}</b> · ${esc(S.user?.name || "")}${v ? " · Vozidlo: <b>" + esc(v.name) + "</b> " + esc(v.plate || "") : ""} ${extra}</div>`;
+}
+function csv(name, rows) {
+  const text = "﻿" + rows.map(r => r.map(c => typeof c === "number" ? String(c).replace(".", ",") : '"' + String(c ?? "").replace(/"/g, '""') + '"').join(";")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function tabList() {
+  tools(`<span class="muted">${S.trips.length} záznamov · kliknutím zobrazíte trasu</span>`);
+  printHead(S.mode === "car" ? "Jazdy" : "Chôdza");
+  if (!S.trips.length) { $("tabBody").innerHTML = '<div class="empty">V tomto období nie sú žiadne záznamy.</div>'; return; }
+  const car = S.mode === "car";
+  $("tabBody").innerHTML = `<table><thead><tr><th>Dátum</th><th>Čas</th><th>Odkiaľ → kam</th>${car ? "<th>Vozidlo</th><th>Typ</th>" : "<th class='r'>Kroky</th>"}
+    <th class="r">km</th><th class="r">Trvanie</th><th class="r">Ø</th>${car ? "<th class='r'>Max</th><th class='r'>Skóre</th><th class='r'>Náklady</th>" : ""}</tr></thead><tbody>` +
+    S.trips.slice().reverse().map(t => `<tr class="trip" data-u="${t.uuid}"><td>${dt(t.started_at)}</td><td>${tm(t.started_at)}–${t.ended_at ? tm(t.ended_at) : ""}</td>
+      <td>${esc(place(t.start_place, t.start_address))} → ${esc(place(t.end_place, t.end_address))}${t.note ? `<div class="muted" style="font-size:12px">${esc(t.note)}</div>` : ""}</td>
+      ${car ? `<td>${esc(S.vmap[t.vehicle_uuid]?.name || "—")}</td><td><span class="chip ${t.category === "business" ? "b" : "p"}">${t.category === "business" ? "služobná" : "súkromná"}</span></td>` : `<td class="r">${(+t.steps).toLocaleString("sk-SK")}</td>`}
+      <td class="r">${nf(t.distance_m / 1000, 1)}</td><td class="r">${dur((t.ended_at || t.started_at) - t.started_at)}</td><td class="r">${nf(t.avg_speed_kmh, car ? 0 : 1)}</td>
+      ${car ? `<td class="r">${nf(t.max_speed_kmh, 0)}</td><td class="r">${t.score ?? "–"}</td><td class="r">${eur(cost(t))}</td>` : ""}</tr>`).join("") + "</tbody></table>";
+  bindRows();
+}
+function bindRows() { document.querySelectorAll("tr.trip").forEach(r => r.onclick = () => showTrip(r.dataset.u, true)); }
+
+function logbookRows() { return S.trips.map((t, i) => ({ i: i + 1, t })); }
+function tabLogbook() {
+  const v = S.vmap[S.vehicle];
+  if (!v) { tools(""); $("tabBody").innerHTML = '<div class="empty">Kniha jázd sa vedie pre každé vozidlo zvlášť – vyberte vozidlo hore.</div>'; return; }
+  tools(`<button class="btn" onclick="print()">🖨 Tlač / PDF</button><button class="btn" id="csvBtn">⬇ Excel (CSV)</button>`);
+  printHead("Kniha jázd", `· Spotreba ${nf(v.consumption, 1)} l/100 km`);
+  const rows = logbookRows();
+  $("tabBody").innerHTML = `<table><thead><tr><th>#</th><th>Dátum</th><th>Čas</th><th>Odkiaľ</th><th>Kam</th><th>Účel</th><th>Typ</th><th class="r">km</th><th class="r">Palivo l</th><th class="r">Náklady €</th></tr></thead><tbody>` +
+    rows.map(({ i, t }) => `<tr class="trip" data-u="${t.uuid}"><td>${i}</td><td>${dt(t.started_at)}</td><td>${tm(t.started_at)}–${t.ended_at ? tm(t.ended_at) : ""}</td><td>${esc(t.start_address || t.start_place || "—")}</td><td>${esc(t.end_address || t.end_place || "—")}</td>
+      <td>${esc(t.note || (t.category === "business" ? "služobná cesta" : ""))}</td><td>${t.category === "business" ? "S" : "P"}</td><td class="r"><b>${nf(t.distance_m / 1000, 1)}</b></td><td class="r">${nf(liters(t), 2)}</td><td class="r">${nf(cost(t), 2)}</td></tr>`).join("") +
+    `</tbody><tfoot><tr><td></td><td colspan="6"><b>Spolu ${rows.length} jázd</b> · služobné ${km(S.trips.filter(t => t.category === "business").reduce((s, t) => s + t.distance_m, 0))}</td>
+      <td class="r"><b>${nf(S.trips.reduce((s, t) => s + t.distance_m, 0) / 1000, 1)}</b></td><td class="r">${nf(S.trips.reduce((s, t) => s + liters(t), 0), 1)}</td><td class="r">${nf(S.trips.reduce((s, t) => s + cost(t), 0), 2)}</td></tr></tfoot></table>
+    <div style="display:flex;justify-content:space-between;margin-top:40px" class="muted"><span>Dátum</span><span>Podpis vodiča: ______________________</span></div>`;
+  bindRows();
+  $("csvBtn").onclick = () => csv(`kniha-jazd-${v.plate || v.name}-${S.range.title}.csv`,
+    [["Dátum", "Začiatok", "Koniec", "Odkiaľ", "Kam", "Účel", "Typ", "km", "Palivo l", "Náklady €"]].concat(
+      S.trips.map(t => [dt(t.started_at), tm(t.started_at), t.ended_at ? tm(t.ended_at) : "", t.start_address || "", t.end_address || "", t.note || "",
+        t.category === "business" ? "služobná" : "súkromná", +(t.distance_m / 1000).toFixed(2), +liters(t).toFixed(2), +cost(t).toFixed(2)])));
+}
+function tabReimb() {
+  const v = S.vmap[S.vehicle];
+  if (!v) { tools(""); $("tabBody").innerHTML = '<div class="empty">Vyberte vozidlo hore – sadzba náhrady €/km sa nastavuje pri vozidle v aplikácii.</div>'; return; }
+  const rate = +v.rate_per_km || 0;
+  const rows = S.trips.filter(t => t.category === "business").map(t => { const k = t.distance_m / 1000; return { t, k, basic: k * rate, fuel: cost(t) }; });
+  tools(`<span class="muted">Sadzba ${nf(rate, 4)} €/km · PHL ${nf(v.consumption, 1)} l/100 km × ${nf(v.fuel_price, 3)} €</span><button class="btn" onclick="print()">🖨 Tlač / PDF</button><button class="btn" id="csvBtn">⬇ Excel (CSV)</button>`);
+  printHead("Cestovné náhrady – použitie vlastného vozidla", `· sadzba ${nf(rate, 4)} €/km`);
+  const sum = (f) => rows.reduce((s, r) => s + f(r), 0);
+  $("tabBody").innerHTML = (rate ? "" : '<p style="color:var(--red)">Pri vozidle nie je nastavená sadzba €/km – počíta sa len náhrada za palivo.</p>') +
+    `<table><thead><tr><th>#</th><th>Dátum</th><th>Trasa</th><th>Účel</th><th class="r">km</th><th class="r">Základná náhrada</th><th class="r">Náhrada za PHL</th><th class="r">Spolu</th></tr></thead><tbody>` +
+    rows.map((r, i) => `<tr class="trip" data-u="${r.t.uuid}"><td>${i + 1}</td><td>${dt(r.t.started_at)}</td><td>${esc(place(r.t.start_place, r.t.start_address))} → ${esc(place(r.t.end_place, r.t.end_address))}</td>
+      <td>${esc(r.t.note || "služobná cesta")}</td><td class="r">${nf(r.k, 1)}</td><td class="r">${eur(r.basic)}</td><td class="r">${eur(r.fuel)}</td><td class="r"><b>${eur(r.basic + r.fuel)}</b></td></tr>`).join("") +
+    `</tbody><tfoot><tr><td></td><td colspan="3"><b>Spolu</b></td><td class="r"><b>${nf(sum(r => r.k), 1)}</b></td><td class="r">${eur(sum(r => r.basic))}</td><td class="r">${eur(sum(r => r.fuel))}</td><td class="r"><b>${eur(sum(r => r.basic + r.fuel))}</b></td></tr></tfoot></table>
+    <div style="display:flex;justify-content:space-between;margin-top:40px" class="muted"><span>Podpis zamestnanca: ________________</span><span>Schválil: ________________</span></div>
+    <p class="muted" style="font-size:12px">Sadzbu a spôsob výpočtu overte podľa platných predpisov a pokynov zamestnávateľa.</p>`;
+  bindRows();
+  $("csvBtn").onclick = () => csv(`nahrady-${S.range.title}.csv`, [["Dátum", "Trasa", "Účel", "km", "Základná náhrada €", "Náhrada za PHL €", "Spolu €"]].concat(
+    rows.map(r => [dt(r.t.started_at), place(r.t.start_place, r.t.start_address) + " → " + place(r.t.end_place, r.t.end_address), r.t.note || "", +r.k.toFixed(2), +r.basic.toFixed(2), +r.fuel.toFixed(2), +(r.basic + r.fuel).toFixed(2)])));
+}
+async function tabShared() {
+  const v = S.vmap[S.vehicle];
+  if (!v) { tools(""); $("tabBody").innerHTML = '<div class="empty">Vyberte vozidlo hore. Spoločná kniha jázd obsahuje jazdy všetkých vodičov, s ktorými je vozidlo zdieľané.</div>'; return; }
+  tools(`<span class="muted">${v.is_owner ? `Vaše vozidlo · zdieľané s ${v.share_count} vodičmi` : "Zdieľané od " + esc(v.owner_name)}</span><button class="btn" onclick="print()">🖨 Tlač / PDF</button>` +
+    (v.is_owner ? `<button class="btn" id="shareBtn">👥 Spravovať zdieľanie</button>` : ""));
+  printHead("Kniha jázd – všetci vodiči");
+  $("tabBody").innerHTML = '<div class="empty">Načítavam…</div>';
+  try {
+    const r = await api(`vehicles/${v.uuid}/trips?from=${S.range.from}&to=${S.range.to}`);
+    const T = r.trips.map(t => ({ ...t, started_at: +t.started_at, ended_at: t.ended_at ? +t.ended_at : null, distance_m: +t.distance_m }));
+    const by = {}; T.forEach(t => by[t.driver_name] = (by[t.driver_name] || 0) + t.distance_m);
+    $("tabBody").innerHTML = `<p>${Object.entries(by).map(([d, m]) => `<span class="chip">${esc(d)}: ${km(m)}</span>`).join(" ")}</p>
+      <table><thead><tr><th>#</th><th>Dátum</th><th>Čas</th><th>Vodič</th><th>Odkiaľ</th><th>Kam</th><th>Účel</th><th>Typ</th><th class="r">km</th></tr></thead><tbody>` +
+      T.map((t, i) => `<tr${t.mine ? ` class="trip" data-u="${t.uuid}"` : ""}><td>${i + 1}</td><td>${dt(t.started_at)}</td><td>${tm(t.started_at)}–${t.ended_at ? tm(t.ended_at) : ""}</td><td>${esc(t.driver_name)}</td>
+        <td>${esc(t.start_address || t.start_place || "—")}</td><td>${esc(t.end_address || t.end_place || "—")}</td><td>${esc(t.note || "")}</td><td>${t.category === "business" ? "S" : "P"}</td><td class="r">${nf(t.distance_m / 1000, 1)}</td></tr>`).join("") +
+      `</tbody><tfoot><tr><td></td><td colspan="7"><b>Spolu ${T.length} jázd</b></td><td class="r"><b>${nf(T.reduce((s, t) => s + t.distance_m, 0) / 1000, 1)}</b></td></tr></tfoot></table>`;
+    bindRows();
+  } catch (e) { $("tabBody").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  if ($("shareBtn")) $("shareBtn").onclick = () => manageShares(v);
+}
+async function manageShares(v) {
+  const r = await api(`vehicles/${v.uuid}/shares`).catch(e => ({ shares: [], err: e.message }));
+  $("tabBody").innerHTML = `<h3>Zdieľanie: ${esc(v.name)}</h3>
+    ${r.shares.length ? "<table><tbody>" + r.shares.map(u => `<tr><td>${esc(u.name)}</td><td>${esc(u.email)}</td><td class="r"><button class="btn small" data-rm="${u.user_id}">Odobrať</button></td></tr>`).join("") + "</tbody></table>" : '<p class="muted">Zatiaľ nezdieľané.</p>'}
+    <p style="display:flex;gap:8px;flex-wrap:wrap"><input type="email" id="shEmail" placeholder="e-mail vodiča"><button class="btn primary" id="shAdd">Pridať</button></p>
+    <p class="err" id="shErr">${esc(r.err || "")}</p>
+    <p class="muted" style="font-size:13px">Vodič musí mať účet na tomto serveri. Uvidí vozidlo vo svojej aplikácii a jeho jazdy týmto vozidlom sa zapíšu do spoločnej knihy jázd.</p>`;
+  $("shAdd").onclick = async () => {
+    try { await api(`vehicles/${v.uuid}/shares`, { method: "POST", body: JSON.stringify({ email: $("shEmail").value }) }); v.share_count++; manageShares(v); }
+    catch (e) { $("shErr").textContent = e.message; }
+  };
+  document.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => {
+    await api(`vehicles/${v.uuid}/shares/${b.dataset.rm}`, { method: "DELETE" }); v.share_count = Math.max(0, v.share_count - 1); manageShares(v);
+  });
+}
+async function tabRoutes() {
+  tools('<span class="muted">Z jázd za posledný rok (okrem filtra obdobia) – rovnaký začiatok a cieľ do 350 m, aspoň 3×.</span>');
+  printHead("Časté trasy");
+  $("tabBody").innerHTML = '<div class="empty">Počítam…</div>';
+  const year = await api(`trips?from=${Date.now() - 365 * 864e5}&type=car&limit=2000`).catch(() => ({ trips: [] }));
+  const T = year.trips.filter(t => t.start_lat != null && t.end_lat != null && t.ended_at && +t.distance_m >= 1000 && (!S.vehicle || t.vehicle_uuid === S.vehicle));
+  const cl = [];
+  const hav = (a, b, c, d) => { const R = 6371000, r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
+  const cid = (lat, lng, name) => {
+    let i = cl.findIndex(c => hav(c.lat, c.lng, lat, lng) < 350);
+    if (i < 0) { cl.push({ lat, lng, names: {} }); i = cl.length - 1; }
+    if (name) cl[i].names[name] = (cl[i].names[name] || 0) + 1; return i;
+  };
+  const groups = {};
+  T.forEach(t => {
+    const a = cid(+t.start_lat, +t.start_lng, place(t.start_place, t.start_address)), b = cid(+t.end_lat, +t.end_lng, place(t.end_place, t.end_address));
+    if (a !== b) (groups[a + ">" + b] ||= []).push(t);
+  });
+  const label = (i) => Object.entries(cl[i].names).sort((x, y) => y[1] - x[1])[0]?.[0] || "?";
+  const rows = Object.entries(groups).filter(([, l]) => l.length >= 3).sort((x, y) => y[1].length - x[1].length).map(([k, l]) => {
+    const [a, b] = k.split(">").map(Number);
+    const d = l.map(t => +t.ended_at - +t.started_at);
+    const byH = {}; l.forEach(t => { const h = new Date(+t.started_at).getHours(); (byH[h] ||= []).push(+t.ended_at - +t.started_at); });
+    const best = Object.entries(byH).map(([h, x]) => [h, x.reduce((s, v) => s + v, 0) / x.length, x.length]).sort((x, y) => (y[2] >= 2) - (x[2] >= 2) || x[1] - y[1])[0];
+    return { from: label(a), to: label(b), n: l.length, avg: d.reduce((s, v) => s + v, 0) / d.length, min: Math.min(...d), max: Math.max(...d), km: l.reduce((s, t) => s + +t.distance_m, 0) / l.length, best };
+  });
+  $("tabBody").innerHTML = rows.length ? `<table><thead><tr><th>Trasa</th><th class="r">Počet</th><th class="r">Ø čas</th><th class="r">Najrýchlejšie</th><th class="r">Najpomalšie</th><th class="r">Ø km</th><th>Najlepší odchod</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${esc(r.from)} → ${esc(r.to)}</td><td class="r">${r.n}×</td><td class="r">${dur(r.avg)}</td><td class="r">${dur(r.min)}</td><td class="r">${dur(r.max)}</td><td class="r">${nf(r.km / 1000, 1)}</td>
+      <td>${r.best ? `${String(r.best[0]).padStart(2, "0")}:00–${String(r.best[0]).padStart(2, "0")}:59 (Ø ${dur(r.best[1])})` : ""}</td></tr>`).join("") + "</tbody></table>"
+    : '<div class="empty">Zatiaľ žiadne opakované trasy.</div>';
+}
+
+// ---------------- mapa ----------------
+const map = L.map("map", { zoomControl: true }).setView([48.67, 19.7], 7);
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+  maxZoom: 19, maxNativeZoom: 18, attribution: "Mapa © Esri, HERE, Garmin, OpenStreetMap",
+}).addTo(map);
+const layer = L.layerGroup().addTo(map);
+const stops = [[0, "#2e7d32"], [30, "#43a047"], [50, "#c0ca33"], [70, "#fdd835"], [90, "#fb8c00"], [110, "#e53935"], [130, "#b71c1c"], [150, "#6a1b9a"]];
+function speedColor(v) {
+  for (let i = 1; i < stops.length; i++) if (v <= stops[i][0]) {
+    const [s0, c0] = stops[i - 1], [s1, c1] = stops[i], t = (v - s0) / (s1 - s0);
+    const p = (c, k) => parseInt(c.substr(1 + k * 2, 2), 16);
+    return "#" + [0, 1, 2].map(k => Math.round(p(c0, k) + (p(c1, k) - p(c0, k)) * t).toString(16).padStart(2, "0")).join("");
+  }
+  return stops[stops.length - 1][1];
+}
+function clearMap() { layer.clearLayers(); }
+const cache = {};
+async function points(uuid) { return cache[uuid] ||= api("trips/" + uuid).then(r => r.points.map(p => ({ ...p, ts: +p.ts, lat: +p.lat, lng: +p.lng, speed_kmh: p.speed_kmh == null ? null : +p.speed_kmh }))); }
+function pin(lat, lng, color, text) {
+  return L.marker([lat, lng], { icon: L.divIcon({ className: "", html: `<div style="background:${color};color:#fff;border:2px solid #fff;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font:700 12px system-ui;box-shadow:0 1px 4px #0006">${text}</div>`, iconSize: [24, 24], iconAnchor: [12, 12] }) });
+}
+async function showTrip(uuid, scroll) {
+  S.selected = uuid;
+  document.querySelectorAll("tr.trip").forEach(r => r.classList.toggle("sel", r.dataset.u === uuid));
+  const t = S.trips.find(x => x.uuid === uuid);
+  let P; try { P = await points(uuid); } catch { return; }
+  if (S.selected !== uuid) return;
+  layer.clearLayers();
+  if (P.length < 2) return;
+  const car = !t || t.type !== "walk";
+  for (let i = 1; i < P.length; i++) {
+    const v = P[i].speed_kmh ?? 0;
+    L.polyline([[P[i - 1].lat, P[i - 1].lng], [P[i].lat, P[i].lng]], { color: car ? speedColor(v) : "#1e88e5", weight: 5, opacity: .95 }).addTo(layer);
+  }
+  pin(P[0].lat, P[0].lng, "#2e7d32", "A").addTo(layer);
+  pin(P[P.length - 1].lat, P[P.length - 1].lng, "#c62828", "B").addTo(layer);
+  P.filter(p => p.event).forEach(p => L.circleMarker([p.lat, p.lng], { radius: 5, color: "#fff", weight: 2, fillOpacity: 1,
+    fillColor: { brake: "#d32f2f", accel: "#f57c00", speeding: "#6a1b9a" }[p.event] }).bindTooltip({ brake: "prudké brzdenie", accel: "prudké zrýchlenie", speeding: "nad limitom" }[p.event]).addTo(layer));
+  map.fitBounds(L.latLngBounds(P.map(p => [p.lat, p.lng])), { padding: [24, 24] });
+  $("mapTitle").textContent = t ? `Mapa · ${dt(t.started_at)} ${tm(t.started_at)} · ${km(t.distance_m)}` : "Mapa";
+  if (car) speedChart(P, t); else $("speedCard").classList.add("hidden");
+  if (scroll) $("mapCard").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("showAll").onclick = async () => {
+  layer.clearLayers();
+  const list = S.trips.slice(-40);
+  const all = [];
+  for (const t of list) {
+    const P = await points(t.uuid).catch(() => []);
+    if (P.length > 1) { L.polyline(P.map(p => [p.lat, p.lng]), { color: S.mode === "car" ? "#1565c0" : "#1e88e5", weight: 3, opacity: .7 }).bindTooltip(dt(t.started_at) + " · " + km(t.distance_m)).addTo(layer); all.push(...P.map(p => [p.lat, p.lng])); }
+  }
+  if (all.length) map.fitBounds(L.latLngBounds(all), { padding: [24, 24] });
+  $("mapTitle").textContent = `Mapa · ${list.length} posledných záznamov obdobia`;
+};
+
+// ---------------- graf rýchlosti ----------------
+function speedChart(P, t) {
+  const W = 600, H = 170, l = 30, r = 6, top = 8, bot = 20;
+  const t0 = P[0].ts, span = Math.max(1, P[P.length - 1].ts - t0);
+  const sp = P.map((p, i) => p.speed_kmh ?? (i ? 0 : 0));
+  const max = Math.max(20, ...sp);
+  const step = max <= 40 ? 10 : max <= 100 ? 20 : max <= 160 ? 30 : 50;
+  const ymax = Math.ceil((max + 5) / step) * step;
+  const x = (ts) => l + (ts - t0) / span * (W - l - r), y = (v) => H - bot - v / ymax * (H - top - bot);
+  let grid = "";
+  for (let v = 0; v <= ymax; v += step) grid += `<line x1="${l}" x2="${W - r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${l - 4}" y="${y(v) + 4}" font-size="10" text-anchor="end" fill="var(--muted)">${v}</text>`;
+  const pts = P.map((p, i) => `${x(p.ts).toFixed(1)},${y(sp[i]).toFixed(1)}`).join(" ");
+  const gs = stops.filter(s => s[0] <= ymax).map(s => `<stop offset="${(1 - s[0] / ymax).toFixed(3)}" stop-color="${s[1]}"/>`).reverse().join("");
+  const moving = []; for (let i = 1; i < P.length; i++) if (sp[i] >= 5) moving.push([P[i].ts - P[i - 1].ts, sp[i]]);
+  const mt = moving.reduce((s, m) => s + m[0], 0), avg = mt ? moving.reduce((s, m) => s + m[0] * m[1], 0) / mt : 0;
+  const mi = sp.indexOf(Math.max(...sp));
+  $("speedSvg").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="sg" x1="0" y1="${y(ymax)}" x2="0" y2="${y(0)}" gradientUnits="userSpaceOnUse">${gs}</linearGradient></defs>
+    ${grid}<polyline points="${l},${y(0)} ${pts} ${W - r},${y(0)}" fill="url(#sg)" opacity=".22"/><polyline points="${pts}" fill="none" stroke="url(#sg)" stroke-width="2.2" stroke-linejoin="round"/>
+    <line x1="${l}" x2="${W - r}" y1="${y(avg)}" y2="${y(avg)}" stroke="var(--muted)" stroke-dasharray="5 4"/><text x="${W - r - 2}" y="${y(avg) - 4}" font-size="10" text-anchor="end" fill="var(--muted)" font-weight="700">Ø ${Math.round(avg)}</text>
+    <circle cx="${x(P[mi].ts)}" cy="${y(sp[mi])}" r="4" fill="var(--ink)"/><text x="${x(P[mi].ts)}" y="${Math.max(12, y(sp[mi]) - 7)}" font-size="10" text-anchor="middle" fill="var(--ink)" font-weight="700">max ${Math.round(sp[mi])}</text>
+    <text x="${l}" y="${H - 4}" font-size="10" fill="var(--muted)">${tm(t0)}</text><text x="${W - r}" y="${H - 4}" font-size="10" text-anchor="end" fill="var(--muted)">${tm(P[P.length - 1].ts)}</text></svg>`;
+  $("speedInfo").textContent = `Max ${Math.round(Math.max(...sp, +(t?.max_speed_kmh || 0)))} km/h · Ø v pohybe ${Math.round(avg)} km/h · v pohybe ${dur(mt)} · státie ${dur(span - mt)}`;
+  $("speedCard").classList.remove("hidden");
+}
+
+// ---------------- ovládanie ----------------
+document.querySelectorAll("#modeSeg button").forEach(b => b.onclick = () => {
+  S.mode = b.dataset.m; document.querySelectorAll("#modeSeg button").forEach(x => x.classList.toggle("on", x === b)); S.tab = "list"; load();
+});
+document.querySelectorAll("#periodSeg button").forEach(b => b.onclick = () => {
+  S.period = b.dataset.p; S.offset = 0; document.querySelectorAll("#periodSeg button").forEach(x => x.classList.toggle("on", x === b)); load();
+});
+$("prev").onclick = () => { S.offset--; load(); };
+$("next").onclick = () => { if (S.offset < 0) { S.offset++; load(); } };
+$("vehicleSel").onchange = (e) => { S.vehicle = e.target.value; LS.set("ct_vehicle", S.vehicle); load(); };
+$("reload").onclick = () => { for (const k in cache) delete cache[k]; load(); };
+
+function start() {
+  $("login").classList.add("hidden"); $("app").classList.remove("hidden");
+  $("who").textContent = S.user?.name || "";
+  S.vehicle = LS.get("ct_vehicle", "");
+  setTimeout(() => map.invalidateSize(), 50);
+  load();
+}
+if (S.token) start(); else $("login").classList.remove("hidden");
+</script>
+</body>
+</html>

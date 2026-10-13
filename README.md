@@ -25,6 +25,16 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Novinky vo verzii 1.6
+- **Webový prehľad** (`backend/web/index.html`) – jazdy a chôdza na počítači: mapa, grafy, kniha jázd, náhrady, spoločná kniha jázd, časté trasy, tlač a Excel.
+- **Zdieľané vozidlo** – vlastník ho zdieľa e-mailom ďalším vodičom, spoločná kniha jázd všetkých vodičov.
+- **Cestovné náhrady** – sadzba €/km pri vozidle, výkaz za služobné jazdy (základná náhrada + PHL), tlač/PDF a CSV.
+- **Časté trasy** – opakované cesty, priemerný/najrýchlejší čas, najlepšia hodina odchodu.
+- **Tlačidlá v rýchlej lište** (Jazda, Chôdza), **parkovací lístok** s upozornením 10 min pred koncom.
+- **Kalendár aktivity, rekordy a série krokov**, **pracovný výkaz chôdze**, **mesačné zhrnutie** (notifikácia).
+- **Offline mapy** – uloženie oblasti, režim offline, limit veľkosti.
+- Databáza: `backend/migrate_v6.sql` (sadzba `rate_per_km`, tabuľka `CarTracking_vehicle_shares`).
+
 ## Graf rýchlosti
 - V detaile jazdy autom graf rýchlosti farbený podľa rýchlosti, os podľa času alebo km, ťuknutím hodnota v bode, priemer, maximum, udalosti, čas v pohybe/státia a rozdelenie času podľa rýchlosti.
 - Vo veľkom widgete sa ťuknutím na graf prepína: km za 7 dní → rýchlosť (aktuálna/posledná jazda) → kroky za 7 dní.
@@ -83,11 +93,12 @@ adresa servera, automatická synchronizácia, iba cez Wi-Fi · odtlačok prsta �
    GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localhost';
    ```
 3. Skopírujte priečinok `backend/api` na web server (napr. `htdocs/cartracking/api`) a upravte `config.php`.
+   Webový prehľad: priečinok `backend/web` skopírujte vedľa neho (`htdocs/cartracking/web`) – otvorí sa na `https://SERVER/cartracking/web/`.
 4. Apache potrebuje `mod_rewrite` (súbor `.htaccess` je priložený). Pre nginx:
    `location /cartracking/api/ { try_files $uri /cartracking/api/index.php$is_args$args; }`
 5. Test: `curl -X POST http://SERVER/cartracking/api/login -d '{"email":"a@b.sk","password":"x"}'` → JSON s chybou = API beží.
 
-> Na produkciu použite **HTTPS**. `usesCleartextTraffic="true"` v manifeste je len pre lokálny vývoj.
+> Aplikácia aj webový prehľad vyžadujú **HTTPS** (nešifrované spojenie aplikácia odmietne).
 
 Aplikácia sa k MySQL nepripája priamo (to by bolo nebezpečné – heslo k DB by bolo v APK); komunikuje cez toto REST API.
 
@@ -106,7 +117,7 @@ Aplikácia sa k MySQL nepripája priamo (to by bolo nebezpečné – heslo k DB 
 
 ## Štruktúra
 ```
-backend/  schema.sql, api/index.php (REST), api/config.php, api/.htaccess
+backend/  schema.sql, migrate_*.sql, api/index.php (REST), api/config.php, api/.htaccess, web/index.html (webový prehľad)
 android/app/src/main/java/sk/cartracker/
   CarTrackerApp.kt              – inicializácia, kanály notifikácií, registrácia detekcie
   detection/                    – Activity Recognition, Bluetooth auta, štart po reštarte
@@ -128,3 +139,9 @@ android/app/src/main/java/sk/cartracker/
 | POST | /trips/sync | idempotentný upsert jázd + bodov |
 | GET | /trips, /trips/{uuid} | zoznam / detail s bodmi |
 | DELETE | /trips/{uuid} | zmazanie jazdy |
+| GET | /trips?from=&to=&type= | jazdy za obdobie |
+| POST | /vehicles/sync, GET /vehicles | vozidlá (vlastné aj zdieľané) |
+| GET/POST | /vehicles/{uuid}/shares | zdieľanie vozidla (`{email}`) |
+| DELETE | /vehicles/{uuid}/shares/{user_id} | zrušenie zdieľania |
+| GET | /vehicles/{uuid}/trips?from=&to= | spoločná kniha jázd |
+| POST/GET | /items/sync, /items?kind= | miesta, tankovania, pripomienky |
