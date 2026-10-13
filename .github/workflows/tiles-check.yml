@@ -10,7 +10,7 @@ jobs:
           check() {
             r=$(curl -s -o t.bin -w '%{http_code} %{size_download} %{content_type}' --max-time 20 -A 'sk.cartracker/1.1 (Android)' "$2")
             h=$(md5sum t.bin | cut -c1-8)
-            echo "::notice::$1 => $r md5=$h"
+            echo "$1 => $r md5=$h" >> res.txt
           }
           check carto-voyager "https://a.basemaps.cartocdn.com/rastertiles/voyager/14/9070/5650@2x.png"
           check carto-light "https://a.basemaps.cartocdn.com/light_all/14/9070/5650@2x.png"
@@ -28,3 +28,4 @@ jobs:
           check esri-street-z18 "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/18/90409/145127"
           check stadia "https://tiles.stadiamaps.com/tiles/alidade_smooth/14/9070/5650.png"
           check cyclosm "https://a.tile-cyclosm.openstreetmap.fr/cyclosm/14/9070/5650.png"
+          echo "::notice::$(paste -sd '|' res.txt)"
