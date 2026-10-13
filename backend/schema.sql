@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS CarTracking_vehicles (
     limit_urban   SMALLINT UNSIGNED NOT NULL DEFAULT 50  COMMENT 'max km/h v obci',
     limit_rural   SMALLINT UNSIGNED NOT NULL DEFAULT 90  COMMENT 'max km/h mimo obce',
     limit_highway SMALLINT UNSIGNED NOT NULL DEFAULT 130 COMMENT 'max km/h na diaľnici',
+    rate_per_km   DECIMAL(6,4) NOT NULL DEFAULT 0 COMMENT 'sadzba základnej náhrady €/km',
     INDEX idx_vehicles_user (user_id),
     CONSTRAINT CarTracking_fk_vehicles_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -74,6 +75,17 @@ CREATE TABLE IF NOT EXISTS CarTracking_trips (
     INDEX idx_trips_user_start (user_id, started_at),
     INDEX idx_trips_vehicle (vehicle_uuid),
     CONSTRAINT CarTracking_fk_trips_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Zdieľanie vozidla s ďalšími používateľmi (spoločná kniha jázd)
+CREATE TABLE IF NOT EXISTS CarTracking_vehicle_shares (
+    vehicle_uuid CHAR(36)     NOT NULL,
+    user_id      INT UNSIGNED NOT NULL,
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (vehicle_uuid, user_id),
+    INDEX idx_shares_user (user_id),
+    CONSTRAINT CarTracking_fk_shares_vehicle FOREIGN KEY (vehicle_uuid) REFERENCES CarTracking_vehicles(uuid) ON DELETE CASCADE,
+    CONSTRAINT CarTracking_fk_shares_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Miesta, tankovania a pripomienky (JSON podľa aplikácie)

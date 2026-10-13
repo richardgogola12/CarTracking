@@ -27,6 +27,7 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             Notifications.reminder(applicationContext, r, st, vehicle?.label)
             c.reminders.save(r.copy(lastNotifiedAt = now))
         }
+        runCatching { MonthlySummary.maybeNotify(applicationContext) }
         WidgetHook.update(applicationContext)
         return Result.success()
     }

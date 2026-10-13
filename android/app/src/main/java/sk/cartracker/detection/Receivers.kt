@@ -78,6 +78,7 @@ class BootReceiver : BroadcastReceiver() {
             if ((s.autoDetection || s.walkTracking) && (s.startOnBoot || !isBoot)) ActivityDetectionManager.register(ctx)
             RuntimeState.setCarBtConnected(ctx, false)
             SyncWorker.schedulePeriodic(ctx, s.syncWifiOnly)
+            sk.cartracker.service.ParkingTimer.reschedule(ctx)
         }
     }
 }

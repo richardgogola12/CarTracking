@@ -91,6 +91,10 @@ data class AppSettings(
     val walkNotify: Boolean = false,
     val walkVibrate: Boolean = false,
     val dailyStepGoal: Int = 8000,
+    // Mesačné zhrnutie, offline mapy
+    val monthlySummary: Boolean = true,
+    val offlineMaps: Boolean = false,      // mapy iba z uložených dlaždíc (bez internetu)
+    val mapCacheMb: Int = 500,
     // Automatické zlučovanie (zastávka na pumpe, v obchode…)
     val autoMerge: Boolean = true,
     val autoMergeGapMin: Int = 10,        // auto: max. dĺžka prestávky
@@ -169,6 +173,9 @@ class SettingsRepository(private val context: Context) {
         val WALK_NOTIFY = booleanPreferencesKey("walk_notify")
         val WALK_VIBRATE = booleanPreferencesKey("walk_vibrate")
         val STEP_GOAL = intPreferencesKey("daily_step_goal")
+        val MONTHLY = booleanPreferencesKey("monthly_summary")
+        val OFFLINE_MAPS = booleanPreferencesKey("offline_maps")
+        val MAP_CACHE = intPreferencesKey("map_cache_mb")
         val AUTO_MERGE = booleanPreferencesKey("auto_merge")
         val MERGE_GAP = intPreferencesKey("auto_merge_gap")
         val WALK_MERGE_GAP = intPreferencesKey("walk_merge_gap")
@@ -239,6 +246,9 @@ class SettingsRepository(private val context: Context) {
             walkNotify = p[K.WALK_NOTIFY] ?: d.walkNotify,
             walkVibrate = p[K.WALK_VIBRATE] ?: d.walkVibrate,
             dailyStepGoal = p[K.STEP_GOAL] ?: d.dailyStepGoal,
+            monthlySummary = p[K.MONTHLY] ?: d.monthlySummary,
+            offlineMaps = p[K.OFFLINE_MAPS] ?: d.offlineMaps,
+            mapCacheMb = p[K.MAP_CACHE] ?: d.mapCacheMb,
             autoMerge = p[K.AUTO_MERGE] ?: d.autoMerge,
             autoMergeGapMin = p[K.MERGE_GAP] ?: d.autoMergeGapMin,
             walkMergeGapMin = p[K.WALK_MERGE_GAP] ?: d.walkMergeGapMin,
@@ -298,6 +308,9 @@ class SettingsRepository(private val context: Context) {
         p[K.WALK_NOTIFY] = s.walkNotify
         p[K.WALK_VIBRATE] = s.walkVibrate
         p[K.STEP_GOAL] = s.dailyStepGoal
+        p[K.MONTHLY] = s.monthlySummary
+        p[K.OFFLINE_MAPS] = s.offlineMaps
+        p[K.MAP_CACHE] = s.mapCacheMb
         p[K.AUTO_MERGE] = s.autoMerge
         p[K.MERGE_GAP] = s.autoMergeGapMin
         p[K.WALK_MERGE_GAP] = s.walkMergeGapMin

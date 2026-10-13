@@ -44,9 +44,15 @@ class CarTrackerApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         Notifications.createChannels(this)
+        sk.cartracker.service.ParkingTimer.createChannel(this)
         Configuration.getInstance().userAgentValue = packageName
         sk.cartracker.sync.ReminderWorker.schedule(this)
         sk.cartracker.widget.CarWidget.updateAll(this)
+
+        // Tlačidlá v rýchlej lište a widget sledujú stav jazdy
+        appScope.launch {
+            sk.cartracker.service.TrackingState.state.collect { sk.cartracker.service.BaseTrackTile.requestUpdate(this@CarTrackerApp) }
+        }
 
         // Pri každom štarte procesu sa uistíme, že detekcia jazdy je zaregistrovaná
         appScope.launch {

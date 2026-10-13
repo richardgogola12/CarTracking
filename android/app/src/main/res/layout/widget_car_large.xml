@@ -99,7 +99,7 @@
         android:layout_marginTop="8dp" android:ellipsize="end" android:maxLines="1" android:textColor="#FFFFD180"
         android:textSize="12sp" android:visibility="gone" />
     <TextView android:id="@+id/w_parking" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="2dp" android:ellipsize="end" android:maxLines="1" android:textColor="#CCFFFFFF"
+        android:layout_marginTop="2dp" android:ellipsize="end" android:maxLines="2" android:textColor="#CCFFFFFF"
         android:textSize="12sp" android:visibility="gone" />
 
     <!-- Tlačidlá -->

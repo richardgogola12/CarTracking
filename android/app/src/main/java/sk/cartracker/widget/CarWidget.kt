@@ -213,6 +213,12 @@ class CarWidget : AppWidgetProvider() {
 
             val park = RuntimeState.parking(ctx)?.takeIf { state == DriveState.IDLE }?.let {
                 "🅿️ ${it.address ?: "Zaparkované"} · pred ${formatDuration(System.currentTimeMillis() - it.ts)}"
+            }.let { p ->
+                val until = sk.cartracker.service.ParkingTimer.until(ctx)?.takeIf { state == DriveState.IDLE }
+                val ticket = until?.let { u ->
+                    if (u > System.currentTimeMillis()) "🎫 do ${formatTime(u)} (zostáva ${formatDuration(u - System.currentTimeMillis())})" else "🎫 lístok vypršal"
+                }
+                listOfNotNull(p, ticket).joinToString("\n").ifEmpty { null }
             }
 
             return Data(

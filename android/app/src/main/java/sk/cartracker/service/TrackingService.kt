@@ -357,6 +357,7 @@ class TrackingService : LifecycleService() {
         lastMovingAt = System.currentTimeMillis()
         exitSignalAt = null
         pendingWalk = false
+        if (type == TYPE_CAR) ParkingTimer.cancel(this)
         TrackingState.state.value = if (type == TYPE_WALK) DriveState.WALKING else DriveState.DRIVING
         publishLive(null)
         updateNotification(force = true)

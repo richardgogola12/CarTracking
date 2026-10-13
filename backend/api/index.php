@@ -16,6 +16,12 @@ declare(strict_types=1);
  *  GET    /vehicles        (Bearer)                            -> {vehicles:[...]}
  *  POST   /items/sync      (Bearer) {items:[{kind,uuid,updated_at,deleted,data}]} -> {synced:[uuid...]}
  *  GET    /items?kind=     (Bearer)                            -> {items:[...]}   (miesta, tankovania, pripomienky)
+ *  GET    /vehicles/{uuid}/shares            (Bearer, vlastník)  -> {shares:[{user_id,name,email}]}
+ *  POST   /vehicles/{uuid}/shares {email}    (Bearer, vlastník)  -> {share}
+ *  DELETE /vehicles/{uuid}/shares/{user_id}  (Bearer, vlastník alebo ten, s kým je zdieľané) -> {ok}
+ *  GET    /vehicles/{uuid}/trips?from=&to=   (Bearer, vlastník/zdieľané) -> {trips:[... + driver_name]}
+ *
+ *  Webový prehľad (priečinok web/) používa tie isté adresy.
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -98,6 +104,22 @@ function publicUser(array $u): array {
 }
 
 function num($v): ?float { return is_numeric($v) ? (float)$v : null; }
+
+/** Prístup k vozidlu: 'owner', 'shared' alebo null. */
+function vehicleAccess(PDO $pdo, string $uuid, int $uid): ?string {
+    $st = $pdo->prepare('SELECT v.user_id, (SELECT 1 FROM CarTracking_vehicle_shares s WHERE s.vehicle_uuid = v.uuid AND s.user_id = ?) AS sh
+                         FROM CarTracking_vehicles v WHERE v.uuid = ?');
+    $st->execute([$uid, $uuid]);
+    $r = $st->fetch();
+    if (!$r) return null;
+    if ((int)$r['user_id'] === $uid) return 'owner';
+    return $r['sh'] ? 'shared' : null;
+}
+
+const TRIP_COLS = 'uuid, started_at, ended_at, distance_m, max_speed_kmh, avg_speed_kmh,
+                   start_lat, start_lng, end_lat, end_lng, trigger_source,
+                   category, note, start_address, end_address, score, hard_brakes, hard_accels, speeding_sec,
+                   type, steps, vehicle_uuid, start_place, end_place';
 
 // ---------- Routing ----------
 $method = $_SERVER['REQUEST_METHOD'];
@@ -252,13 +274,13 @@ if ($method === 'POST' && $path === '/vehicles/sync') {
     $upsert = $pdo->prepare(
         'INSERT INTO CarTracking_vehicles (user_id, uuid, name, plate, fuel_type, consumption, fuel_price,
                                           odometer_km, odometer_date, bt_name, archived, updated_at,
-                                          limit_urban, limit_rural, limit_highway)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                          limit_urban, limit_rural, limit_highway, rate_per_km)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE name = VALUES(name), plate = VALUES(plate), fuel_type = VALUES(fuel_type),
              consumption = VALUES(consumption), fuel_price = VALUES(fuel_price), odometer_km = VALUES(odometer_km),
              odometer_date = VALUES(odometer_date), bt_name = VALUES(bt_name), archived = VALUES(archived),
              updated_at = VALUES(updated_at), limit_urban = VALUES(limit_urban),
-             limit_rural = VALUES(limit_rural), limit_highway = VALUES(limit_highway)');
+             limit_rural = VALUES(limit_rural), limit_highway = VALUES(limit_highway), rate_per_km = VALUES(rate_per_km)');
     $synced = [];
     foreach ($vehicles as $v) {
         $uuid = (string)($v['uuid'] ?? '');
@@ -266,7 +288,11 @@ if ($method === 'POST' && $path === '/vehicles/sync') {
         if (!preg_match('/^[0-9a-f-]{36}$/i', $uuid) || $name === '') continue;
         $find->execute([$uuid]);
         $owner = $find->fetchColumn();
-        if ($owner !== false && (int)$owner !== $uid) continue;
+        if ($owner !== false && (int)$owner !== $uid) {
+            // zdieľané vozidlo upravuje iba vlastník – zmenu potvrdíme, aby ju aplikácia neposielala stále dookola
+            if (vehicleAccess($pdo, $uuid, $uid) === 'shared') $synced[] = $uuid;
+            continue;
+        }
         $fuel = in_array($v['fuel_type'] ?? '', ['petrol', 'diesel', 'lpg', 'hybrid', 'electric'], true) ? $v['fuel_type'] : 'petrol';
         $upsert->execute([
             $uid, $uuid, mb_substr($name, 0, 100), mb_substr((string)($v['plate'] ?? ''), 0, 20), $fuel,
@@ -277,6 +303,7 @@ if ($method === 'POST' && $path === '/vehicles/sync') {
             max(10, min(150, (int)($v['limit_urban'] ?? 50))),
             max(10, min(150, (int)($v['limit_rural'] ?? 90))),
             max(10, min(200, (int)($v['limit_highway'] ?? 130))),
+            max(0, min(9.9999, (float)($v['rate_per_km'] ?? 0))),
         ]);
         $synced[] = $uuid;
     }
@@ -323,30 +350,90 @@ if ($method === 'GET' && $path === '/items') {
 }
 
 if ($method === 'GET' && $path === '/vehicles') {
-    $stmt = $pdo->prepare('SELECT uuid, name, plate, fuel_type, consumption, fuel_price, odometer_km, odometer_date,
-                                  bt_name, archived, updated_at, limit_urban, limit_rural, limit_highway
-                           FROM CarTracking_vehicles WHERE user_id = ? ORDER BY name');
-    $stmt->execute([$uid]);
-    respond(200, ['vehicles' => $stmt->fetchAll()]);
+    $stmt = $pdo->prepare('SELECT v.uuid, v.name, v.plate, v.fuel_type, v.consumption, v.fuel_price, v.odometer_km, v.odometer_date,
+                                  v.bt_name, v.archived, v.updated_at, v.limit_urban, v.limit_rural, v.limit_highway, v.rate_per_km,
+                                  (v.user_id = ?) AS is_owner, u.name AS owner_name,
+                                  (SELECT COUNT(*) FROM CarTracking_vehicle_shares s2 WHERE s2.vehicle_uuid = v.uuid) AS share_count
+                           FROM CarTracking_vehicles v JOIN CarTracking_users u ON u.id = v.user_id
+                           WHERE v.user_id = ? OR v.uuid IN (SELECT vehicle_uuid FROM CarTracking_vehicle_shares WHERE user_id = ?)
+                           ORDER BY v.name');
+    $stmt->execute([$uid, $uid, $uid]);
+    $rows = array_map(function ($r) {
+        $r['is_owner'] = (bool)$r['is_owner']; $r['archived'] = (bool)$r['archived'];
+        foreach (['consumption', 'fuel_price', 'rate_per_km'] as $k) $r[$k] = (float)$r[$k];
+        foreach (['odometer_km', 'odometer_date', 'updated_at', 'limit_urban', 'limit_rural', 'limit_highway', 'share_count'] as $k) $r[$k] = (int)$r[$k];
+        return $r;
+    }, $stmt->fetchAll());
+    respond(200, ['vehicles' => $rows]);
+}
+
+// Zdieľanie vozidla s iným používateľom (podľa e-mailu)
+if (preg_match('#^/vehicles/([0-9a-fA-F-]{36})/shares(?:/(\d+))?$#', $path, $m)) {
+    $vuuid = $m[1];
+    $access = vehicleAccess($pdo, $vuuid, $uid);
+    if ($access === null) fail(404, 'Vozidlo neexistuje');
+    if ($method === 'GET' && !isset($m[2])) {
+        if ($access !== 'owner') fail(403, 'Zdieľanie spravuje iba vlastník vozidla');
+        $st = $pdo->prepare('SELECT u.id AS user_id, u.name, u.email FROM CarTracking_vehicle_shares s
+                             JOIN CarTracking_users u ON u.id = s.user_id WHERE s.vehicle_uuid = ? ORDER BY u.name');
+        $st->execute([$vuuid]);
+        respond(200, ['shares' => array_map(fn($r) => ['user_id' => (int)$r['user_id'], 'name' => $r['name'], 'email' => $r['email']], $st->fetchAll())]);
+    }
+    if ($method === 'POST' && !isset($m[2])) {
+        if ($access !== 'owner') fail(403, 'Zdieľanie spravuje iba vlastník vozidla');
+        $email = strtolower(trim((string)(body()['email'] ?? '')));
+        $st = $pdo->prepare('SELECT id, name, email FROM CarTracking_users WHERE email = ?');
+        $st->execute([$email]);
+        $other = $st->fetch();
+        if (!$other) fail(404, 'Používateľ s týmto e-mailom nemá účet na tomto serveri');
+        if ((int)$other['id'] === $uid) fail(422, 'Vozidlo je už vaše');
+        $pdo->prepare('INSERT IGNORE INTO CarTracking_vehicle_shares (vehicle_uuid, user_id) VALUES (?, ?)')->execute([$vuuid, $other['id']]);
+        respond(201, ['share' => ['user_id' => (int)$other['id'], 'name' => $other['name'], 'email' => $other['email']]]);
+    }
+    if ($method === 'DELETE' && isset($m[2])) {
+        $target = (int)$m[2];
+        if ($access !== 'owner' && $target !== $uid) fail(403, 'Zdieľanie spravuje iba vlastník vozidla');
+        $pdo->prepare('DELETE FROM CarTracking_vehicle_shares WHERE vehicle_uuid = ? AND user_id = ?')->execute([$vuuid, $target]);
+        respond(200, ['ok' => true]);
+    }
+}
+
+// Spoločná kniha jázd vozidla – jazdy všetkých vodičov
+if ($method === 'GET' && preg_match('#^/vehicles/([0-9a-fA-F-]{36})/trips$#', $path, $m)) {
+    if (vehicleAccess($pdo, $m[1], $uid) === null) fail(404, 'Vozidlo neexistuje');
+    $from = (int)($_GET['from'] ?? 0);
+    $to   = (int)($_GET['to'] ?? PHP_INT_MAX);
+    $cols = implode(', ', array_map(fn($c) => 't.' . trim($c), explode(',', TRIP_COLS)));
+    $st = $pdo->prepare("SELECT $cols, u.name AS driver_name, (t.user_id = ?) AS mine
+                         FROM CarTracking_trips t JOIN CarTracking_users u ON u.id = t.user_id
+                         WHERE t.vehicle_uuid = ? AND t.type = 'car' AND t.started_at >= ? AND t.started_at < ?
+                         ORDER BY t.started_at LIMIT 5000");
+    $st->execute([$uid, $m[1], $from, $to]);
+    respond(200, ['trips' => $st->fetchAll()]);
 }
 
 if ($method === 'GET' && $path === '/trips') {
-    $limit  = max(1, min(200, (int)($_GET['limit'] ?? 50)));
+    $limit  = max(1, min(2000, (int)($_GET['limit'] ?? 50)));
     $offset = max(0, (int)($_GET['offset'] ?? 0));
-    $stmt = $pdo->prepare("SELECT uuid, started_at, ended_at, distance_m, max_speed_kmh, avg_speed_kmh,
-                                  start_lat, start_lng, end_lat, end_lng, trigger_source,
-                                  category, note, start_address, end_address, score, hard_brakes, hard_accels, speeding_sec,
-                                  type, steps, vehicle_uuid, start_place, end_place
-                           FROM CarTracking_trips WHERE user_id = ? ORDER BY started_at DESC LIMIT $limit OFFSET $offset");
-    $stmt->execute([$uid]);
+    $where = 'user_id = ?';
+    $args = [$uid];
+    if (isset($_GET['from'])) { $where .= ' AND started_at >= ?'; $args[] = (int)$_GET['from']; }
+    if (isset($_GET['to']))   { $where .= ' AND started_at < ?';  $args[] = (int)$_GET['to']; }
+    if (in_array($_GET['type'] ?? '', ['car', 'walk'], true)) { $where .= ' AND type = ?'; $args[] = $_GET['type']; }
+    $stmt = $pdo->prepare('SELECT ' . TRIP_COLS . " FROM CarTracking_trips WHERE $where ORDER BY started_at DESC LIMIT $limit OFFSET $offset");
+    $stmt->execute($args);
     respond(200, ['trips' => $stmt->fetchAll()]);
 }
 
 if (preg_match('#^/trips/([0-9a-fA-F-]{36})$#', $path, $m)) {
-    $stmt = $pdo->prepare('SELECT * FROM CarTracking_trips WHERE uuid = ? AND user_id = ?');
-    $stmt->execute([$m[1], $uid]);
+    $stmt = $pdo->prepare('SELECT * FROM CarTracking_trips WHERE uuid = ?');
+    $stmt->execute([$m[1]]);
     $trip = $stmt->fetch();
-    if (!$trip) fail(404, 'Jazda neexistuje');
+    $own = $trip && (int)$trip['user_id'] === $uid;
+    // jazdu iného vodiča vidí len ten, kto má prístup k jej vozidlu (zdieľané vozidlo); zmazať ju nemôže
+    if (!$trip || (!$own && ($method !== 'GET' || !$trip['vehicle_uuid'] || vehicleAccess($pdo, $trip['vehicle_uuid'], $uid) === null))) {
+        fail(404, 'Jazda neexistuje');
+    }
 
     if ($method === 'GET') {
         $p = $pdo->prepare('SELECT ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m, event

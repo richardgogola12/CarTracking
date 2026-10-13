@@ -46,6 +46,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -241,12 +244,14 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
             }
         }
 
-        // ---- Kde som zaparkoval ----
+        // ---- Kde som zaparkoval + parkovací lístok ----
         val parking = remember(resumeTick, state) { RuntimeState.parking(ctx) }
-        if (state == DriveState.IDLE && parking != null) {
+        val parkUntil = remember(resumeTick, state) { sk.cartracker.service.ParkingTimer.until(ctx) }
+        var ticketDialog by remember { mutableStateOf(false) }
+        if (state == DriveState.IDLE && (parking != null || parkUntil != null)) {
             SectionCard("Kde som zaparkoval") {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (parking != null) Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.LocalParking, null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.size(8.dp))
                         Column {
@@ -255,15 +260,39 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
+                    if (parkUntil != null) {
+                        val left = parkUntil - System.currentTimeMillis()
+                        Surface(color = if (left < 10 * 60_000L) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+                            Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("🎫", style = MaterialTheme.typography.titleLarge)
+                                Spacer(Modifier.size(8.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("Lístok do ${sk.cartracker.ui.formatTime(parkUntil)}", fontWeight = FontWeight.Bold)
+                                    Text(if (left > 0) "zostáva ${formatDuration(left)} · upozorním ${sk.cartracker.service.ParkingTimer.WARN_MIN} min vopred" else "lístok vypršal",
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                                TextButton(onClick = { sk.cartracker.service.ParkingTimer.cancel(ctx); resumeTick++ }) { Text("Zrušiť") }
+                            }
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = {
+                        if (parking != null) Button(onClick = {
                             val uri = android.net.Uri.parse("geo:0,0?q=${parking.lat},${parking.lng}(Moje auto)")
                             runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) }
                         }) { Icon(Icons.Filled.Navigation, null); Spacer(Modifier.size(6.dp)); Text("Nájsť auto") }
-                        OutlinedButton(onClick = { RuntimeState.clearParking(ctx); resumeTick++ }) { Text("Skryť") }
+                        OutlinedButton(onClick = { ticketDialog = true }) { Text(if (parkUntil == null) "🎫 Lístok" else "Zmeniť") }
+                        if (parking != null && parkUntil == null) OutlinedButton(onClick = { RuntimeState.clearParking(ctx); resumeTick++ }) { Text("Skryť") }
                     }
                 }
             }
+        } else if (state == DriveState.IDLE) {
+            TextButton(onClick = { ticketDialog = true }) { Text("🎫 Nastaviť parkovací lístok") }
+        }
+        if (ticketDialog) ParkingTicketDialog(parkUntil, onDismiss = { ticketDialog = false }) { until ->
+            ticketDialog = false
+            sk.cartracker.service.ParkingTimer.set(ctx, until)
+            resumeTick++
         }
 
         // ---- Štatistiky ----
@@ -342,4 +371,41 @@ private fun SpeedLimitRow(l: sk.cartracker.service.LiveTrip) {
             FilterChip(override == z, { TrackingState.zoneOverride.value = z }, { Text(z.label.replaceFirstChar { it.uppercase() }) })
         }
     }
+}
+
+
+/** Výber, dokedy je zaplatené parkovanie: rýchle voľby alebo vlastný čas. */
+@androidx.compose.runtime.Composable
+private fun ParkingTicketDialog(current: Long?, onDismiss: () -> Unit, onSet: (Long) -> Unit) {
+    val ctx = LocalContext.current
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Parkovací lístok") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Dokedy máte zaplatené? Upozorním ${sk.cartracker.service.ParkingTimer.WARN_MIN} minút pred koncom a pri skončení.",
+                    style = MaterialTheme.typography.bodyMedium)
+                val now = System.currentTimeMillis()
+                listOf(30 to "30 min", 60 to "1 hodina", 120 to "2 hodiny", 180 to "3 hodiny").chunked(2).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { (min, label) ->
+                            OutlinedButton(onClick = { onSet(now + min * 60_000L) }, modifier = Modifier.weight(1f)) { Text(label) }
+                        }
+                    }
+                }
+                Button(onClick = {
+                    val cal = Calendar.getInstance().apply { timeInMillis = current ?: (now + 3_600_000L) }
+                    android.app.TimePickerDialog(ctx, { _, h, m ->
+                        val t = Calendar.getInstance().apply {
+                            set(Calendar.HOUR_OF_DAY, h); set(Calendar.MINUTE, m); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                            if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_MONTH, 1)
+                        }
+                        onSet(t.timeInMillis)
+                    }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), true).show()
+                }, modifier = Modifier.fillMaxWidth()) { Text("Zadať čas…") }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušiť") } },
+    )
 }

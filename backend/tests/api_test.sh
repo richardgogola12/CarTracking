@@ -80,6 +80,45 @@ check "jazda s názvami miest" 200 "$(req "${AUTH[@]}" -X POST "$API/trips/sync"
 check "detail s miestami" 200 "$(req "${AUTH[@]}" "$API/trips/$CAR")"
 python3 -c 'import sys,json;t=json.loads(sys.argv[1])["trip"];assert t["start_place"]=="Domov" and t["end_place"]=="Práca", t' "$LAST" || fail "názvy miest nesedia"
 
+# Filtre zoznamu jázd (webový prehľad)
+check "jazdy podľa obdobia a typu" 200 "$(req "${AUTH[@]}" "$API/trips?from=1699999999000&to=1700000500000&type=car&limit=1000")"
+python3 -c 'import sys,json;t=json.loads(sys.argv[1])["trips"];assert len(t)==1 and t[0]["uuid"]=="'"$CAR"'", t' "$LAST" || fail "filter jázd nesedí"
+
+# Sadzba náhrady €/km
+check "sadzba vozidla" 200 "$(req "${AUTH[@]}" -X POST "$API/vehicles/sync" -d "{\"vehicles\":[{\"uuid\":\"$VEH\",\"name\":\"Škoda Octavia\",\"plate\":\"BA123XY\",\"fuel_type\":\"diesel\",\"consumption\":5.4,\"fuel_price\":1.55,\"odometer_km\":120000,\"odometer_date\":1700000000000,\"bt_name\":\"\",\"archived\":false,\"updated_at\":1700000000001,\"limit_urban\":50,\"limit_rural\":80,\"limit_highway\":100,\"rate_per_km\":0.313}]}")"
+check "zoznam vozidiel so sadzbou" 200 "$(req "${AUTH[@]}" "$API/vehicles")"
+python3 -c 'import sys,json;v=json.loads(sys.argv[1])["vehicles"][0];assert abs(v["rate_per_km"]-0.313)<1e-6 and v["is_owner"] is True, v' "$LAST" || fail "sadzba nesedí"
+
+# Zdieľané vozidlo
+EMAIL2="druhy$RANDOM@example.com"
+check "registrácia druhého vodiča" 201 "$(req -X POST "$API/register" -d "{\"name\":\"Druhý\",\"email\":\"$EMAIL2\",\"password\":\"heslo1234\"}")"
+AUTH2=(-H "Authorization: Bearer $(echo "$LAST" | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')")
+check "registrácia tretieho" 201 "$(req -X POST "$API/register" -d "{\"name\":\"Tretí\",\"email\":\"treti$RANDOM@example.com\",\"password\":\"heslo1234\"}")"
+AUTH3=(-H "Authorization: Bearer $(echo "$LAST" | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')")
+check "zdieľanie s neexistujúcim" 404 "$(req "${AUTH[@]}" -X POST "$API/vehicles/$VEH/shares" -d '{"email":"nikto@example.com"}')"
+check "zdieľanie vozidla" 201 "$(req "${AUTH[@]}" -X POST "$API/vehicles/$VEH/shares" -d "{\"email\":\"$EMAIL2\"}")"
+U2=$(echo "$LAST" | python3 -c 'import sys,json;print(json.load(sys.stdin)["share"]["user_id"])')
+check "zoznam zdieľaní" 200 "$(req "${AUTH[@]}" "$API/vehicles/$VEH/shares")"
+echo "$LAST" | grep -q "$EMAIL2" || fail "zdieľanie chýba"
+check "druhý vidí vozidlo" 200 "$(req "${AUTH2[@]}" "$API/vehicles")"
+python3 -c 'import sys,json;v=json.loads(sys.argv[1])["vehicles"];assert len(v)==1 and v[0]["is_owner"] is False and v[0]["owner_name"]=="Test", v' "$LAST" || fail "zdieľané vozidlo nesedí"
+check "druhý nemôže zdieľať ďalej" 403 "$(req "${AUTH2[@]}" -X POST "$API/vehicles/$VEH/shares" -d '{"email":"x@example.com"}')"
+check "druhý nemôže meniť vozidlo" 200 "$(req "${AUTH2[@]}" -X POST "$API/vehicles/sync" -d "{\"vehicles\":[{\"uuid\":\"$VEH\",\"name\":\"PREPISANE\",\"updated_at\":1800000000000}]}")"
+check "vozidlo ostalo" 200 "$(req "${AUTH[@]}" "$API/vehicles")"
+echo "$LAST" | grep -q PREPISANE && fail "zdieľaný používateľ prepísal vozidlo"
+T1=cccccccc-0000-0000-0000-000000000001
+T2=cccccccc-0000-0000-0000-000000000002
+check "jazda vlastníka" 200 "$(req "${AUTH[@]}" -X POST "$API/trips/sync" -d "{\"trips\":[{\"uuid\":\"$T1\",\"started_at\":1700100000000,\"ended_at\":1700100600000,\"distance_m\":5000,\"trigger_source\":\"auto\",\"type\":\"car\",\"vehicle_uuid\":\"$VEH\",\"points\":[{\"ts\":1700100000000,\"lat\":48.1,\"lng\":17.1}]}]}")"
+check "jazda druhého vodiča" 200 "$(req "${AUTH2[@]}" -X POST "$API/trips/sync" -d "{\"trips\":[{\"uuid\":\"$T2\",\"started_at\":1700200000000,\"ended_at\":1700200600000,\"distance_m\":7000,\"trigger_source\":\"auto\",\"category\":\"business\",\"type\":\"car\",\"vehicle_uuid\":\"$VEH\",\"points\":[]}]}")"
+check "spoločná kniha jázd" 200 "$(req "${AUTH[@]}" "$API/vehicles/$VEH/trips?from=1700050000000&to=1700300000000")"
+python3 -c 'import sys,json;t=json.loads(sys.argv[1])["trips"];d=sorted(x["driver_name"] for x in t);assert d==["Druhý","Test"], t' "$LAST" || fail "spoločná kniha jázd nesedí"
+check "druhý vidí jazdu vlastníka" 200 "$(req "${AUTH2[@]}" "$API/trips/$T1")"
+check "druhý nemôže zmazať jazdu vlastníka" 404 "$(req "${AUTH2[@]}" -X DELETE "$API/trips/$T1")"
+check "cudzí nevidí knihu jázd" 404 "$(req "${AUTH3[@]}" "$API/vehicles/$VEH/trips")"
+check "cudzí nevidí jazdu" 404 "$(req "${AUTH3[@]}" "$API/trips/$T1")"
+check "zrušenie zdieľania" 200 "$(req "${AUTH[@]}" -X DELETE "$API/vehicles/$VEH/shares/$U2")"
+check "po zrušení bez prístupu" 404 "$(req "${AUTH2[@]}" "$API/vehicles/$VEH/trips")"
+
 check "odhlásenie" 200 "$(req "${AUTH[@]}" -X POST "$API/logout")"
 check "token po odhlásení" 401 "$(req "${AUTH[@]}" "$API/me")"
 echo "::notice::Všetky testy API prešli ✅"
