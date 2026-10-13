@@ -1,4 +1,5 @@
 -- Migrácia na verziu 1.1 (kniha jázd, štýl jazdy). Spustite raz na existujúcej databáze.
+SET NAMES utf8mb4;
 USE car_tracking;
 ALTER TABLE CarTracking_trips
     ADD COLUMN category      VARCHAR(10)  NOT NULL DEFAULT 'private' AFTER trigger_source,

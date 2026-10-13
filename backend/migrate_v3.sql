@@ -1,4 +1,5 @@
 -- Migrácia na verziu 1.2 (viac vozidiel, chôdza). Spustite raz na existujúcej databáze (po migrate_v2.sql).
+SET NAMES utf8mb4;
 USE car_tracking;
 CREATE TABLE IF NOT EXISTS CarTracking_vehicles (
     id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

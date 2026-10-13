@@ -63,8 +63,8 @@
 
 <header class="cover">
   <h1>🚗 Car Tracking</h1>
-  <p>Používateľská príručka – automatické sledovanie jázd autom, kniha jázd a štatistiky</p>
-  <div class="ver">Verzia aplikácie 1.1 · Android 8.0 a novší</div>
+  <p>Používateľská príručka – automatické sledovanie jázd autom a chôdze, viac vozidiel, kniha jázd a štatistiky</p>
+  <div class="ver">Verzia aplikácie 1.2 · Android 8.0 a novší</div>
 </header>
 
 <nav class="toc">
@@ -76,6 +76,8 @@
     <li><a href="#povolenia">Povolenia</a></li>
     <li><a href="#detekcia">Automatická detekcia jazdy</a></li>
     <li><a href="#prehlad">Obrazovka Prehľad</a></li>
+    <li><a href="#vozidla">Vozidlá</a></li>
+    <li><a href="#chodza">Sledovanie chôdze</a></li>
     <li><a href="#jazdy">Jazdy a detail jazdy</a></li>
     <li><a href="#mapa">Mapa</a></li>
     <li><a href="#styl">Štýl jazdy a skóre</a></li>
@@ -91,9 +93,11 @@
 </nav>
 
 <h2 id="uvod">1. Čo aplikácia robí</h2>
-<p>Car Tracking sám rozpozná, že sedíte v aute, a zaznamená trasu jazdy pomocou GPS – bez toho, aby ste aplikáciu otvárali. Chôdza, beh a bicykel sa <b>nezaznamenávajú</b>.</p>
+<p>Car Tracking sám rozpozná, že sedíte v aute alebo idete pešo, a zaznamená trasu – bez toho, aby ste aplikáciu otvárali. Jazdy autom a chôdza sa vedú oddelene; bicykel sa nezaznamenáva.</p>
 <ul>
   <li><b>Automatický záznam jázd</b> – spustí sa a ukončí sám, aj keď je aplikácia zatvorená alebo sa telefón reštartoval.</li>
+  <li><b>Viac vozidiel</b> – každé s vlastnou spotrebou, cenou paliva, tachometrom a Bluetooth; prepnutie jedným ťuknutím, aj počas jazdy.</li>
+  <li><b>Sledovanie chôdze</b> – kroky, vzdialenosť a trasa pešo, voliteľne iba v pracovnom čase.</li>
   <li><b>Notifikácia a vibrácia</b> pri zapnutí aj vypnutí režimu jazdy, so súhrnom (km, čas, priemer, náklady, skóre).</li>
   <li><b>Kniha jázd</b> – súkromné / služobné jazdy, účel cesty, adresy, stav tachometra, tlač a PDF, export do Excelu.</li>
   <li><b>Štýl jazdy</b> – prudké brzdenie a zrýchlenie, prekračovanie rýchlosti, skóre 0–100.</li>
@@ -139,7 +143,7 @@
 <div class="tip"><b>Xiaomi, Huawei, Oppo, Samsung:</b> v systémových nastaveniach aplikácie zapnite aj <i>Automatické spustenie</i> a batériu nastavte na <i>Bez obmedzení</i>. Títo výrobcovia inak aplikácie na pozadí ukončujú.</div>
 
 <h2 id="detekcia" class="newpage">5. Automatická detekcia jazdy</h2>
-<p>Detekcia pracuje v dvoch krokoch: telefón najprv nahlási, že ste <i>vo vozidle</i>, a aplikácia to potom <b>overí rýchlosťou z GPS</b>. Preto sa chôdza ani bicykel nikdy nezaznamenajú.</p>
+<p>Detekcia jazdy pracuje v dvoch krokoch: telefón najprv nahlási, že ste <i>vo vozidle</i>, a aplikácia to potom <b>overí rýchlosťou z GPS</b>. Preto sa chôdza ani bicykel nikdy nezaznamenajú ako jazda autom. Chôdza má vlastný režim – pozri <a href="#chodza">kapitolu Sledovanie chôdze</a>.</p>
 <div class="flow">
   <div class="step"><span class="badge b-grey">1</span><div><b>Čakanie</b> – žiadna GPS, takmer nulová spotreba batérie. Systém Android sleduje typ pohybu.</div></div>
   <div class="arrow">▼ systém nahlási „vo vozidle“ alebo sa pripojí Bluetooth auta</div>
@@ -147,7 +151,7 @@
   <div class="arrow">▼ rýchlosť potvrdená</div>
   <div class="step"><span class="badge b-green">3</span><div><b>Režim jazdy ZAPNUTÝ</b> – notifikácia + vibrácia. Zaznamenáva sa trasa, rýchlosť a štýl jazdy. Body z overovania sa doplnia na začiatok jazdy.</div></div>
   <div class="arrow">▼ auto stojí 4 min, alebo ste vystúpili a 1 min idete pešo</div>
-  <div class="step"><span class="badge b-red">4</span><div><b>Režim jazdy VYPNUTÝ</b> – notifikácia + vibrácia so súhrnom. Jazda sa uloží, zistia sa adresy, uloží sa miesto parkovania a jazda sa odošle na server.</div></div>
+  <div class="step"><span class="badge b-red">4</span><div><b>Režim jazdy VYPNUTÝ</b> – notifikácia + vibrácia so súhrnom. Jazda sa uloží k aktívnemu vozidlu, zistia sa adresy, uloží sa miesto parkovania a jazda sa odošle na server. Ak ste odišli pešo a sledovanie chôdze je zapnuté, plynulo začne záznam chôdze.</div></div>
 </div>
 <ul>
   <li>Státie v kolóne alebo na semafore jazdu <b>neukončí</b> (limit je nastaviteľný).</li>
@@ -159,26 +163,59 @@
 
 <h2 id="prehlad">6. Obrazovka Prehľad</h2>
 <ul>
-  <li><b>Stav</b> – Čakám na jazdu (sivá), Overujem jazdu (oranžová), Režim jazdy ZAPNUTÝ (zelená) so živou vzdialenosťou, časom, rýchlosťou a maximom.</li>
+  <li><b>Vozidlo</b> – aktívne vozidlo; ťuknutím ho prepnete (aj počas jazdy) alebo otvoríte správu vozidiel.</li>
+  <li><b>Stav</b> – Čakám (sivá), Overujem jazdu (oranžová), Režim jazdy ZAPNUTÝ (zelená) so živou vzdialenosťou, časom a rýchlosťou, Chôdza (modrá) s krokmi a vzdialenosťou. Tlačidlami <b>Jazda</b> a <b>Chôdza</b> spustíte záznam ručne.</li>
   <li><b>Upozornenie na povolenia</b> – červená karta, ak niečo chýba. Ťuknutím ju vyriešite.</li>
   <li><b>Kde som zaparkoval</b> – adresa a čas posledného parkovania, tlačidlo <b>Nájsť auto</b>.</li>
-  <li><b>Prehľad</b> – km dnes, tento týždeň a počet jázd.</li>
+  <li><b>Prehľad</b> – km autom dnes a tento týždeň, počet jázd; kroky a km pešo dnes a tento týždeň.</li>
   <li><b>Detekcia a synchronizácia</b> – či je rozpoznávanie aktívne, posledná zmena aktivity, počet jázd čakajúcich na odoslanie a tlačidlo <b>Synchronizovať teraz</b>.</li>
 </ul>
 
-<h2 id="jazdy">7. Jazdy a detail jazdy</h2>
-<p>Záložka <b>Jazdy</b> zobrazuje jazdy po dňoch s trasou „odkiaľ → kam“, časom, priemernou rýchlosťou, nákladmi a skóre štýlu jazdy. Filtrami <b>Súkromné / Služobné</b> zúžite zoznam. Ikona oblaku ukazuje, či je jazda uložená na serveri.</p>
+<h2 id="vozidla" class="newpage">7. Vozidlá</h2>
+<p>Aplikácia vedie ľubovoľný počet vozidiel (napr. súkromné auto a služobné auto). Každé má vlastné údaje:</p>
+<table>
+  <tr><th>Údaj</th><th>Na čo slúži</th></tr>
+  <tr><td>Názov, EČV</td><td>Zobrazenie v aplikácii a hlavička knihy jázd.</td></tr>
+  <tr><td>Palivo</td><td>Benzín, nafta, LPG, hybrid, elektro (pri elektromobile sa počíta v kWh).</td></tr>
+  <tr><td>Spotreba a cena</td><td>Odhad paliva a nákladov každej jazdy.</td></tr>
+  <tr><td>Stav tachometra</td><td>Dopočítavanie tachometra v knihe jázd – z jázd <i>tohto</i> vozidla.</td></tr>
+  <tr><td>Bluetooth vozidla</td><td>Po pripojení k tomuto Bluetooth sa vozidlo <b>samo nastaví ako aktívne</b>.</td></tr>
+</table>
+<h3>Ako prepnúť vozidlo</h3>
+<ul>
+  <li><b>Prehľad → Vozidlo</b> – vyberte vozidlo zo zoznamu. Ak práve prebieha jazda, prepne sa aj jej vozidlo.</li>
+  <li><b>Automaticky cez Bluetooth</b> – stačí nastúpiť do auta, ktorého Bluetooth je priradené vozidlu.</li>
+  <li><b>Dodatočne</b> – v detaile jazdy ťuknite na <i>Vozidlo → Zmeniť</i> (napr. ak ste zabudli prepnúť).</li>
+</ul>
+<p>Vozidlá spravujete v <b>Nastavenia → Vozidlá → Spravovať vozidlá</b> (pridať, upraviť, odstrániť). Odstránené vozidlo sa iba skryje – jeho jazdy ostanú zachované.</p>
+<div class="note">Pri prechode z verzie 1.1 sa prvé vozidlo vytvorí automaticky z pôvodných nastavení a priradia sa mu všetky doterajšie jazdy.</div>
+
+<h2 id="chodza">8. Sledovanie chôdze</h2>
+<p>Keď telefón rozpozná chôdzu (alebo beh), aplikácia začne zaznamenávať <b>kroky, vzdialenosť a trasu</b>. Záznam sa ukončí, keď niekoľko minút neurobíte žiadny krok.</p>
+<ul>
+  <li><b>Kroky</b> sa počítajú krokomerom telefónu. Vzdialenosť = kroky × dĺžka kroku, takže funguje aj vnútri budovy, kde GPS nie je presná.</li>
+  <li><b>Trasa</b> sa zaznamenáva GPS v dlhšom intervale (predvolene 10 s), aby chôdza počas celého dňa šetrila batériu.</li>
+  <li><b>Iba v pracovnom čase</b> – zvolíte dni a čas (napr. Po–Pi 7:00–16:00). Mimo neho sa chôdza nezaznamenáva.</li>
+  <li><b>Krátke presuny</b> (predvolene pod 150 m) sa neukladajú.</li>
+  <li>Ak počas chôdze nasadnete do auta, chôdza sa ukončí a začne overovanie jazdy. Po vystúpení z auta zas plynule nadviaže chôdza.</li>
+  <li>Začiatok a koniec chôdze predvolene <b>neruší</b> notifikáciou ani vibráciou (dá sa zapnúť).</li>
+</ul>
+<p>Chôdza sa zobrazuje v záložke <b>Jazdy</b> (filter <i>Chôdza</i>), v detaile s krokmi, tempom (min/km) a krokmi za minútu, a v <b>Štatistikách</b> v režime <i>Chôdza</i>. Do knihy jázd sa nezapočítava.</p>
+
+<h2 id="jazdy">9. Jazdy a detail jazdy</h2>
+<p>Záložka <b>Jazdy</b> zobrazuje jazdy a chôdzu po dňoch s trasou „odkiaľ → kam“, časom, nákladmi, vozidlom a skóre štýlu jazdy. Filtrami <b>Auto / Chôdza / Služobné / Súkromné</b> zúžite zoznam. Ikona oblaku ukazuje, či je záznam uložený na serveri.</p>
 <p>Detail jazdy obsahuje:</p>
 <ul>
   <li><b>Mapu</b> trasy (pozri ďalšiu kapitolu),</li>
   <li><b>Trasu</b> – adresy a časy začiatku (A) a cieľa (B),</li>
+  <li><b>Vozidlo</b> – dá sa zmeniť aj po jazde,</li>
   <li><b>Štatistiky</b> – vzdialenosť, trvanie, priemer, maximum, palivo, náklady,</li>
   <li><b>Štýl jazdy</b> – skóre a počty udalostí,</li>
   <li><b>Knihu jázd</b> – prepínač Súkromná / Služobná, účel jazdy a stav tachometra,</li>
   <li>tlačidlá <b>Zdieľať</b> (text s odkazom na mapu) a <b>Zmazať</b> (z telefónu aj zo servera).</li>
 </ul>
 
-<h2 id="mapa">8. Mapa</h2>
+<h2 id="mapa">10. Mapa</h2>
 <p>Trasa je vykreslená s obrysom a <b>farbou podľa rýchlosti</b>:</p>
 <div class="grad"></div>
 <div class="scale"><span>0 km/h</span><span>50</span><span>90</span><span>130</span><span>150+</span></div>
@@ -192,13 +229,13 @@
 <p>Ťuknutím na značku zobrazíte čas, adresu alebo rýchlosť. Ovládacie tlačidlá vpravo hore:</p>
 <table>
   <tr><th>Tlačidlo</th><th>Funkcia</th></tr>
-  <tr><td>Vrstvy</td><td>Typ mapy: podľa témy, svetlá, tmavá, klasická OSM, terénna, satelitná.</td></tr>
+  <tr><td>Vrstvy</td><td>Typ mapy: podľa témy, svetlá, tmavá, klasická (OpenStreetMap), podrobná, terénna, satelitná.</td></tr>
   <tr><td>Zameranie</td><td>Priblíži mapu tak, aby bola vidieť celá trasa.</td></tr>
   <tr><td>Celá obrazovka</td><td>Zväčší mapu na celú obrazovku a späť.</td></tr>
 </table>
-<p>Vľavo dole je mierka a legenda, vpravo dole zdroj mapových podkladov. Typ mapy sa pamätá a dá sa nastaviť aj v <b>Nastavenia → Mapa</b>. Mapové podklady sa sťahujú z internetu (OpenStreetMap, CARTO, OpenTopoMap, Esri).</p>
+<p>Vľavo dole je mierka a legenda, vpravo dole zdroj mapových podkladov. Typ mapy sa pamätá a dá sa nastaviť aj v <b>Nastavenia → Mapa</b>. Mapové podklady sa sťahujú z internetu (Esri, OpenStreetMap, OpenTopoMap) a <b>nevyžadujú API kľúč</b>. Pri chôdzi má trasa jednu farbu a nezobrazujú sa udalosti štýlu jazdy.</p>
 
-<h2 id="styl" class="newpage">9. Štýl jazdy a skóre</h2>
+<h2 id="styl" class="newpage">11. Štýl jazdy a skóre</h2>
 <p>Počas jazdy aplikácia z presných GPS bodov sleduje:</p>
 <table>
   <tr><th>Udalosť</th><th>Kedy sa zaznamená</th><th>Vplyv na skóre</th></tr>
@@ -209,14 +246,14 @@
 <p><b>Hodnotenie:</b> 90–100 výborná · 75–89 dobrá · 55–74 priemerná · pod 55 riziková. Pri zapnutom <i>Upozornení vibráciou</i> telefón pri prekročení limitu trikrát krátko zavibruje (najviac raz za minútu).</p>
 <div class="note">GPS meranie nie je rovnako presné ako senzory v aute – skóre berte ako orientačné.</div>
 
-<h2 id="kniha" class="newpage">10. Kniha jázd a export</h2>
-<h3>10.1 Nastavenie</h3>
-<p>V <b>Nastavenia → Kniha jázd</b> vyplňte vozidlo, EČV a <b>aktuálny stav tachometra</b>. Od tohto okamihu aplikácia dopočítava stav tachometra pri každej jazde. Zvoľte aj predvolený typ novej jazdy (súkromná / služobná).</p>
-<h3>10.2 Úprava jazdy</h3>
+<h2 id="kniha" class="newpage">12. Kniha jázd a export</h2>
+<h3>12.1 Nastavenie</h3>
+<p>Kniha jázd sa vedie <b>pre každé vozidlo zvlášť</b>. Pri vozidle (Nastavenia → Vozidlá) vyplňte EČV a <b>aktuálny stav tachometra</b> – od tohto okamihu aplikácia dopočítava tachometer pri každej jazde tohto vozidla. V <b>Nastavenia → Kniha jázd</b> zvoľte predvolený typ novej jazdy (súkromná / služobná).</p>
+<h3>12.2 Úprava jazdy</h3>
 <p>V detaile jazdy prepnite <b>Súkromná / Služobná</b> a doplňte <b>účel jazdy</b>. Zmena sa automaticky odošle na server.</p>
-<h3>10.3 Tlač, PDF a Excel</h3>
+<h3>12.3 Tlač, PDF a Excel</h3>
 <ol>
-  <li>Otvorte <b>Štatistiky</b>, zvoľte <b>Mesiac</b> (alebo týždeň/rok) a šípkami vyberte obdobie.</li>
+  <li>Otvorte <b>Štatistiky</b>, režim <b>Auto</b>, vyberte <b>vozidlo</b> (ak ich máte viac), zvoľte <b>Mesiac</b> a šípkami obdobie.</li>
   <li><b>Kniha jázd – tlač / PDF</b> otvorí systémovú tlač. Vyberte tlačiareň alebo <i>Uložiť ako PDF</i>. Výstup je na šírku A4 s tabuľkou jázd, súčtami (služobné, súkromné, palivo, náklady) a miestom na podpis.</li>
   <li><b>Export do Excelu (CSV)</b> vytvorí súbor, ktorý môžete poslať e-mailom alebo uložiť. Excel ho otvorí priamo so slovenskou diakritikou.</li>
 </ol>
@@ -225,29 +262,32 @@
   <tr><td>Poradie, dátum, čas od–do, odkiaľ, kam, účel, typ (S/P), tachometer na začiatku a na konci, km, palivo (l), náklady (€)</td></tr>
 </table>
 
-<h2 id="statistiky">11. Štatistiky</h2>
+<h2 id="statistiky">13. Štatistiky</h2>
+<p>Prepínačom <b>Auto / Chôdza</b> zvolíte, čo sa zobrazí; pri aute aj vozidlo (alebo všetky).</p>
 <ul>
   <li><b>Súhrn</b> – vzdialenosť, čas za volantom, počet jázd, priemerná rýchlosť, palivo a náklady.</li>
+  <li><b>Podľa vozidiel</b> – km a náklady jednotlivých vozidiel (pri voľbe „Všetky vozidlá“).</li>
+  <li><b>Chôdza</b> – kroky, vzdialenosť, čas, kroky za deň, tempo a graf krokov.</li>
   <li><b>Graf najazdených km</b> – po dňoch (týždeň, mesiac) alebo po mesiacoch (rok).</li>
   <li><b>Súkromné vs. služobné</b> – pomer najazdených km.</li>
   <li><b>Štýl jazdy</b> – priemerné skóre, počty udalostí, najdlhšia jazda.</li>
   <li><b>Mapa jázd</b> – všetky jazdy obdobia, každá inou farbou.</li>
 </ul>
 
-<h2 id="parkovanie">12. Kde som zaparkoval</h2>
+<h2 id="parkovanie">14. Kde som zaparkoval</h2>
 <p>Po skončení jazdy sa uloží miesto, kde auto zastalo. Na Prehľade sa zobrazí adresa a čas. <b>Nájsť auto</b> otvorí mapovú aplikáciu (napr. Google Mapy) s bodom „Moje auto“ – odtiaľ spustíte navigáciu pešo. <b>Skryť</b> kartu odstráni; pri ďalšej jazde sa miesto aktualizuje.</p>
 
-<h2 id="bluetooth">13. Bluetooth auta</h2>
+<h2 id="bluetooth">15. Bluetooth auta</h2>
 <p>Ak má auto Bluetooth (handsfree, rádio), jeho pripojenie je najspoľahlivejší signál, že sedíte práve vo <i>svojom</i> aute.</p>
 <ol>
   <li>Telefón spárujte s autom v systémových nastaveniach Bluetooth.</li>
-  <li>V <b>Nastavenia → Bluetooth auta</b> ťuknite na <i>Bluetooth zariadenie auta</i> a vyberte ho.</li>
-  <li><b>Spustiť sledovanie po pripojení k autu</b> – overovanie sa spustí hneď po pripojení.</li>
-  <li><b>Sledovať iba keď je pripojené auto</b> – ignoruje autobus, vlak, taxík a jazdu v cudzom aute.</li>
+  <li>V <b>Nastavenia → Vozidlá</b> otvorte vozidlo a v poli <i>Bluetooth vozidla</i> vyberte zariadenie auta. Každé vozidlo môže mať vlastné.</li>
+  <li><b>Spustiť sledovanie po pripojení Bluetooth vozidla</b> – overovanie sa spustí hneď po pripojení a vozidlo sa nastaví ako aktívne.</li>
+  <li><b>Sledovať iba keď je pripojené vozidlo</b> – ignoruje autobus, vlak, taxík a jazdu v cudzom aute.</li>
 </ol>
 <p>Odpojenie Bluetooth sa berie ako signál vystúpenia z auta.</p>
 
-<h2 id="nastavenia" class="newpage">14. Všetky nastavenia</h2>
+<h2 id="nastavenia" class="newpage">16. Všetky nastavenia</h2>
 <table>
   <tr><th>Sekcia / nastavenie</th><th>Predvolené</th><th>Popis</th></tr>
   <tr><td colspan="3"><b>Automatická detekcia jazdy</b></td></tr>
@@ -265,15 +305,21 @@
   <tr><td>Zvuk notifikácie</td><td>zapnuté</td><td>Tichá alebo zvuková notifikácia.</td></tr>
   <tr><td>Vibrovať / typ vibrácie</td><td>zapnuté / dvojitá</td><td>Krátka, dlhá alebo dvojitá; tlačidlo Vyskúšať.</td></tr>
   <tr><td>Rýchlosť v trvalej notifikácii</td><td>zapnuté</td><td>Aktuálna rýchlosť počas jazdy.</td></tr>
-  <tr><td colspan="3"><b>Bluetooth auta</b></td></tr>
-  <tr><td>Zariadenie, spúšťač, len s autom</td><td>vypnuté</td><td>Pozri kapitolu 13.</td></tr>
+  <tr><td colspan="3"><b>Vozidlá</b></td></tr>
+  <tr><td>Spravovať vozidlá</td><td>1 vozidlo</td><td>Názov, EČV, palivo, spotreba, cena, tachometer, Bluetooth (kapitola 7).</td></tr>
+  <tr><td>Spustiť po pripojení Bluetooth</td><td>vypnuté</td><td>Spustí overovanie a nastaví vozidlo ako aktívne.</td></tr>
+  <tr><td>Iba keď je pripojené vozidlo</td><td>vypnuté</td><td>Ignoruje iné vozidlá a verejnú dopravu.</td></tr>
+  <tr><td colspan="3"><b>Chôdza</b></td></tr>
+  <tr><td>Automaticky sledovať chôdzu</td><td>zapnuté</td><td>Kroky, vzdialenosť a trasa pešo.</td></tr>
+  <tr><td>Iba v pracovnom čase</td><td>vypnuté</td><td>Dni v týždni, začiatok a koniec práce.</td></tr>
+  <tr><td>Dĺžka kroku</td><td>75 cm</td><td>Vzdialenosť = kroky × dĺžka kroku.</td></tr>
+  <tr><td>Ukončiť po nečinnosti</td><td>3 min</td><td>Minúty bez krokov, ktoré ukončia záznam.</td></tr>
+  <tr><td>Minimálna vzdialenosť</td><td>150 m</td><td>Kratšie presuny sa neukladajú.</td></tr>
+  <tr><td>Interval GPS pri chôdzi</td><td>10 s</td><td>Dlhší interval šetrí batériu.</td></tr>
+  <tr><td>Notifikácia / vibrácia</td><td>vypnuté</td><td>Pri začiatku a konci chôdze.</td></tr>
   <tr><td colspan="3"><b>Kniha jázd</b></td></tr>
   <tr><td>Predvolený typ jazdy</td><td>súkromná</td><td>Typ novo zaznamenanej jazdy.</td></tr>
-  <tr><td>Vozidlo, EČV, tachometer</td><td>–</td><td>Údaje do hlavičky knihy jázd a výpočet tachometra.</td></tr>
   <tr><td>Zisťovať adresy</td><td>zapnuté</td><td>Ulica a mesto začiatku a cieľa.</td></tr>
-  <tr><td colspan="3"><b>Palivo a náklady</b></td></tr>
-  <tr><td>Priemerná spotreba</td><td>6,5 l/100 km</td><td>Použije sa na odhad paliva.</td></tr>
-  <tr><td>Cena paliva</td><td>1,60 €/l</td><td>Náklady = km × spotreba × cena.</td></tr>
   <tr><td colspan="3"><b>Štýl jazdy a rýchlosť</b></td></tr>
   <tr><td>Hodnotiť štýl jazdy</td><td>zapnuté</td><td>Udalosti a skóre.</td></tr>
   <tr><td>Rýchlostný limit</td><td>130 km/h</td><td>Hranica pre prekročenie rýchlosti.</td></tr>
@@ -286,7 +332,7 @@
   <tr><td>Účet</td><td>–</td><td>Vymazanie jázd z telefónu, odhlásenie.</td></tr>
 </table>
 
-<h2 id="problemy">15. Riešenie problémov</h2>
+<h2 id="problemy">17. Riešenie problémov</h2>
 <table>
   <tr><th>Problém</th><th>Riešenie</th></tr>
   <tr><td>Jazda sa nespustila automaticky</td><td>Skontrolujte Povolenia (všetky zelené) a výnimku z batérie. Rozpoznanie trvá 30 s – 2 min od rozbehnutia. Pri telefónoch Xiaomi/Huawei zapnite Automatické spustenie.</td></tr>
@@ -296,34 +342,39 @@
   <tr><td>„Server je nedostupný“</td><td>Na prihlasovacej obrazovke ťuknite na „Server: …“ a otestujte adresu. Musí končiť <code>/api/</code>.</td></tr>
   <tr><td>Jazdy sa neodosielajú</td><td>Prehľad → Synchronizovať teraz. Skontrolujte voľbu „Iba cez Wi-Fi“.</td></tr>
   <tr><td>Nezobrazuje sa adresa</td><td>Adresa sa zisťuje pri konci jazdy a potrebuje internet. Bez pripojenia ostane prázdna.</td></tr>
-  <tr><td>Mapa je sivá</td><td>Mapové podklady potrebujú internet. Skúste iný typ mapy.</td></tr>
+  <tr><td>Mapa je sivá</td><td>Mapové podklady potrebujú internet. Skúste iný typ mapy. Šedé mapy Esri majú najviac detailov do priblíženia 16, pri väčšom priblížení zvoľte Podrobnú alebo Klasickú.</td></tr>
+  <tr><td>Jazda sa priradila zlému vozidlu</td><td>V detaile jazdy ťuknite na Vozidlo → Zmeniť. Do budúcna priraďte vozidlám Bluetooth – prepnú sa samy.</td></tr>
+  <tr><td>Chôdza sa nezaznamenáva</td><td>Skontrolujte Nastavenia → Chôdza (zapnuté, pracovný čas) a povolenie Fyzická aktivita (potrebné aj pre krokomer).</td></tr>
+  <tr><td>Chôdza sa ukladá príliš často</td><td>Zvýšte Minimálnu vzdialenosť alebo zapnite Iba v pracovnom čase.</td></tr>
   <tr><td>Aplikácia sa nedá aktualizovať</td><td>Staré skúšobné verzie (build 1–3) raz odinštalujte. Od verzie 1.1 aktualizácia funguje priamo.</td></tr>
   <tr><td>Odtlačok prestal fungovať</td><td>Po pridaní nového odtlačku sa prihláste heslom a v Nastaveniach zapnite biometriu znova.</td></tr>
 </table>
 
-<h2 id="server" class="newpage">16. Server (pre správcu)</h2>
+<h2 id="server" class="newpage">18. Server (pre správcu)</h2>
 <p>Aplikácia komunikuje so serverom cez REST API v PHP; databáza je MySQL 8 / MariaDB 10.5+. Aplikácia sa k databáze nepripája priamo (heslo k DB by inak bolo v aplikácii).</p>
-<h3>16.1 Inštalácia</h3>
-<pre>mysql -u root -p &lt; backend/schema.sql
+<h3>18.1 Inštalácia</h3>
+<pre>mysql -u root -p --default-character-set=utf8mb4 &lt; backend/schema.sql
 
 CREATE USER 'car_tracking'@'localhost' IDENTIFIED BY 'silne_heslo';
 GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localhost';</pre>
 <p>Priečinok <code>backend/api</code> skopírujte na web server (napr. <code>/cartracking/api</code>), upravte <code>config.php</code>. Apache potrebuje <code>mod_rewrite</code> (súbor <code>.htaccess</code> je priložený). Odporúčame HTTPS.</p>
-<h3>16.2 Aktualizácia databázy</h3>
+<h3>18.2 Aktualizácia databázy</h3>
 <table>
   <tr><th>Skript</th><th>Kedy ho spustiť</th></tr>
   <tr><td><code>migrate_prefix.sql</code></td><td>Databáza vznikla ešte s tabuľkami bez prefixu <code>CarTracking_</code>.</td></tr>
   <tr><td><code>migrate_v2.sql</code></td><td>Prechod na verziu 1.1 (kniha jázd, štýl jazdy). Nová inštalácia ho nepotrebuje.</td></tr>
+  <tr><td><code>migrate_v3.sql</code></td><td>Prechod na verziu 1.2 (vozidlá, chôdza). Spustite po <code>migrate_v2.sql</code>.</td></tr>
 </table>
-<h3>16.3 Tabuľky</h3>
+<h3>18.3 Tabuľky</h3>
 <table>
   <tr><th>Tabuľka</th><th>Obsah</th></tr>
   <tr><td><code>CarTracking_users</code></td><td>Používatelia (heslo ako bcrypt hash).</td></tr>
   <tr><td><code>CarTracking_api_tokens</code></td><td>Prihlasovacie tokeny (iba SHA-256 hash, platnosť 90 dní).</td></tr>
-  <tr><td><code>CarTracking_trips</code></td><td>Jazdy: časy, km, rýchlosti, adresy, typ, účel, skóre.</td></tr>
+  <tr><td><code>CarTracking_vehicles</code></td><td>Vozidlá: názov, EČV, palivo, spotreba, cena, tachometer.</td></tr>
+  <tr><td><code>CarTracking_trips</code></td><td>Jazdy a chôdza: typ (car/walk), vozidlo, časy, km, kroky, adresy, účel, skóre.</td></tr>
   <tr><td><code>CarTracking_trip_points</code></td><td>Body trasy: čas, poloha, rýchlosť, presnosť, udalosť.</td></tr>
 </table>
-<h3>16.4 API</h3>
+<h3>18.4 API</h3>
 <table>
   <tr><th>Metóda a cesta</th><th>Popis</th></tr>
   <tr><td><code>POST /register</code></td><td>Registrácia → token</td></tr>
@@ -333,11 +384,12 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>POST /trips/sync</code></td><td>Odoslanie jázd a bodov (opakovateľné bez duplicít)</td></tr>
   <tr><td><code>GET /trips</code>, <code>GET /trips/{uuid}</code></td><td>Zoznam jázd, detail s bodmi</td></tr>
   <tr><td><code>DELETE /trips/{uuid}</code></td><td>Zmazanie jazdy</td></tr>
+  <tr><td><code>POST /vehicles/sync</code>, <code>GET /vehicles</code></td><td>Odoslanie a zoznam vozidiel</td></tr>
 </table>
 
-<h2 id="sukromie">17. Bezpečnosť a súkromie</h2>
+<h2 id="sukromie">19. Bezpečnosť a súkromie</h2>
 <ul>
-  <li>Poloha sa zaznamenáva <b>iba počas jazdy autom</b>; pri chôdzi a v pokoji sa GPS nepoužíva.</li>
+  <li>Poloha sa zaznamenáva <b>iba počas jazdy autom a pri zapnutom sledovaní chôdze</b> (prípadne len v pracovnom čase); v pokoji sa GPS nepoužíva.</li>
   <li>Jazdy sa ukladajú v telefóne a odosielajú <b>iba na váš server</b>, ktorý zadáte.</li>
   <li>Prihlasovací token je v telefóne šifrovaný kľúčom v Android Keystore; heslo sa v telefóne neukladá.</li>
   <li>Na serveri sa heslá ukladajú ako bcrypt hash a tokeny ako SHA-256 hash.</li>
@@ -346,8 +398,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
 </ul>
 
 <footer>
-  Car Tracking · Používateľská príručka pre verziu 1.1 · © 2026 Richard Gogola<br>
-  Mapové údaje © prispievatelia OpenStreetMap, © CARTO, © OpenTopoMap, snímky © Esri.
+  Car Tracking · Používateľská príručka pre verziu 1.2 · © 2026 Richard Gogola<br>
+  Mapové údaje © Esri, HERE, Garmin, © prispievatelia OpenStreetMap, © OpenTopoMap, snímky © Esri, Maxar.
 </footer>
 
 </div>

@@ -1,4 +1,5 @@
 -- Jednorazová migrácia pre už existujúcu databázu (staré názvy tabuliek bez prefixu).
+SET NAMES utf8mb4;
 -- Nová inštalácia ju nepotrebuje – stačí schema.sql.
 USE car_tracking;
 RENAME TABLE

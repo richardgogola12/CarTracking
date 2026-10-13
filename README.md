@@ -25,6 +25,12 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Novinky vo verzii 1.2
+- **Viac vozidiel** – každé s vlastnou EČV, palivom, spotrebou, cenou, tachometrom a Bluetooth. Prepínanie na Prehľade (aj počas jazdy), automaticky podľa Bluetooth, dodatočne v detaile jazdy. Kniha jázd a štatistiky po vozidlách.
+- **Sledovanie chôdze** – automatická detekcia, kroky z krokomeru (funguje aj v budove), trasa, voliteľne iba v pracovnom čase; vlastné štatistiky.
+- **Mapa bez API kľúča** – CARTO začal vyžadovať kľúč, nahradené Esri / OpenStreetMap / OpenTopoMap (overené).
+- **Test backendu** v GitHub Actions proti reálnej MySQL (`backend/tests/api_test.sh`). Databázu aktualizuje `backend/migrate_v3.sql`.
+
 ## Novinky vo verzii 1.1
 - **Kniha jázd** – súkromná/služobná jazda, účel, adresy odkiaľ → kam, stav tachometra; tlač/PDF a export do Excelu (CSV).
 - **Štatistiky** – týždeň/mesiac/rok, graf km, súkromné vs. služobné, mapa všetkých jázd obdobia.
@@ -42,7 +48,7 @@ zvuk, vibrácie a ich typ, rýchlosť v notifikácii, test notifikácie · Bluet
 adresa servera, automatická synchronizácia, iba cez Wi-Fi · odtlačok prsta · téma · povolenia · účet/odhlásenie.
 
 ## 1. Server (PHP 8.1+ a MySQL 8 / MariaDB)
-1. Vytvorte databázu: `mysql -u root -p < backend/schema.sql`
+1. Vytvorte databázu: `mysql -u root -p --default-character-set=utf8mb4 < backend/schema.sql`
    Všetky tabuľky majú prefix `CarTracking_` (`CarTracking_users`, `CarTracking_api_tokens`, `CarTracking_trips`, `CarTracking_trip_points`),
    takže môžu bežať aj v zdieľanej databáze s inými aplikáciami. Existujúcu DB so starými názvami premenuje `backend/migrate_prefix.sql`.
 2. Vytvorte používateľa DB, napr.:

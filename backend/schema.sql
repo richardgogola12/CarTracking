@@ -1,4 +1,5 @@
 -- Car Tracking – MySQL schéma (MySQL 8.0+ / MariaDB 10.5+)
+SET NAMES utf8mb4;
 CREATE DATABASE IF NOT EXISTS car_tracking CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE car_tracking;
 
