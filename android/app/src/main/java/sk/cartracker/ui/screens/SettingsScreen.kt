@@ -55,7 +55,7 @@ import sk.cartracker.service.Notifications
 import sk.cartracker.sync.SyncWorker
 
 @Composable
-fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit = {}, onOpenVehicles: () -> Unit = {}) {
+fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit = {}, onOpenVehicles: () -> Unit = {}, onNavigate: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     val activity = ctx.findActivity()
     val c = ctx.container
@@ -68,6 +68,27 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
     var showDeleteData by remember { mutableStateOf(false) }
     var showBtPicker by remember { mutableStateOf(false) }
     var serverUrl by remember(s.serverUrl) { mutableStateOf(s.serverUrl) }
+    var busy by remember { mutableStateOf<String?>(null) }
+    var restoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null) scope.launch {
+            busy = "Vytváram zálohu…"
+            message = runCatching { "Záloha vytvorená ✅\n\n" + sk.cartracker.data.Backup.export(ctx, uri) }
+                .getOrElse { "Zálohu sa nepodarilo vytvoriť: ${it.message}" }
+            busy = null
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> restoreUri = uri }
+    fun doRestore(uri: android.net.Uri, withSettings: Boolean) {
+        scope.launch {
+            busy = "Obnovujem…"
+            message = runCatching { "Obnova dokončená ✅\n\n" + sk.cartracker.data.Backup.restore(ctx, uri, withSettings) }
+                .getOrElse { "Obnova zlyhala: ${it.message}" }
+            busy = null
+            c.vehicles.ensureDefault()
+            if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
+        }
+    }
 
     val btPermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) { showBtPicker = true } else { message = "Bez povolenia „Zariadenia v okolí“ nemožno vybrať Bluetooth auta." }
@@ -184,12 +205,37 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = serverUrl != s.serverUrl, onClick = {
                         val url = ApiProvider.normalize(serverUrl)
-                        if (!url.startsWith("http://") && !url.startsWith("https://")) { message = "Adresa musí začínať http:// alebo https://" }
+                        if (!url.startsWith("https://") || url.length < 12) { message = "Adresa musí začínať https:// – nešifrované spojenie nie je povolené" }
                         else { update { it.copy(serverUrl = url) }; message = "Adresa servera uložená" }
                     }) { Text("Uložiť") }
                     OutlinedButton(onClick = { SyncWorker.enqueueNow(ctx, false); message = "Synchronizácia spustená" }) { Text("Synchronizovať teraz") }
                 }
             }
+        }
+
+        // ---------- Miesta a pripomienky ----------
+        SectionCard("Miesta, pripomienky, tankovanie") {
+            Text("Miesta (Domov, Práca, Klient…)", Modifier.fillMaxWidth().clickable { onNavigate("places") }.padding(16.dp),
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            Text("Pripomienky (STK, EK, olej, známka, poistka…)", Modifier.fillMaxWidth().clickable { onNavigate("reminders") }.padding(16.dp),
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            Text("Tankovanie – pri vozidle v časti Vozidlá (ikona pumpy)", Modifier.fillMaxWidth().clickable(onClick = onOpenVehicles).padding(16.dp),
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+        }
+
+        // ---------- Záloha ----------
+        SectionCard("Záloha a obnova") {
+            Text("Všetky jazdy s trasami, chôdza, vozidlá, miesta, tankovania, pripomienky a nastavenia v jednom súbore. " +
+                "Uložte ho napr. na Google Disk – hodí sa pri výmene telefónu.",
+                Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(enabled = busy == null, onClick = {
+                    val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                    exportLauncher.launch("cartracking-zaloha-$date.ctbak")
+                }) { Text("Zálohovať") }
+                OutlinedButton(enabled = busy == null, onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text("Obnoviť zo zálohy") }
+            }
+            busy?.let { Text(it, Modifier.padding(start = 16.dp, bottom = 12.dp)) }
         }
 
         // ---------- Zlučovanie ----------
@@ -303,6 +349,23 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
     }
 
     // ---------- dialógy ----------
+    restoreUri?.let { uri ->
+        AlertDialog(
+            onDismissRequest = { restoreUri = null },
+            title = { Text("Obnoviť zo zálohy?") },
+            text = { Text("Údaje zo zálohy sa PRIDAJÚ k súčasným – nič sa neprepíše ani nezmaže; čo už v telefóne je, sa preskočí. " +
+                "Obnovené jazdy sa odošlú aj na server.") },
+            confirmButton = {
+                TextButton(onClick = { restoreUri = null; doRestore(uri, true) }) { Text("Obnoviť aj nastavenia") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { restoreUri = null }) { Text("Zrušiť") }
+                    TextButton(onClick = { restoreUri = null; doRestore(uri, false) }) { Text("Iba údaje") }
+                }
+            },
+        )
+    }
     message?.let { msg ->
         AlertDialog(onDismissRequest = { message = null }, text = { Text(msg) },
             confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } })

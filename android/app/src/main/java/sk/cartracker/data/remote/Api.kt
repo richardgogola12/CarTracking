@@ -37,7 +37,11 @@ data class TripDto(
     val startAddress: String? = null, val endAddress: String? = null,
     val score: Int? = null, val hardBrakes: Int = 0, val hardAccels: Int = 0, val speedingSec: Int = 0,
     val type: String = "car", val steps: Int = 0, val vehicleUuid: String? = null,
+    val startPlace: String? = null, val endPlace: String? = null,
 )
+/** Miesto / tankovanie / pripomienka – na serveri v jednej tabuľke ako JSON. */
+data class ItemDto(val kind: String, val uuid: String, val updatedAt: Long, val deleted: Boolean, val data: Any)
+data class ItemSyncRequest(val items: List<ItemDto>)
 data class VehicleDto(
     val uuid: String, val name: String, val plate: String, val fuelType: String,
     val consumption: Double, val fuelPrice: Double, val odometerKm: Int, val odometerDate: Long,
@@ -56,6 +60,7 @@ interface ApiService {
     @POST("logout") suspend fun logout(): OkResponse
     @GET("me") suspend fun me(): MeResponse
     @POST("trips/sync") suspend fun sync(@Body body: SyncRequest): SyncResponse
+    @POST("items/sync") suspend fun syncItems(@Body body: ItemSyncRequest): SyncResponse
     @POST("vehicles/sync") suspend fun syncVehicles(@Body body: VehicleSyncRequest): SyncResponse
     @DELETE("trips/{uuid}") suspend fun deleteTrip(@Path("uuid") uuid: String): OkResponse
 }
@@ -91,7 +96,7 @@ class ApiProvider(private val settings: SettingsRepository, private val session:
     /** Overí, že na adrese beží Car Tracking API. Vráti null = OK, inak text chyby. */
     suspend fun testConnection(rawUrl: String): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val url = normalize(rawUrl)
-        if (!url.startsWith("http://") && !url.startsWith("https://")) return@withContext "Adresa musí začínať http:// alebo https://"
+        if (!url.startsWith("https://") || url.length < 12) return@withContext "Adresa musí začínať https:// (nešifrované spojenie nie je povolené)"
         try {
             val req = okhttp3.Request.Builder().url(url + "me").header("Accept", "application/json").build()
             OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(8, TimeUnit.SECONDS).build()
@@ -115,6 +120,8 @@ class ApiProvider(private val settings: SettingsRepository, private val session:
             runCatching { gson.fromJson(body, ErrorResponse::class.java)?.error }.getOrNull()
                 ?: "Chyba servera (${e.code()})"
         }
+        is java.net.UnknownServiceException -> "Server musí používať HTTPS (nešifrované spojenie nie je povolené)"
+        is javax.net.ssl.SSLException -> "Chyba zabezpečeného spojenia – skontrolujte HTTPS certifikát servera"
         is IOException -> "Server je nedostupný. Skontrolujte pripojenie a adresu servera v Nastaveniach."
         is IllegalArgumentException -> "Neplatná adresa servera"
         else -> e.message ?: "Neznáma chyba"

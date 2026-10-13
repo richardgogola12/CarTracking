@@ -17,8 +17,8 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore("settings")
 
-/** Emulátor: 10.0.2.2 = localhost počítača. Na reálnom telefóne zadajte IP/doménu servera v Nastaveniach. */
-const val DEFAULT_SERVER_URL = "http://10.0.2.2/cartracking/api/"
+/** Server musí bežať na HTTPS – adresa sa zadáva pri prihlásení (Server: …) alebo v Nastaveniach. */
+const val DEFAULT_SERVER_URL = "https://"
 
 enum class VibrationPattern(val label: String) { SHORT("Krátka"), LONG("Dlhá"), DOUBLE("Dvojitá") }
 enum class ThemeMode(val label: String) { SYSTEM("Podľa systému"), LIGHT("Svetlý"), DARK("Tmavý") }

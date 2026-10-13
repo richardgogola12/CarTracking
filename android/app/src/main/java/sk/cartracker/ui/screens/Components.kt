@@ -71,7 +71,7 @@ fun SwitchRow(title: String, subtitle: String? = null, checked: Boolean, enabled
     }
 }
 
-/** Posuvník, ktorý uloží hodnotu až po pustení prsta. */
+/** Plynulý posuvník (bez krokov) – hodnota sa uloží po pustení prsta. Parameter step sa už nepoužíva. */
 @Composable
 fun SliderRow(title: String, value: Int, range: IntRange, step: Int = 1, unit: String, subtitle: String? = null, format: ((Int) -> String)? = null, onChange: (Int) -> Unit) {
     var temp by remember(value) { mutableFloatStateOf(value.toFloat()) }
@@ -81,13 +81,11 @@ fun SliderRow(title: String, value: Int, range: IntRange, step: Int = 1, unit: S
             Text(format?.invoke(temp.roundToInt()) ?: "${temp.roundToInt()} $unit", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         }
         if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        val steps = ((range.last - range.first) / step - 1).coerceAtLeast(0)
         Slider(
             value = temp,
-            onValueChange = { temp = (Math.round(it / step) * step).toFloat().coerceIn(range.first.toFloat(), range.last.toFloat()) },
+            onValueChange = { temp = it.coerceIn(range.first.toFloat(), range.last.toFloat()) },
             onValueChangeFinished = { onChange(temp.roundToInt()) },
             valueRange = range.first.toFloat()..range.last.toFloat(),
-            steps = steps,
         )
     }
 }

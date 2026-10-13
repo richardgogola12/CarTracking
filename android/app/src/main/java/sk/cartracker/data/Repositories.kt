@@ -118,6 +118,8 @@ class TripRepository(
         }
     }
 
+    suspend fun updateTripRaw(t: TripEntity) = dao.updateTrip(t)
+
     suspend fun nextTrip(t: TripEntity): TripEntity? = session.user()?.let { dao.nextTrip(it.id, t.type, t.startedAt) }
 
     /**
@@ -148,6 +150,7 @@ class TripRepository(
                     maxSpeedKmh = sorted.maxOf { it.maxSpeedKmh },
                     avgSpeedKmh = if (hours > 0) dist / 1000.0 / hours else 0.0,
                     endLat = last.endLat, endLng = last.endLng, endAddress = last.endAddress ?: target.endAddress,
+                    endPlace = last.endPlace,
                     steps = sorted.sumOf { it.steps },
                     hardBrakes = sorted.sumOf { it.hardBrakes }, hardAccels = sorted.sumOf { it.hardAccels },
                     speedingSec = sorted.sumOf { it.speedingSec }, score = score,
@@ -220,7 +223,7 @@ class TripRepository(
         uuid, startedAt, endedAt, distanceM, maxSpeedKmh, avgSpeedKmh,
         startLat, startLng, endLat, endLng, triggerSource, points,
         category, note, startAddress, endAddress, score, hardBrakes, hardAccels, speedingSec,
-        type, steps, vehicleUuid,
+        type, steps, vehicleUuid, startPlace, endPlace,
     )
 
     private fun VehicleEntity.toDto() = VehicleDto(

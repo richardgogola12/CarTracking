@@ -66,6 +66,20 @@ check "detail po zlúčení" 200 "$(req "${AUTH[@]}" "$API/trips/$CAR")"
 python3 -c 'import sys,json;d=json.loads(sys.argv[1]);assert len(d["points"])==3, len(d["points"]);assert float(d["trip"]["distance_m"])==11200 and int(d["trip"]["ended_at"])==1700001200000' "$LAST" || fail "zlúčenie na serveri nesedí"
 check "druhá jazda je preč" 404 "$(req "${AUTH[@]}" "$API/trips/$B2")"
 
+# Miesta / tankovania / pripomienky
+PL=bbbbbbbb-0000-0000-0000-000000000001
+RF=bbbbbbbb-0000-0000-0000-000000000002
+check "sync položiek" 200 "$(req "${AUTH[@]}" -X POST "$API/items/sync" -d "{\"items\":[
+ {\"kind\":\"place\",\"uuid\":\"$PL\",\"updated_at\":100,\"deleted\":false,\"data\":{\"name\":\"Domov\",\"lat\":48.1,\"lng\":17.1,\"radius_m\":150}},
+ {\"kind\":\"refuel\",\"uuid\":\"$RF\",\"updated_at\":100,\"deleted\":false,\"data\":{\"liters\":45.2,\"total_price\":70.06,\"odometer_km\":120450}}]}")"
+echo "$LAST" | grep -q "$PL" && echo "$LAST" | grep -q "$RF" || fail "položky neboli prijaté"
+check "staršia verzia sa neprepíše" 200 "$(req "${AUTH[@]}" -X POST "$API/items/sync" -d "{\"items\":[{\"kind\":\"place\",\"uuid\":\"$PL\",\"updated_at\":50,\"deleted\":false,\"data\":{\"name\":\"STARE\"}}]}")"
+check "zoznam miest" 200 "$(req "${AUTH[@]}" "$API/items?kind=place")"
+python3 -c 'import sys,json;i=json.loads(sys.argv[1])["items"];assert len(i)==1 and i[0]["data"]["name"]=="Domov", i' "$LAST" || fail "miesto nesedí"
+check "jazda s názvami miest" 200 "$(req "${AUTH[@]}" -X POST "$API/trips/sync" -d "{\"trips\":[{\"uuid\":\"$CAR\",\"started_at\":1700000000000,\"ended_at\":1700001200000,\"distance_m\":11200,\"trigger_source\":\"auto\",\"type\":\"car\",\"start_place\":\"Domov\",\"end_place\":\"Práca\",\"points\":[]}]}")"
+check "detail s miestami" 200 "$(req "${AUTH[@]}" "$API/trips/$CAR")"
+python3 -c 'import sys,json;t=json.loads(sys.argv[1])["trip"];assert t["start_place"]=="Domov" and t["end_place"]=="Práca", t' "$LAST" || fail "názvy miest nesedia"
+
 check "odhlásenie" 200 "$(req "${AUTH[@]}" -X POST "$API/logout")"
 check "token po odhlásení" 401 "$(req "${AUTH[@]}" "$API/me")"
 echo "::notice::Všetky testy API prešli ✅"

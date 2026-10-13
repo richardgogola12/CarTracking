@@ -23,6 +23,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         if (!c.session.isLoggedIn) return Result.success()
         return try {
             c.trips.syncAll()
+            c.items.syncAll()
             RuntimeState.setLastSyncAt(applicationContext, System.currentTimeMillis())
             Result.success()
         } catch (e: HttpException) {

@@ -281,8 +281,8 @@ fun ServerDialog(current: String, onClose: () -> Unit) {
         confirmButton = {
             TextButton(onClick = {
                 val u = ApiProvider.normalize(url)
-                if (!u.startsWith("http://") && !u.startsWith("https://")) {
-                    result = false to "Adresa musí začínať http:// alebo https://"
+                if (!u.startsWith("https://") || u.length < 12) {
+                    result = false to "Adresa musí začínať https://"
                 } else {
                     scope.launch { c.settings.update { it.copy(serverUrl = u) }; onClose() }
                 }

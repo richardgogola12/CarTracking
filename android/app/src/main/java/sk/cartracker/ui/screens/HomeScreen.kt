@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FilterChip
@@ -78,7 +79,7 @@ import sk.cartracker.ui.permissionItems
 import java.util.Calendar
 
 @Composable
-fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}) {
+fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, onNavigate: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     val c = ctx.container
     val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
@@ -127,6 +128,10 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}) {
                     )
                 }
                 HorizontalDivider()
+                activeVehicle?.let { av ->
+                    DropdownMenuItem(text = { Text("Tankovanie – ${av.plate.ifBlank { av.name }}") }, leadingIcon = { Icon(Icons.Filled.LocalGasStation, null) },
+                        onClick = { vehicleMenu = false; onNavigate("refuels/${av.uuid}") })
+                }
                 DropdownMenuItem(text = { Text("Spravovať vozidlá…") }, leadingIcon = { Icon(Icons.Filled.Settings, null) },
                     onClick = { vehicleMenu = false; onOpenVehicles() })
             }
@@ -213,6 +218,24 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}) {
                             onClick = { if (hasLoc()) TrackingService.startManualWalk(ctx) else onOpenPermissions() },
                             modifier = Modifier.weight(1f),
                         ) { Icon(Icons.AutoMirrored.Filled.DirectionsWalk, null); Spacer(Modifier.size(6.dp)); Text("Chôdza") }
+                    }
+                }
+            }
+        }
+
+        // ---- Pripomienky, ktoré sa blížia ----
+        val reminders by remember { c.reminders.reminders() }.collectAsStateWithLifecycle(emptyList())
+        var dueList by remember { mutableStateOf<List<Pair<sk.cartracker.data.local.ReminderEntity, sk.cartracker.data.ReminderStatus>>>(emptyList()) }
+        LaunchedEffect(reminders, resumeTick) {
+            dueList = reminders.filter { !it.done }.map { it to c.reminders.status(it) }
+                .filter { it.second.state == sk.cartracker.data.ReminderState.SOON || it.second.state == sk.cartracker.data.ReminderState.OVERDUE }
+        }
+        if (dueList.isNotEmpty()) {
+            Card(onClick = { onNavigate("reminders") }, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("🔔 Pripomienky", fontWeight = FontWeight.SemiBold)
+                    dueList.take(4).forEach { (r, st) ->
+                        Text("${r.title}: ${st.text()}", color = reminderColor(st.state), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }

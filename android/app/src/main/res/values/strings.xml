@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Car Tracking</string>
+    <string name="widget_description">Stav jazdy, dnešné km a kroky, rýchle spustenie</string>
 </resources>

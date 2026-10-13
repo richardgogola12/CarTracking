@@ -27,6 +27,7 @@ object Notifications {
     const val CH_TRACKING = "tracking"
     const val CH_EVENTS = "drive_events"
     const val CH_EVENTS_SILENT = "drive_events_silent"
+    const val CH_REMINDERS = "reminders"
     const val ID_ONGOING = 1
     private const val ID_EVENT = 2
 
@@ -43,6 +44,11 @@ object Notifications {
             NotificationChannel(CH_EVENTS, "Zapnutie / vypnutie režimu jazdy", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Oznámenie so zvukom, keď sa jazda začne alebo skončí"
                 enableVibration(false)
+            }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CH_REMINDERS, "Pripomienky (STK, olej, známka…)", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Blížiace sa termíny pri vozidlách"
             }
         )
         nm.createNotificationChannel(
@@ -133,6 +139,24 @@ object Notifications {
             .setContentIntent(openAppIntent(ctx))
             .build()
         NotificationManagerCompat.from(ctx).notify(ID_EVENT, n)
+    }
+
+    fun reminder(ctx: Context, r: sk.cartracker.data.local.ReminderEntity, st: sk.cartracker.data.ReminderStatus, vehicle: String?) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val parts = listOfNotNull(
+            st.daysLeft?.let { if (it < 0) "po termíne ${-it} dní" else if (it == 0L) "dnes" else "o $it dní" },
+            st.kmLeft?.let { if (it < 0) "prekročené o ${-it} km" else "o $it km" },
+            vehicle,
+        )
+        val n = NotificationCompat.Builder(ctx, CH_REMINDERS)
+            .setSmallIcon(R.drawable.ic_car)
+            .setContentTitle((if (st.state == sk.cartracker.data.ReminderState.OVERDUE) "⚠️ " else "🔔 ") + r.title)
+            .setContentText(parts.joinToString(" · "))
+            .setAutoCancel(true)
+            .setContentIntent(openAppIntent(ctx))
+            .build()
+        NotificationManagerCompat.from(ctx).notify(1000 + (r.id % 1000).toInt(), n)
     }
 
     /** Upozornenie na prekročenie nastavenej rýchlosti (3 krátke vibrácie). */

@@ -83,8 +83,108 @@ data class TripEntity(
     val type: String = TYPE_CAR,
     val steps: Int = 0,
     val vehicleUuid: String? = null,
+    // v5 – pomenované miesta (Domov, Práca…)
+    val startPlace: String? = null,
+    val endPlace: String? = null,
 ) {
     val isWalk: Boolean get() = type == TYPE_WALK
+}
+
+// ---------------- v5: miesta, tankovanie, pripomienky ----------------
+
+const val PLACE_HOME = "home"
+const val PLACE_WORK = "work"
+const val PLACE_CLIENT = "client"
+const val PLACE_OTHER = "other"
+val PLACE_KINDS = listOf(PLACE_HOME to "Domov", PLACE_WORK to "Práca", PLACE_CLIENT to "Klient", PLACE_OTHER to "Iné")
+
+/** Pomenované miesto. [category]: "" = nemeniť typ jazdy, inak private / business. */
+@Entity(tableName = "places", indices = [Index("uuid", unique = true), Index("userId")])
+data class PlaceEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val uuid: String,
+    val userId: Int,
+    val name: String,
+    val kind: String = PLACE_OTHER,
+    val lat: Double,
+    val lng: Double,
+    val radiusM: Int = 150,
+    val category: String = "",
+    val deleted: Boolean = false,
+    val synced: Boolean = false,
+    val updatedAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(tableName = "refuels", indices = [Index("uuid", unique = true), Index("userId"), Index("vehicleUuid")])
+data class RefuelEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val uuid: String,
+    val userId: Int,
+    val vehicleUuid: String,
+    val ts: Long,
+    val liters: Double,          // pri elektromobile kWh
+    val totalPrice: Double,
+    val odometerKm: Int,
+    val fullTank: Boolean = true,
+    val note: String = "",
+    val deleted: Boolean = false,
+    val synced: Boolean = false,
+    val updatedAt: Long = System.currentTimeMillis(),
+) {
+    val pricePerUnit: Double get() = if (liters > 0) totalPrice / liters else 0.0
+}
+
+val REMINDER_KINDS = listOf(
+    "stk" to "STK", "ek" to "Emisná kontrola", "oil" to "Výmena oleja", "vignette" to "Diaľničná známka",
+    "insurance" to "PZP / havarijné poistenie", "tires" to "Prezutie pneumatík", "service" to "Servisná prehliadka", "custom" to "Iné",
+)
+
+@Entity(tableName = "reminders", indices = [Index("uuid", unique = true), Index("userId")])
+data class ReminderEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val uuid: String,
+    val userId: Int,
+    val vehicleUuid: String? = null,
+    val kind: String = "custom",
+    val title: String,
+    val dueDate: Long? = null,
+    val dueKm: Int? = null,
+    val notifyDays: Int = 14,
+    val notifyKm: Int = 500,
+    val repeatMonths: Int = 0,
+    val repeatKm: Int = 0,
+    val done: Boolean = false,
+    val lastNotifiedAt: Long = 0,
+    val note: String = "",
+    val deleted: Boolean = false,
+    val synced: Boolean = false,
+    val updatedAt: Long = System.currentTimeMillis(),
+)
+
+@Dao
+interface ExtrasDao {
+    @Insert suspend fun insertPlace(p: PlaceEntity): Long
+    @Update suspend fun updatePlace(p: PlaceEntity)
+    @Query("SELECT * FROM places WHERE userId = :userId AND deleted = 0 ORDER BY name") fun placesFlow(userId: Int): Flow<List<PlaceEntity>>
+    @Query("SELECT * FROM places WHERE userId = :userId AND deleted = 0") suspend fun places(userId: Int): List<PlaceEntity>
+    @Query("SELECT * FROM places WHERE userId = :userId") suspend fun allPlaces(userId: Int): List<PlaceEntity>
+    @Query("SELECT * FROM places WHERE uuid = :uuid") suspend fun place(uuid: String): PlaceEntity?
+
+    @Insert suspend fun insertRefuel(r: RefuelEntity): Long
+    @Update suspend fun updateRefuel(r: RefuelEntity)
+    @Query("SELECT * FROM refuels WHERE userId = :userId AND vehicleUuid = :vehicle AND deleted = 0 ORDER BY ts DESC")
+    fun refuelsFlow(userId: Int, vehicle: String): Flow<List<RefuelEntity>>
+    @Query("SELECT * FROM refuels WHERE userId = :userId AND deleted = 0 ORDER BY ts DESC") fun allRefuelsFlow(userId: Int): Flow<List<RefuelEntity>>
+    @Query("SELECT * FROM refuels WHERE userId = :userId") suspend fun allRefuels(userId: Int): List<RefuelEntity>
+    @Query("SELECT * FROM refuels WHERE uuid = :uuid") suspend fun refuel(uuid: String): RefuelEntity?
+
+    @Insert suspend fun insertReminder(r: ReminderEntity): Long
+    @Update suspend fun updateReminder(r: ReminderEntity)
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND deleted = 0 ORDER BY done, COALESCE(dueDate, 9223372036854775807)")
+    fun remindersFlow(userId: Int): Flow<List<ReminderEntity>>
+    @Query("SELECT * FROM reminders WHERE userId = :userId AND deleted = 0 AND done = 0") suspend fun activeReminders(userId: Int): List<ReminderEntity>
+    @Query("SELECT * FROM reminders WHERE userId = :userId") suspend fun allReminders(userId: Int): List<ReminderEntity>
+    @Query("SELECT * FROM reminders WHERE uuid = :uuid") suspend fun reminder(uuid: String): ReminderEntity?
 }
 
 /** Udalosti štýlu jazdy uložené pri bode trasy. */
@@ -160,6 +260,11 @@ interface TripDao {
     @Query("UPDATE trips SET vehicleUuid = :vehicle, synced = 0 WHERE userId = :userId AND type = 'car' AND vehicleUuid IS NULL")
     suspend fun assignVehicleToUnassigned(userId: Int, vehicle: String)
 
+    // ---- záloha ----
+    @Query("SELECT * FROM trips WHERE userId = :userId") suspend fun allTrips(userId: Int): List<TripEntity>
+    @Query("SELECT * FROM trips WHERE uuid = :uuid") suspend fun tripByUuid(uuid: String): TripEntity?
+    @Query("SELECT * FROM trips WHERE userId = :userId AND finished = 1 AND type = 'car'") suspend fun carTrips(userId: Int): List<TripEntity>
+
     // ---- vozidlá ----
     @Insert suspend fun insertVehicle(v: VehicleEntity): Long
     @Update suspend fun updateVehicle(v: VehicleEntity)
@@ -213,14 +318,53 @@ private val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
-@Database(entities = [TripEntity::class, PointEntity::class, VehicleEntity::class], version = 4, exportSchema = false)
+private val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE trips ADD COLUMN startPlace TEXT")
+        db.execSQL("ALTER TABLE trips ADD COLUMN endPlace TEXT")
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS places (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, uuid TEXT NOT NULL, userId INTEGER NOT NULL,
+                name TEXT NOT NULL, kind TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL, radiusM INTEGER NOT NULL,
+                category TEXT NOT NULL, deleted INTEGER NOT NULL, synced INTEGER NOT NULL, updatedAt INTEGER NOT NULL)"""
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_places_uuid ON places (uuid)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_places_userId ON places (userId)")
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS refuels (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, uuid TEXT NOT NULL, userId INTEGER NOT NULL,
+                vehicleUuid TEXT NOT NULL, ts INTEGER NOT NULL, liters REAL NOT NULL, totalPrice REAL NOT NULL,
+                odometerKm INTEGER NOT NULL, fullTank INTEGER NOT NULL, note TEXT NOT NULL, deleted INTEGER NOT NULL,
+                synced INTEGER NOT NULL, updatedAt INTEGER NOT NULL)"""
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_refuels_uuid ON refuels (uuid)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_refuels_userId ON refuels (userId)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_refuels_vehicleUuid ON refuels (vehicleUuid)")
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS reminders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, uuid TEXT NOT NULL, userId INTEGER NOT NULL,
+                vehicleUuid TEXT, kind TEXT NOT NULL, title TEXT NOT NULL, dueDate INTEGER, dueKm INTEGER,
+                notifyDays INTEGER NOT NULL, notifyKm INTEGER NOT NULL, repeatMonths INTEGER NOT NULL, repeatKm INTEGER NOT NULL,
+                done INTEGER NOT NULL, lastNotifiedAt INTEGER NOT NULL, note TEXT NOT NULL, deleted INTEGER NOT NULL,
+                synced INTEGER NOT NULL, updatedAt INTEGER NOT NULL)"""
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_reminders_uuid ON reminders (uuid)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_reminders_userId ON reminders (userId)")
+    }
+}
+
+@Database(
+    entities = [TripEntity::class, PointEntity::class, VehicleEntity::class, PlaceEntity::class, RefuelEntity::class, ReminderEntity::class],
+    version = 5, exportSchema = false,
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tripDao(): TripDao
+    abstract fun extrasDao(): ExtrasDao
 
     companion object {
         fun create(ctx: Context): AppDatabase =
             Room.databaseBuilder(ctx, AppDatabase::class.java, "car_tracking.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .fallbackToDestructiveMigration()
                 .build()
     }

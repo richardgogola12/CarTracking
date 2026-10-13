@@ -67,11 +67,26 @@ CREATE TABLE IF NOT EXISTS CarTracking_trips (
     type             VARCHAR(10)  NOT NULL DEFAULT 'car' COMMENT 'car | walk',
     steps            INT UNSIGNED NOT NULL DEFAULT 0,
     vehicle_uuid     CHAR(36)     NULL,
+    start_place      VARCHAR(100) NULL,
+    end_place        VARCHAR(100) NULL,
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_trips_user_start (user_id, started_at),
     INDEX idx_trips_vehicle (vehicle_uuid),
     CONSTRAINT CarTracking_fk_trips_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Miesta, tankovania a pripomienky (JSON podľa aplikácie)
+CREATE TABLE IF NOT EXISTS CarTracking_items (
+    id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT UNSIGNED NOT NULL,
+    kind       VARCHAR(20)  NOT NULL COMMENT 'place | refuel | reminder',
+    uuid       CHAR(36)     NOT NULL UNIQUE,
+    data       JSON         NOT NULL,
+    updated_at BIGINT       NOT NULL DEFAULT 0 COMMENT 'epoch ms',
+    deleted    TINYINT(1)   NOT NULL DEFAULT 0,
+    INDEX idx_items_user_kind (user_id, kind),
+    CONSTRAINT CarTracking_fk_items_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS CarTracking_trip_points (

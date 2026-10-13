@@ -134,6 +134,7 @@ fun StatsScreen() {
     var vehicleMap by remember { mutableStateOf<Map<String, VehicleEntity>>(emptyMap()) }
     LaunchedEffect(vehicleList) { vehicleMap = c.vehicles.all().associateBy { it.uuid } }
 
+    val allRefuels by remember { c.refuels.allRefuels() }.collectAsStateWithLifecycle(emptyList())
     var walkMode by rememberSaveable { mutableStateOf(false) }
     var vehicleFilter by rememberSaveable { mutableStateOf("") }   // "" = všetky vozidlá
     var vehicleMenu by remember { mutableStateOf(false) }
@@ -231,6 +232,15 @@ fun StatsScreen() {
                         StatBox("Palivo", String.format(Locale("sk"), "%.1f", liters), Modifier.weight(1f))
                         StatBox("Náklady", formatMoney(cost), Modifier.weight(1f))
                     }
+                }
+            }
+
+            val periodRefuels = allRefuels.filter { it.ts >= r.from && it.ts < r.to && (vehicleFilter.isEmpty() || it.vehicleUuid == vehicleFilter) }
+            if (periodRefuels.isNotEmpty()) SectionCard("Tankovanie (skutočné náklady)") {
+                Row(Modifier.fillMaxWidth().padding(12.dp)) {
+                    StatBox("Tankovaní", "${periodRefuels.size}", Modifier.weight(1f))
+                    StatBox("Natankované", String.format(Locale("sk"), "%.1f", periodRefuels.sumOf { it.liters }), Modifier.weight(1f))
+                    StatBox("Zaplatené", formatMoney(periodRefuels.sumOf { it.totalPrice }), Modifier.weight(1f))
                 }
             }
 

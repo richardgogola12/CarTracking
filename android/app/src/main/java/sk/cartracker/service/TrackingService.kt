@@ -50,6 +50,7 @@ import sk.cartracker.data.local.TYPE_CAR
 import sk.cartracker.data.local.TYPE_WALK
 import sk.cartracker.data.local.TripEntity
 import sk.cartracker.sync.SyncWorker
+import sk.cartracker.widget.CarWidget
 import sk.cartracker.ui.formatDistance
 import sk.cartracker.ui.formatDuration
 import java.util.Locale
@@ -608,6 +609,8 @@ class TrackingService : LifecycleService() {
                     hardBrakes = hardBrakes, hardAccels = hardAccels, speedingSec = speedingSec,
                 )
             }
+            // Miesta (Domov, Práca…): názvy, typ jazdy a účel
+            saved = container.places.applyToTrip(saved, container.places.list(), settings, setCategory = true)
             dao.updateTrip(saved)
             var merged = false
             if (mergeWith != null) {
@@ -682,6 +685,7 @@ class TrackingService : LifecycleService() {
     private fun shutdown() {
         TrackingState.state.value = DriveState.IDLE
         TrackingState.live.value = null
+        CarWidget.updateAll(this)
         stopLocation()
         stopSteps()
         handler.removeCallbacks(ticker)
@@ -776,6 +780,7 @@ class TrackingService : LifecycleService() {
     }
 
     private fun updateNotification(force: Boolean = false) {
+        if (force) CarWidget.updateAll(this)
         val now = System.currentTimeMillis()
         if (!force && now - lastNotifUpdate < 5_000) return
         lastNotifUpdate = now
@@ -793,6 +798,7 @@ class TrackingService : LifecycleService() {
             limitKmh = if (t.isWalk) null else currentLimit(), zone = if (t.isWalk) null else currentZone(),
             zoneManual = TrackingState.zoneOverride.value != null, roadName = roadInfo?.roadName,
         )
+        CarWidget.updateAll(this, throttle = true)
     }
 
     private fun acquireWakeLock() {

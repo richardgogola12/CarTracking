@@ -8,6 +8,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import sk.cartracker.data.AuthRepository
+import sk.cartracker.data.ItemsSync
+import sk.cartracker.data.PlacesRepository
+import sk.cartracker.data.RefuelRepository
+import sk.cartracker.data.ReminderRepository
 import sk.cartracker.data.SettingsRepository
 import sk.cartracker.data.TripRepository
 import sk.cartracker.data.VehicleRepository
@@ -25,6 +29,10 @@ class AppContainer(ctx: Context) {
     val auth = AuthRepository(ctx, api, session, settings)
     val trips = TripRepository(db, api, session, ctx.getSharedPreferences("pending_deletes", Context.MODE_PRIVATE))
     val vehicles = VehicleRepository(db, session, settings)
+    val places = PlacesRepository(db, session)
+    val refuels = RefuelRepository(db, session)
+    val reminders = ReminderRepository(db, session, trips, vehicles)
+    val items = ItemsSync(db, api, session)
 }
 
 class CarTrackerApp : Application() {
@@ -37,6 +45,8 @@ class CarTrackerApp : Application() {
         container = AppContainer(this)
         Notifications.createChannels(this)
         Configuration.getInstance().userAgentValue = packageName
+        sk.cartracker.sync.ReminderWorker.schedule(this)
+        sk.cartracker.widget.CarWidget.updateAll(this)
 
         // Pri každom štarte procesu sa uistíme, že detekcia jazdy je zaregistrovaná
         appScope.launch {

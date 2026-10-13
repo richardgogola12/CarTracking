@@ -14,6 +14,8 @@ declare(strict_types=1);
  *  DELETE /trips/{uuid}    (Bearer)                            -> {ok}
  *  POST   /vehicles/sync   (Bearer) {vehicles:[...]}           -> {synced:[uuid...]}
  *  GET    /vehicles        (Bearer)                            -> {vehicles:[...]}
+ *  POST   /items/sync      (Bearer) {items:[{kind,uuid,updated_at,deleted,data}]} -> {synced:[uuid...]}
+ *  GET    /items?kind=     (Bearer)                            -> {items:[...]}   (miesta, tankovania, pripomienky)
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -171,8 +173,8 @@ if ($method === 'POST' && $path === '/trips/sync') {
         'INSERT INTO CarTracking_trips (user_id, uuid, started_at, ended_at, distance_m, max_speed_kmh, avg_speed_kmh,
                             start_lat, start_lng, end_lat, end_lng, trigger_source,
                             category, note, start_address, end_address, score, hard_brakes, hard_accels, speeding_sec,
-                            type, steps, vehicle_uuid)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            type, steps, vehicle_uuid, start_place, end_place)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE ended_at = VALUES(ended_at), distance_m = VALUES(distance_m),
              max_speed_kmh = VALUES(max_speed_kmh), avg_speed_kmh = VALUES(avg_speed_kmh),
              end_lat = VALUES(end_lat), end_lng = VALUES(end_lng),
@@ -181,7 +183,8 @@ if ($method === 'POST' && $path === '/trips/sync') {
              end_address = COALESCE(VALUES(end_address), end_address),
              score = VALUES(score), hard_brakes = VALUES(hard_brakes),
              hard_accels = VALUES(hard_accels), speeding_sec = VALUES(speeding_sec),
-             type = VALUES(type), steps = VALUES(steps), vehicle_uuid = VALUES(vehicle_uuid)');
+             type = VALUES(type), steps = VALUES(steps), vehicle_uuid = VALUES(vehicle_uuid),
+             start_place = VALUES(start_place), end_place = VALUES(end_place)');
     $findTrip = $pdo->prepare('SELECT id, user_id FROM CarTracking_trips WHERE uuid = ?');
     $insPoint = $pdo->prepare(
         'INSERT IGNORE INTO CarTracking_trip_points (trip_id, ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m, event)
@@ -215,6 +218,8 @@ if ($method === 'POST' && $path === '/trips/sync') {
                 ($t['type'] ?? '') === 'walk' ? 'walk' : 'car',
                 max(0, (int)($t['steps'] ?? 0)),
                 preg_match('/^[0-9a-f-]{36}$/i', (string)($t['vehicle_uuid'] ?? '')) ? $t['vehicle_uuid'] : null,
+                isset($t['start_place']) ? mb_substr((string)$t['start_place'], 0, 100) : null,
+                isset($t['end_place']) ? mb_substr((string)$t['end_place'], 0, 100) : null,
             ]);
             $findTrip->execute([$uuid]);
             $tripId = (int)$findTrip->fetch()['id'];
@@ -278,6 +283,45 @@ if ($method === 'POST' && $path === '/vehicles/sync') {
     respond(200, ['synced' => $synced]);
 }
 
+// POST /items/sync – miesta, tankovania, pripomienky (novšia verzia vyhráva)
+if ($method === 'POST' && $path === '/items/sync') {
+    $b = body();
+    $items = $b['items'] ?? null;
+    if (!is_array($items)) fail(422, 'Chýba pole items');
+    if (count($items) > 500) fail(413, 'Príliš veľa položiek v jednej požiadavke');
+    $find = $pdo->prepare('SELECT user_id, updated_at FROM CarTracking_items WHERE uuid = ?');
+    $ins = $pdo->prepare('INSERT INTO CarTracking_items (user_id, kind, uuid, data, updated_at, deleted) VALUES (?, ?, ?, ?, ?, ?)');
+    $upd = $pdo->prepare('UPDATE CarTracking_items SET kind = ?, data = ?, updated_at = ?, deleted = ? WHERE uuid = ? AND user_id = ?');
+    $synced = [];
+    foreach ($items as $it) {
+        $uuid = (string)($it['uuid'] ?? '');
+        $kind = (string)($it['kind'] ?? '');
+        if (!preg_match('/^[0-9a-f-]{36}$/i', $uuid) || !in_array($kind, ['place', 'refuel', 'reminder'], true)) continue;
+        $data = json_encode($it['data'] ?? new stdClass(), JSON_UNESCAPED_UNICODE);
+        if ($data === false || strlen($data) > 20000) continue;
+        $ts = max(0, (int)($it['updated_at'] ?? 0));
+        $del = !empty($it['deleted']) ? 1 : 0;
+        $find->execute([$uuid]);
+        $row = $find->fetch();
+        if (!$row) $ins->execute([$uid, $kind, $uuid, $data, $ts, $del]);
+        elseif ((int)$row['user_id'] !== $uid) continue;
+        elseif ($ts >= (int)$row['updated_at']) $upd->execute([$kind, $data, $ts, $del, $uuid, $uid]);
+        $synced[] = $uuid;
+    }
+    respond(200, ['synced' => $synced]);
+}
+
+if ($method === 'GET' && $path === '/items') {
+    $kind = (string)($_GET['kind'] ?? '');
+    $sql = 'SELECT kind, uuid, data, updated_at, deleted FROM CarTracking_items WHERE user_id = ?';
+    $args = [$uid];
+    if ($kind !== '') { $sql .= ' AND kind = ?'; $args[] = $kind; }
+    $stmt = $pdo->prepare($sql . ' ORDER BY updated_at DESC');
+    $stmt->execute($args);
+    $rows = array_map(function ($r) { $r['data'] = json_decode($r['data'], true); return $r; }, $stmt->fetchAll());
+    respond(200, ['items' => $rows]);
+}
+
 if ($method === 'GET' && $path === '/vehicles') {
     $stmt = $pdo->prepare('SELECT uuid, name, plate, fuel_type, consumption, fuel_price, odometer_km, odometer_date,
                                   bt_name, archived, updated_at, limit_urban, limit_rural, limit_highway
@@ -292,7 +336,7 @@ if ($method === 'GET' && $path === '/trips') {
     $stmt = $pdo->prepare("SELECT uuid, started_at, ended_at, distance_m, max_speed_kmh, avg_speed_kmh,
                                   start_lat, start_lng, end_lat, end_lng, trigger_source,
                                   category, note, start_address, end_address, score, hard_brakes, hard_accels, speeding_sec,
-                                  type, steps, vehicle_uuid
+                                  type, steps, vehicle_uuid, start_place, end_place
                            FROM CarTracking_trips WHERE user_id = ? ORDER BY started_at DESC LIMIT $limit OFFSET $offset");
     $stmt->execute([$uid]);
     respond(200, ['trips' => $stmt->fetchAll()]);

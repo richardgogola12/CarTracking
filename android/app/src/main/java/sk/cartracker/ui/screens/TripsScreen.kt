@@ -111,9 +111,10 @@ fun scoreColor(score: Int) = when {
     else -> Color(0xFFD32F2F)
 }
 
-fun TripEntity.routeTitle(): String = when {
-    startAddress != null && endAddress != null -> "${shortPlace(startAddress)} → ${shortPlace(endAddress)}"
-    else -> "${formatTime(startedAt)} – ${endedAt?.let { formatTime(it) } ?: "…"}"
+fun TripEntity.routeTitle(): String {
+    val a = startPlace ?: startAddress?.let { shortPlace(it) }
+    val b = endPlace ?: endAddress?.let { shortPlace(it) }
+    return if (a != null && b != null) "$a → $b" else "${formatTime(startedAt)} – ${endedAt?.let { formatTime(it) } ?: "…"}"
 }
 
 private fun shortPlace(a: String) = a.substringAfterLast(", ").ifBlank { a }
@@ -346,6 +347,7 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
     var confirmDelete by remember { mutableStateOf(false) }
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
+    var newPlace by remember { mutableStateOf<sk.cartracker.data.local.PlaceEntity?>(null) }
     var mergeNext by remember { mutableStateOf<TripEntity?>(null) }
     LaunchedEffect(tripId, reload) { points = c.trips.points(tripId) }
     LaunchedEffect(trip?.startedAt, vehicle) { trip?.let { odometer = c.trips.odometerAt(it.startedAt, vehicle) } }
@@ -395,8 +397,17 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                 // Trasa
                 SectionCard("Trasa") {
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        PlaceRow("A", Color(0xFF2E7D32), t.startAddress ?: "Adresa nezistená", formatDateTime(t.startedAt))
-                        PlaceRow("B", Color(0xFFC62828), t.endAddress ?: "Adresa nezistená", t.endedAt?.let { formatDateTime(it) } ?: "")
+                        PlaceRow("A", Color(0xFF2E7D32), listOfNotNull(t.startPlace, t.startAddress).joinToString(" · ").ifEmpty { "Adresa nezistená" }, formatDateTime(t.startedAt))
+                        PlaceRow("B", Color(0xFFC62828), listOfNotNull(t.endPlace, t.endAddress).joinToString(" · ").ifEmpty { "Adresa nezistená" }, t.endedAt?.let { formatDateTime(it) } ?: "")
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            val sLat = t.startLat; val sLng = t.startLng; val eLat = t.endLat; val eLng = t.endLng
+                            if (t.startPlace == null && sLat != null && sLng != null) TextButton(onClick = {
+                                newPlace = c.places.newPlace("", sk.cartracker.data.local.PLACE_OTHER, sLat, sLng)
+                            }) { Text("Štart ako miesto") }
+                            if (t.endPlace == null && eLat != null && eLng != null) TextButton(onClick = {
+                                newPlace = c.places.newPlace("", sk.cartracker.data.local.PLACE_OTHER, eLat, eLng)
+                            }) { Text("Cieľ ako miesto") }
+                        }
                     }
                 }
                 // Vozidlo jazdy – dá sa zmeniť aj dodatočne
@@ -462,6 +473,18 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                 )
             }
         }
+    }
+
+    newPlace?.let { p ->
+        PlaceDialog(p, onDismiss = { newPlace = null }, onSave = { saved ->
+            newPlace = null
+            scope.launch {
+                c.places.save(saved)
+                trip?.let { t -> c.trips.updateTripRaw(c.places.applyToTrip(t, c.places.list(), s, setCategory = false).copy(synced = false)) }
+                if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
+                Toast.makeText(ctx, "Miesto „${saved.name}“ uložené", Toast.LENGTH_SHORT).show()
+            }
+        }, onDelete = null)
     }
 
     val next = mergeNext

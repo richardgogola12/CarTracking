@@ -37,6 +37,9 @@ import sk.cartracker.ui.screens.HomeScreen
 import sk.cartracker.ui.screens.LockScreen
 import sk.cartracker.ui.screens.LoginScreen
 import sk.cartracker.ui.screens.PermissionsScreen
+import sk.cartracker.ui.screens.PlacesScreen
+import sk.cartracker.ui.screens.RefuelsScreen
+import sk.cartracker.ui.screens.RemindersScreen
 import sk.cartracker.ui.screens.RegisterScreen
 import sk.cartracker.ui.screens.SettingsScreen
 import sk.cartracker.ui.screens.StatsScreen
@@ -88,9 +91,13 @@ private fun AppNavigation(start: String) {
                 onLoggedOut = { nav.goClean("login") },
                 onOpenHelp = { nav.navigate("help") },
                 onOpenVehicles = { nav.navigate("vehicles") },
+                onNavigate = { nav.navigate(it) },
             )
         }
-        composable("vehicles") { VehiclesScreen(onBack = { nav.popBackStack() }) }
+        composable("vehicles") { VehiclesScreen(onBack = { nav.popBackStack() }, onRefuels = { nav.navigate("refuels/$it") }) }
+        composable("places") { PlacesScreen(onBack = { nav.popBackStack() }) }
+        composable("reminders") { RemindersScreen(onBack = { nav.popBackStack() }) }
+        composable("refuels/{vehicle}") { RefuelsScreen(it.arguments?.getString("vehicle") ?: "", onBack = { nav.popBackStack() }) }
         composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
         composable("trip/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
             TripDetailScreen(it.arguments?.getLong("id") ?: 0L, onBack = { nav.popBackStack() })
@@ -102,7 +109,10 @@ private fun AppNavigation(start: String) {
 }
 
 @Composable
-private fun MainTabs(onOpenTrip: (Long) -> Unit, onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit, onOpenVehicles: () -> Unit) {
+private fun MainTabs(
+    onOpenTrip: (Long) -> Unit, onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit,
+    onOpenVehicles: () -> Unit, onNavigate: (String) -> Unit,
+) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     Scaffold(bottomBar = {
         NavigationBar {
@@ -115,10 +125,10 @@ private fun MainTabs(onOpenTrip: (Long) -> Unit, onOpenPermissions: () -> Unit, 
         val m = Modifier.padding(pad)
         Surface(m) {
             when (tab) {
-                0 -> HomeScreen(onOpenPermissions, onOpenVehicles)
+                0 -> HomeScreen(onOpenPermissions, onOpenVehicles, onNavigate)
                 1 -> TripsScreen(onOpenTrip)
                 2 -> StatsScreen()
-                else -> SettingsScreen(onOpenPermissions, onLoggedOut, onOpenHelp, onOpenVehicles)
+                else -> SettingsScreen(onOpenPermissions, onLoggedOut, onOpenHelp, onOpenVehicles, onNavigate)
             }
         }
     }
