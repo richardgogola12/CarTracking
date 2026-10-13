@@ -446,6 +446,10 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                         }
                     }
                 }
+                // Graf rýchlosti
+                if (!t.isWalk && points.isNotEmpty()) SectionCard("Rýchlosť počas jazdy") {
+                    sk.cartracker.ui.SpeedChart(points, t.maxSpeedKmh)
+                }
                 // Štýl jazdy
                 if (t.score != null) SectionCard("Štýl jazdy") {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

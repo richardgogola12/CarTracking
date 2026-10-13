@@ -23,3 +23,4 @@ fun formatDay(ts: Long): String = SimpleDateFormat("EEEE d. MMMM yyyy", locale).
 fun formatMoney(eur: Double): String = String.format(locale, "%.2f €", eur)
 fun formatMonth(ts: Long): String = SimpleDateFormat("LLLL yyyy", locale).format(Date(ts)).replaceFirstChar { it.uppercase() }
 fun formatDate(ts: Long): String = SimpleDateFormat("d. M. yyyy", locale).format(Date(ts))
+fun formatShortDate(ts: Long): String = SimpleDateFormat("d. M.", locale).format(Date(ts))

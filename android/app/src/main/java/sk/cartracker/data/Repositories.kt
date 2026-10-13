@@ -174,6 +174,13 @@ class TripRepository(
     suspend fun tripsBetween(from: Long, to: Long): List<TripEntity> =
         session.user()?.let { dao.tripsBetween(it.id, from, to) } ?: emptyList()
 
+    /** Práve zaznamenávaná jazda autom (ak beží), inak posledná dokončená. */
+    suspend fun currentOrLastCarTrip(includeRunning: Boolean): TripEntity? {
+        val user = session.user() ?: return null
+        if (includeRunning) dao.unfinishedTrip(user.id)?.takeIf { !it.isWalk }?.let { return it }
+        return dao.previousTrip(user.id, sk.cartracker.data.local.TYPE_CAR, Long.MAX_VALUE)
+    }
+
     /** Priradenie jazdy inému vozidlu. */
     suspend fun setVehicle(trip: TripEntity, vehicleUuid: String) {
         dao.updateTrip(trip.copy(vehicleUuid = vehicleUuid, synced = false))

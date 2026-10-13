@@ -83,10 +83,10 @@
     <!-- Týždeň + kroky -->
     <LinearLayout android:id="@+id/w_week_row" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginTop="8dp" android:gravity="center_vertical" android:orientation="horizontal">
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        <LinearLayout android:id="@+id/w_chart_box" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
             android:background="@drawable/widget_tile" android:orientation="vertical" android:padding="8dp">
             <TextView android:id="@+id/w_week_title" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="#B3FFFFFF" android:textSize="10sp" android:text="Posledných 7 dní" />
+                android:textColor="#B3FFFFFF" android:textSize="10sp" android:maxLines="1" android:ellipsize="end" android:text="Posledných 7 dní" />
             <ImageView android:id="@+id/w_chart" android:layout_width="match_parent" android:layout_height="64dp"
                 android:layout_marginTop="2dp" android:scaleType="fitXY" />
         </LinearLayout>
