@@ -21,8 +21,10 @@ jobs:
           fetch-depth: 0
       - name: Schéma databázy
         run: |
-          mysql -h127.0.0.1 -uroot -proot < backend/schema.sql
-          mysql -h127.0.0.1 -uroot -proot -e "CREATE USER 'car_tracking'@'%' IDENTIFIED BY 'test'; GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'%';"
+          set -o pipefail
+          M="mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4"
+          $M < backend/schema.sql 2>&1 | tee schema.log || { while IFS= read -r l; do echo "::error::$l"; done < schema.log; exit 1; }
+          $M -e "CREATE USER 'car_tracking'@'%' IDENTIFIED BY 'test'; GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'%';" 2>&1 | tee user.log || { while IFS= read -r l; do echo "::error::$l"; done < user.log; exit 1; }
       - name: Spustiť PHP server
         env:
           CT_DB_HOST: 127.0.0.1
@@ -39,9 +41,11 @@ jobs:
         run: tail -50 php.log | while IFS= read -r l; do echo "::error::$l"; done
       - name: Test migrácií (starší stav → v3)
         run: |
-          mysql -h127.0.0.1 -uroot -proot -e "DROP DATABASE car_tracking"
+          set -o pipefail
+          M="mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4"
+          $M -e "DROP DATABASE car_tracking"
           git show c958f61~1:backend/schema.sql > /tmp/old.sql
-          mysql -h127.0.0.1 -uroot -proot < /tmp/old.sql
-          mysql -h127.0.0.1 -uroot -proot < backend/migrate_v2.sql
-          mysql -h127.0.0.1 -uroot -proot < backend/migrate_v3.sql
+          for f in /tmp/old.sql backend/migrate_v2.sql backend/migrate_v3.sql; do
+            $M < "$f" 2>&1 | tee m.log || { while IFS= read -r l; do echo "::error::$f: $l"; done < m.log; exit 1; }
+          done
           echo "::notice::Migrácie v2 a v3 prešli"
