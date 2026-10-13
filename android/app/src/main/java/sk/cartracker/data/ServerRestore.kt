@@ -22,7 +22,7 @@ import sk.cartracker.data.remote.SettingsBody
  * Údaje sa PRIDÁVAJÚ – čo už v telefóne je (podľa UUID), sa preskočí, takže sa dá spustiť opakovane.
  */
 object ServerRestore {
-    data class Summary(val trips: Int, val points: Int, val vehicles: Int, val items: Int, val settings: Boolean) {
+    data class Summary(val trips: Int, val points: Int, val vehicles: Int, val items: Int, val settings: Boolean, val nothing: Boolean = false) {
         override fun toString() = buildString {
             append("Jazdy a chôdza: $trips (body trasy: $points), vozidlá: $vehicles, miesta/tankovania/pripomienky: $items")
             if (settings) append(", nastavenia obnovené")
@@ -56,12 +56,19 @@ object ServerRestore {
         val tripDao = db.tripDao()
         val ex = db.extrasDao()
 
+        // 0) má používateľ na serveri vôbec niečo? Ak nie, nič sa nesťahuje ani nezobrazuje.
+        val status = runCatching { api.backupStatus() }.getOrNull()   // starší server túto adresu nemá → pokračujeme
+        if (status != null && status.isEmpty) {
+            prefs(ctx).edit().putBoolean(settingsKey(user.id), true).apply()   // súčasné nastavenia sa odošlú ako prvá záloha
+            return@withContext Summary(0, 0, 0, 0, false, nothing = true)
+        }
+
         // 1) nastavenia – zlúčime so súčasnými (nové položky, ktoré server nepozná, ostanú)
         progress("Nastavenia", 0, 0)
         var settingsRestored = false
-        val remoteSettings = api.settings()
-        val rs = remoteSettings.settings
-        if (rs != null && remoteSettings.updatedAt > 0) {
+        val remoteSettings = if (status?.settings == false) null else runCatching { api.settings() }.getOrNull()
+        val rs = remoteSettings?.settings?.takeIf { it.isJsonObject }?.asJsonObject
+        if (rs != null && (remoteSettings?.updatedAt ?: 0L) > 0L) {
             c.settings.update { cur ->
                 val merged = plain.toJsonTree(cur).asJsonObject
                 rs.entrySet().forEach { (k, v) -> if (k !in LOCAL_ONLY && merged.has(k)) merged.add(k, v) }
@@ -96,7 +103,7 @@ object ServerRestore {
         progress("Miesta, tankovania, pripomienky", 0, 0)
         var nItems = 0
         for (it in api.items().items) {
-            val data = it.data ?: continue
+            val data = it.data?.takeIf { d -> d.isJsonObject } ?: continue
             if (it.deleted != 0) continue
             when (it.kind) {
                 "place" -> if (ex.place(it.uuid) == null) {

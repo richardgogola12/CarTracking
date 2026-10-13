@@ -112,18 +112,18 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
         val restore by remember { androidx.work.WorkManager.getInstance(ctx).getWorkInfosForUniqueWorkFlow(sk.cartracker.sync.RestoreWorker.NAME) }
             .collectAsStateWithLifecycle(emptyList())
         restore.firstOrNull()?.let { wi ->
-            val running = wi.state == androidx.work.WorkInfo.State.RUNNING || wi.state == androidx.work.WorkInfo.State.ENQUEUED
+            // karta sa ukáže, až keď je naozaj čo sťahovať (prázdny účet = nič sa nezobrazí)
+            val step = wi.progress.getString(sk.cartracker.sync.RestoreWorker.KEY_STEP)
+            val running = wi.state == androidx.work.WorkInfo.State.RUNNING && step != null
             val failed = wi.state == androidx.work.WorkInfo.State.FAILED
             if (running || failed) SectionCard(if (failed) "Obnova zo servera zlyhala" else "Sťahujem vaše údaje zo servera") {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (running) {
-                        val step = wi.progress.getString(sk.cartracker.sync.RestoreWorker.KEY_STEP)
                         val done = wi.progress.getInt(sk.cartracker.sync.RestoreWorker.KEY_DONE, 0)
                         val total = wi.progress.getInt(sk.cartracker.sync.RestoreWorker.KEY_TOTAL, 0)
                         if (total > 0) androidx.compose.material3.LinearProgressIndicator(progress = { done / total.toFloat() }, modifier = Modifier.fillMaxWidth())
                         else androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
                         Text(when {
-                            wi.state == androidx.work.WorkInfo.State.ENQUEUED -> "Čakám na pripojenie k internetu…"
                             total > 0 -> "$step: $done / $total"
                             else -> step ?: "Pripravujem…"
                         }, style = MaterialTheme.typography.bodySmall)

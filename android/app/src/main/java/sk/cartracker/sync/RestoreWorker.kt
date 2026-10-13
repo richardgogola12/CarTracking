@@ -25,7 +25,7 @@ class RestoreWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ct
                 setProgress(workDataOf(KEY_STEP to step, KEY_DONE to done, KEY_TOTAL to total))
             }
             finish()
-            Result.success(workDataOf(KEY_RESULT to sum.toString()))
+            Result.success(workDataOf(KEY_RESULT to if (sum.nothing) "" else sum.toString(), KEY_VISIBLE to !sum.nothing))
         } catch (e: HttpException) {
             if (e.code() == 401 || runAttemptCount >= 4) { finish(); Result.failure(workDataOf(KEY_RESULT to c.api.errorMessage(e))) } else Result.retry()
         } catch (e: Exception) {
@@ -51,6 +51,7 @@ class RestoreWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ct
         const val KEY_DONE = "done"
         const val KEY_TOTAL = "total"
         const val KEY_RESULT = "result"
+        const val KEY_VISIBLE = "visible"
 
         fun start(ctx: Context) {
             ServerRestore.setPending(ctx, true)

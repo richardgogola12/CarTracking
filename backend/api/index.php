@@ -23,6 +23,7 @@ declare(strict_types=1);
  *
  *  GET    /settings                          (Bearer)            -> {settings, updated_at}  (nastavenia aplikácie)
  *  PUT    /settings {settings, updated_at}   (Bearer)            -> {ok, updated_at}        (novšie vyhráva)
+ *  GET    /backup/status                     (Bearer)            -> {trips, vehicles, shared_vehicles, items, settings}
  *  POST   /trips/points {uuids:[...]}        (Bearer, max 50)    -> {points:{uuid:[...]}}   (obnova na novom telefóne)
  *
  *  Webový prehľad (priečinok web/) používa tie isté adresy.
@@ -287,6 +288,20 @@ if ($path === '/settings' && ($method === 'PUT' || $method === 'POST')) {
                                            updated_at = GREATEST(updated_at, VALUES(updated_at))')
         ->execute([$uid, $data, $ts]);
     respond(200, ['ok' => true, 'updated_at' => $ts]);
+}
+
+// GET /backup/status – čo má používateľ zálohované na serveri (aplikácia podľa toho rozhodne, či má čo sťahovať)
+if ($method === 'GET' && $path === '/backup/status') {
+    $count = function (string $sql) use ($pdo, $uid): int {
+        try { $st = $pdo->prepare($sql); $st->execute([$uid]); return (int)$st->fetchColumn(); } catch (Throwable $e) { return 0; }
+    };
+    respond(200, [
+        'trips'    => $count('SELECT COUNT(*) FROM CarTracking_trips WHERE user_id = ?'),
+        'vehicles' => $count('SELECT COUNT(*) FROM CarTracking_vehicles WHERE user_id = ?'),
+        'shared_vehicles' => $count('SELECT COUNT(*) FROM CarTracking_vehicle_shares WHERE user_id = ?'),
+        'items'    => $count('SELECT COUNT(*) FROM CarTracking_items WHERE user_id = ? AND deleted = 0'),
+        'settings' => $count('SELECT COUNT(*) FROM CarTracking_settings WHERE user_id = ?') > 0,
+    ]);
 }
 
 // POST /trips/points – body viacerých vlastných jázd naraz (obnova údajov po prihlásení)

@@ -120,6 +120,10 @@ check "zrušenie zdieľania" 200 "$(req "${AUTH[@]}" -X DELETE "$API/vehicles/$V
 check "po zrušení bez prístupu" 404 "$(req "${AUTH2[@]}" "$API/vehicles/$VEH/trips")"
 
 # Obnova na novom telefóne: nastavenia a body viacerých jázd naraz
+check "stav zálohy nového účtu" 200 "$(req "${AUTH3[@]}" "$API/backup/status")"
+python3 -c 'import sys,json;d=json.loads(sys.argv[1]);assert d=={"trips":0,"vehicles":0,"shared_vehicles":0,"items":0,"settings":False}, d' "$LAST" || fail "stav zálohy prázdneho účtu nesedí"
+check "stav zálohy" 200 "$(req "${AUTH[@]}" "$API/backup/status")"
+python3 -c 'import sys,json;d=json.loads(sys.argv[1]);assert d["trips"]>=2 and d["vehicles"]==1 and d["items"]>=2 and d["settings"] is False, d' "$LAST" || fail "stav zálohy nesedí"
 check "nastavenia – prázdne" 200 "$(req "${AUTH[@]}" "$API/settings")"
 python3 -c 'import sys,json;d=json.loads(sys.argv[1]);assert d["settings"] is None and d["updated_at"]==0, d' "$LAST" || fail "prázdne nastavenia nesedia"
 check "uloženie nastavení" 200 "$(req "${AUTH[@]}" -X PUT "$API/settings" -d '{"updated_at":200,"settings":{"minDriveSpeedKmh":30,"themeMode":"DARK","workDays":"1,2,3"}}')"

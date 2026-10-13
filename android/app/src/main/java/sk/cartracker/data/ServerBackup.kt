@@ -61,7 +61,7 @@ object ServerBackup {
         ex.allReminders(user.id).filter { !it.deleted && it.uuid !in remoteItems }.forEach { ex.updateReminder(it.copy(synced = false)); nItems++ }
 
         // nastavenia – ak na serveri ešte nie sú, odošlú sa súčasné
-        val noSettings = api.settings().updatedAt <= 0
+        val noSettings = runCatching { api.settings().updatedAt <= 0 }.getOrDefault(false)
         if (noSettings) {
             prefs(ctx).edit().putBoolean("settings_ready_${user.id}", true).remove("settings_pushed_${user.id}").apply()
         }

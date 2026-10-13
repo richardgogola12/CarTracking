@@ -54,7 +54,11 @@ data class VehicleDto(
     val btAddress: String = "",
 )
 // ---- obnova údajov po prihlásení (nový telefón / preinštalovanie) ----
-data class SettingsResponse(val settings: JsonObject?, val updatedAt: Long)
+// JsonElement (nie JsonObject) – server vracia pre neexistujúce nastavenia null
+data class SettingsResponse(val settings: com.google.gson.JsonElement?, val updatedAt: Long)
+data class BackupStatus(val trips: Int, val vehicles: Int, val sharedVehicles: Int, val items: Int, val settings: Boolean) {
+    val isEmpty get() = trips == 0 && vehicles == 0 && sharedVehicles == 0 && items == 0 && !settings
+}
 data class SettingsBody(val settings: JsonObject, val updatedAt: Long)
 data class RemoteTrip(
     val uuid: String, val startedAt: Long, val endedAt: Long?, val distanceM: Double?,
@@ -68,7 +72,7 @@ data class RemoteTrip(
 data class RemoteTripsResponse(val trips: List<RemoteTrip>)
 data class PointsRequest(val uuids: List<String>)
 data class PointsResponse(val points: Map<String, List<PointDto>>)
-data class RemoteItem(val kind: String, val uuid: String, val data: JsonObject?, val updatedAt: Long, val deleted: Int)
+data class RemoteItem(val kind: String, val uuid: String, val data: com.google.gson.JsonElement?, val updatedAt: Long, val deleted: Int)
 data class ItemsResponse(val items: List<RemoteItem>)
 /** Vozidlo zo servera – vlastné aj zdieľané. */
 data class RemoteVehicle(
@@ -109,6 +113,7 @@ interface ApiService {
     @DELETE("trips/{uuid}") suspend fun deleteTrip(@Path("uuid") uuid: String): OkResponse
     @GET("vehicles") suspend fun vehicles(): VehiclesResponse
     @GET("settings") suspend fun settings(): SettingsResponse
+    @GET("backup/status") suspend fun backupStatus(): BackupStatus
     @PUT("settings") suspend fun saveSettings(@Body body: SettingsBody): OkResponse
     @GET("trips") suspend fun trips(@Query("limit") limit: Int, @Query("offset") offset: Int): RemoteTripsResponse
     @POST("trips/points") suspend fun tripPoints(@Body body: PointsRequest): PointsResponse
