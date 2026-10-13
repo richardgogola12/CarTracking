@@ -70,7 +70,9 @@ object ServerRestore {
             }
             settingsRestored = true
         }
-        prefs(ctx).edit().putBoolean(settingsKey(user.id), true)
+        // server nastavenia mal → sú zhodné; nemal → hash nenastavíme, aby sa súčasné nastavenia hneď odoslali
+        prefs(ctx).edit().putBoolean(settingsKey(user.id), true).apply()
+        if (settingsRestored) prefs(ctx).edit()
             .putString("settings_pushed_${user.id}", settingsJson(c.settings.current()).toString().hashCode().toString()).apply()
 
         // 2) vozidlá (vlastné) + zdieľané

@@ -250,6 +250,9 @@ interface TripDao {
     @Query("SELECT * FROM points WHERE tripId = :tripId AND synced = 0 ORDER BY ts LIMIT :limit")
     suspend fun unsyncedPoints(tripId: Long, limit: Int): List<PointEntity>
     @Query("UPDATE points SET synced = 1 WHERE id IN (:ids)") suspend fun markPointsSynced(ids: List<Long>)
+    /** Jazda, ktorá na serveri chýba – odošle sa znova celá aj s bodmi. */
+    @Query("UPDATE points SET synced = 0 WHERE tripId = :tripId") suspend fun markPointsUnsynced(tripId: Long)
+    @Query("UPDATE trips SET synced = 0, uploaded = 0 WHERE id = :tripId") suspend fun markTripUnsynced(tripId: Long)
     /** Zlúčenie: body ostatných jázd sa presunú do cieľovej jazdy (a znova sa odošlú na server). */
     @Query("UPDATE points SET tripId = :target, synced = 0 WHERE tripId IN (:sources)")
     suspend fun movePoints(sources: List<Long>, target: Long)

@@ -28,6 +28,7 @@ a zapnite **„Sledovať iba keď je pripojené auto“**.
 ## Novinky vo verzii 1.7
 - **Obnova po prihlásení** – na novom telefóne alebo po preinštalovaní sa po prihlásení samy stiahnu nastavenia, vozidlá (aj Bluetooth), miesta, tankovania, pripomienky a všetky jazdy s trasami. Priebeh na Prehľade, beží na pozadí, nič sa nezdvojí.
 - Nastavenia sa ukladajú na server pri každej zmene (`GET/PUT /settings`).
+- **Automatická záloha na server** – raz po aktualizácii/prihlásení a potom týždenne sa porovná telefón so serverom; čo na serveri ešte nikdy nebolo (jazdy s trasami, vozidlá, miesta, tankovania, pripomienky, nastavenia), sa odošle.
 - Voľba merania vzdialenosti chôdze: z krokov alebo z GPS.
 - Databáza: `backend/migrate_v7.sql` (tabuľka `CarTracking_settings`, stĺpec `bt_address`).
 

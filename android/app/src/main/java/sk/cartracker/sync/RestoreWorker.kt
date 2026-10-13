@@ -40,6 +40,9 @@ class RestoreWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ct
         sk.cartracker.widget.CarWidget.updateAll(applicationContext)
         val s = c.settings.current()
         SyncWorker.enqueueNow(applicationContext, s.syncWifiOnly)
+        // potom skontrolovať, či je na serveri všetko z tohto telefónu
+        BackupCheckWorker.runOnce(applicationContext, s.syncWifiOnly)
+        BackupCheckWorker.scheduleWeekly(applicationContext, s.syncWifiOnly)
     }
 
     companion object {
@@ -75,6 +78,41 @@ class SettingsPushWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
             WorkManager.getInstance(ctx).enqueueUniqueWork("settings_push", ExistingWorkPolicy.REPLACE, req)
+        }
+    }
+}
+
+/** Kontrola zálohy: čo na serveri ešte nikdy nebolo, sa doplní (raz po aktualizácii/prihlásení a potom týždenne). */
+class BackupCheckWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
+    override suspend fun doWork(): Result {
+        val c = applicationContext.container
+        if (!c.session.isLoggedIn) return Result.success()
+        if (sk.cartracker.data.ServerRestore.isPending(applicationContext)) return Result.retry() // najprv nech dobehne obnova
+        return try {
+            val r = sk.cartracker.data.ServerBackup.verifyAndUpload(applicationContext)
+            Result.success(workDataOf(RestoreWorker.KEY_RESULT to r.toString()))
+        } catch (e: HttpException) {
+            if (e.code() == 401) Result.failure() else Result.retry()
+        } catch (e: Exception) { Result.retry() }
+    }
+
+    companion object {
+        private fun constraints(wifiOnly: Boolean) = Constraints.Builder()
+            .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED).build()
+
+        /** Jednorazová kontrola (ihneď, ako bude sieť). */
+        fun runOnce(ctx: Context, wifiOnly: Boolean, replace: Boolean = false) {
+            val req = OneTimeWorkRequestBuilder<BackupCheckWorker>()
+                .setConstraints(constraints(wifiOnly))
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
+                .build()
+            WorkManager.getInstance(ctx).enqueueUniqueWork("backup_check", if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP, req)
+        }
+
+        fun scheduleWeekly(ctx: Context, wifiOnly: Boolean) {
+            val req = androidx.work.PeriodicWorkRequestBuilder<BackupCheckWorker>(7, TimeUnit.DAYS)
+                .setConstraints(constraints(wifiOnly)).build()
+            WorkManager.getInstance(ctx).enqueueUniquePeriodicWork("backup_check_weekly", androidx.work.ExistingPeriodicWorkPolicy.KEEP, req)
         }
     }
 }

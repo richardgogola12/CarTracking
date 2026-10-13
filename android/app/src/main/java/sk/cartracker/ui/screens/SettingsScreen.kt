@@ -383,6 +383,14 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 }, modifier = Modifier.fillMaxWidth()) { Text("Stiahnuť údaje a nastavenia zo servera") }
                 Text("Po prihlásení na novom telefóne sa to stane samo. Čo už v telefóne je, sa nezdvojí.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedButton(onClick = {
+                    sk.cartracker.sync.BackupCheckWorker.runOnce(ctx, s.syncWifiOnly, replace = true)
+                    message = "Kontrolujem zálohu na serveri – chýbajúce údaje sa odošlú."
+                }, modifier = Modifier.fillMaxWidth()) { Text("Skontrolovať zálohu na serveri") }
+                val last = remember(message) { sk.cartracker.data.ServerBackup.lastCheck(ctx) }
+                Text(last?.let { (at, res) -> "Posledná kontrola ${sk.cartracker.ui.formatDateTime(at)}: $res" }
+                    ?: "Kontrola zálohy prebehne automaticky (raz hneď, potom každý týždeň).",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(onClick = { showDeleteData = true }, modifier = Modifier.fillMaxWidth()) { Text("Vymazať jazdy z telefónu") }
                 Button(onClick = { showLogout = true }, modifier = Modifier.fillMaxWidth()) { Text("Odhlásiť sa") }
             }

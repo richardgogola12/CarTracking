@@ -71,6 +71,10 @@ class CarTrackerApp : Application() {
                 // po aktualizácii: nastavenia ešte neboli na serveri → raz zosúladiť (stiahne aj chýbajúce údaje)
                 container.session.user()?.let { u ->
                     if (!sk.cartracker.data.ServerRestore.settingsReady(this@CarTrackerApp, u.id)) sk.cartracker.sync.RestoreWorker.start(this@CarTrackerApp)
+                    // čo ešte nikdy nebolo zálohované na serveri, sa automaticky doplní (raz), potom kontrola týždenne
+                    val wifi = container.settings.current().syncWifiOnly
+                    if (!sk.cartracker.data.ServerBackup.isVerified(this@CarTrackerApp, u.id)) sk.cartracker.sync.BackupCheckWorker.runOnce(this@CarTrackerApp, wifi)
+                    sk.cartracker.sync.BackupCheckWorker.scheduleWeekly(this@CarTrackerApp, wifi)
                 }
                 container.vehicles.ensureDefault()
                 val s = container.settings.current()
