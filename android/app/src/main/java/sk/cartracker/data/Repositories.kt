@@ -161,6 +161,7 @@ class TripRepository(
     private fun VehicleEntity.toDto() = VehicleDto(
         uuid, name, plate, fuelType, consumptionX10 / 10.0, fuelPriceCents / 100.0,
         odometerKm, odometerDate, btName, archived, updatedAt,
+        limitUrban, limitRural, limitHighway,
     )
 }
 

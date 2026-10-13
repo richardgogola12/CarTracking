@@ -70,6 +70,7 @@ object Notifications {
             state == DriveState.DRIVING && live != null -> buildString {
                 append(formatDistance(live.distanceM)).append(" · ").append(formatDuration(System.currentTimeMillis() - live.startedAt))
                 if (s.showSpeedInNotification) append(" · ").append(live.speedKmh.toInt()).append(" km/h")
+                live.limitKmh?.let { append(" · limit ").append(it) }
             }
             state == DriveState.WALKING && live != null ->
                 "${live.steps} krokov · ${formatDistance(live.distanceM)} · ${formatDuration(System.currentTimeMillis() - live.startedAt)}"
@@ -135,14 +136,14 @@ object Notifications {
     }
 
     /** Upozornenie na prekročenie nastavenej rýchlosti (3 krátke vibrácie). */
-    fun speedAlert(ctx: Context, speedKmh: Int, s: AppSettings) {
+    fun speedAlert(ctx: Context, speedKmh: Int, limitKmh: Int, zone: String?, s: AppSettings) {
         if (s.vibrate) vibrateRaw(ctx, longArrayOf(0, 150, 100, 150, 100, 150))
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val n = NotificationCompat.Builder(ctx, if (s.sound) CH_EVENTS else CH_EVENTS_SILENT)
             .setSmallIcon(R.drawable.ic_car)
             .setContentTitle("⚠️ Rýchlosť $speedKmh km/h")
-            .setContentText("Prekročili ste nastavený limit ${s.speedAlertKmh} km/h")
+            .setContentText("Limit $limitKmh km/h" + (zone?.let { " ($it)" } ?: ""))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setTimeoutAfter(15_000)
             .setAutoCancel(true)

@@ -36,7 +36,12 @@ import sk.cartracker.container
 import sk.cartracker.data.AppSettings
 import sk.cartracker.data.DrivingScore
 import sk.cartracker.data.Geo
+import sk.cartracker.data.RoadInfo
+import sk.cartracker.data.RoadInfoProvider
+import sk.cartracker.data.RoadZone
 import sk.cartracker.data.RuntimeState
+import sk.cartracker.data.local.VehicleEntity
+import sk.cartracker.data.speedLimitFor
 import sk.cartracker.data.cost
 import sk.cartracker.data.local.CATEGORY_PRIVATE
 import sk.cartracker.data.local.DriveEvent
@@ -66,12 +71,18 @@ data class LiveTrip(
     val type: String = TYPE_CAR,
     val steps: Int = 0,
     val vehicleName: String? = null,
+    val limitKmh: Int? = null,
+    val zone: RoadZone? = null,
+    val zoneManual: Boolean = false,
+    val roadName: String? = null,
 )
 
 /** Stav služby pre UI (rovnaký proces). */
 object TrackingState {
     val state = MutableStateFlow(DriveState.IDLE)
     val live = MutableStateFlow<LiveTrip?>(null)
+    /** Ručne zvolený typ cesty počas jazdy (null = automaticky z mapy). */
+    val zoneOverride = MutableStateFlow<RoadZone?>(null)
 }
 
 /**
@@ -160,6 +171,13 @@ class TrackingService : LifecycleService() {
     private var exitSignalAt: Long? = null
     private var pendingWalk = false       // po skončení jazdy pokračovať chôdzou
     private var vehicleName: String? = null
+    private var vehicle: VehicleEntity? = null
+
+    // Typ cesty (obec / mimo obce / diaľnica) a limit
+    private var roadInfo: RoadInfo? = null
+    private var roadLookupAt = 0L
+    private var roadLookupLoc: Location? = null
+    private var roadLookupRunning = false
 
     // Štýl jazdy
     private var hardBrakes = 0
@@ -318,7 +336,10 @@ class TrackingService : LifecycleService() {
 
     private suspend fun startTrip(startedAt: Long, type: String) {
         val vehicle = if (type == TYPE_CAR) container.vehicles.active() else null
+        this.vehicle = vehicle
         vehicleName = vehicle?.label
+        roadInfo = null; roadLookupLoc = null; roadLookupAt = 0L
+        TrackingState.zoneOverride.value = null
         val t = TripEntity(
             uuid = UUID.randomUUID().toString(), userId = userId, startedAt = startedAt,
             triggerSource = source, type = type, vehicleUuid = vehicle?.uuid,
@@ -351,7 +372,8 @@ class TrackingService : LifecycleService() {
         maxSpeed = t.maxSpeedKmh
         hardBrakes = t.hardBrakes; hardAccels = t.hardAccels; speedingMs = t.speedingSec * 1000L
         speedFix = null; wasSpeeding = false
-        vehicleName = container.vehicles.byUuid(t.vehicleUuid)?.label
+        vehicle = container.vehicles.byUuid(t.vehicleUuid)
+        vehicleName = vehicle?.label
         pointCount = dao.points(t.id).size
         lastGood = last?.let { Location("db").apply { latitude = it.lat; longitude = it.lng; time = it.ts } }
         lastMovingAt = System.currentTimeMillis()
@@ -415,6 +437,7 @@ class TrackingService : LifecycleService() {
         } else {
             if (speed >= MOVING_KMH) lastMovingAt = now
             if (speed >= settings.minDriveSpeedKmh) exitSignalAt = null
+            maybeLookupRoad(loc)
             event = detectEvent(loc, speed)
         }
 
@@ -439,7 +462,8 @@ class TrackingService : LifecycleService() {
             val active = settings.activeVehicleUuid
             if (active.isNotEmpty() && updated.vehicleUuid != active) {
                 updated = updated.copy(vehicleUuid = active)
-                vehicleName = container.vehicles.byUuid(active)?.label
+                vehicle = container.vehicles.byUuid(active)
+                vehicleName = vehicle?.label
             }
         }
         trip = updated
@@ -451,20 +475,47 @@ class TrackingService : LifecycleService() {
     private fun currentDistance(): Double =
         if (isWalk && stepSensorActive && steps > 0) steps * settings.strideCm / 100.0 else distance
 
+    /** Typ cesty sa zisťuje po ~400 m alebo každé 2 min (najviac raz za 20 s), na pozadí. */
+    private fun maybeLookupRoad(loc: Location) {
+        if (!settings.roadLimits || roadLookupRunning || loc.accuracy > 40f) return
+        val now = System.currentTimeMillis()
+        if (now - roadLookupAt < 20_000) return
+        val prev = roadLookupLoc
+        if (prev != null && prev.distanceTo(loc) < 400f && now - roadLookupAt < 120_000) return
+        roadLookupRunning = true
+        roadLookupAt = now
+        roadLookupLoc = loc
+        lifecycleScope.launch {
+            RoadInfoProvider.lookup(loc.latitude, loc.longitude)?.let { roadInfo = it }
+            roadLookupRunning = false
+        }
+    }
+
+    private fun currentZone(): RoadZone? = TrackingState.zoneOverride.value ?: roadInfo?.zone
+
+    /** Aktuálny limit; null = typ cesty zatiaľ neznámy (bez internetu) → prekročenie sa nehodnotí. */
+    private fun currentLimit(): Int? {
+        if (!settings.roadLimits) return settings.speedAlertKmh
+        val zone = currentZone() ?: return null
+        val sign = if (TrackingState.zoneOverride.value != null) null else roadInfo?.signLimit
+        return speedLimitFor(zone, sign, vehicle, settings)
+    }
+
     /** Prudké brzdenie / zrýchlenie z rozdielu GPS rýchlostí, prekročenie nastaveného limitu. */
     private fun detectEvent(loc: Location, speedKmh: Double): String? {
         if (!settings.drivingEvents) return null
         var event: String? = null
         val now = loc.time
 
-        val speeding = speedKmh > settings.speedAlertKmh && loc.accuracy <= 30f
+        val limit = currentLimit()
+        val speeding = limit != null && speedKmh > limit + settings.speedToleranceKmh && loc.accuracy <= 30f
         val prev = speedFix
         if (speeding && prev != null) speedingMs += (now - prev.time).coerceIn(0, 10_000)
         if (speeding && !wasSpeeding) {
             event = DriveEvent.SPEEDING
             if (settings.speedAlert && System.currentTimeMillis() - lastSpeedAlertAt > 60_000) {
                 lastSpeedAlertAt = System.currentTimeMillis()
-                Notifications.speedAlert(this, speedKmh.toInt(), settings)
+                Notifications.speedAlert(this, speedKmh.toInt(), limit ?: 0, currentZone()?.label, settings)
             }
         }
         wasSpeeding = speeding
@@ -704,6 +755,8 @@ class TrackingService : LifecycleService() {
             startedAt = t.startedAt, distanceM = currentDistance(), speedKmh = lastSpeed, maxSpeedKmh = maxSpeed,
             points = pointCount, lat = loc?.latitude ?: prev?.lat, lng = loc?.longitude ?: prev?.lng,
             source = source, manual = manual, type = t.type, steps = steps, vehicleName = vehicleName,
+            limitKmh = if (t.isWalk) null else currentLimit(), zone = if (t.isWalk) null else currentZone(),
+            zoneManual = TrackingState.zoneOverride.value != null, roadName = roadInfo?.roadName,
         )
     }
 

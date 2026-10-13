@@ -316,7 +316,7 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                             Text(DrivingScore.label(t.score), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = scoreColor(t.score))
                             Text("Prudké brzdenia: ${t.hardBrakes}")
                             Text("Prudké zrýchlenia: ${t.hardAccels}")
-                            Text("Nad ${s.speedAlertKmh} km/h: ${formatDuration(t.speedingSec * 1000L).let { if (t.speedingSec in 1..59) "${t.speedingSec} s" else it }}")
+                            Text("Nad limitom: ${formatDuration(t.speedingSec * 1000L).let { if (t.speedingSec in 1..59) "${t.speedingSec} s" else it }}")
                         }
                     }
                 }

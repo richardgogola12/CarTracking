@@ -246,12 +246,14 @@ if ($method === 'POST' && $path === '/vehicles/sync') {
     $find = $pdo->prepare('SELECT user_id FROM CarTracking_vehicles WHERE uuid = ?');
     $upsert = $pdo->prepare(
         'INSERT INTO CarTracking_vehicles (user_id, uuid, name, plate, fuel_type, consumption, fuel_price,
-                                          odometer_km, odometer_date, bt_name, archived, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                          odometer_km, odometer_date, bt_name, archived, updated_at,
+                                          limit_urban, limit_rural, limit_highway)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE name = VALUES(name), plate = VALUES(plate), fuel_type = VALUES(fuel_type),
              consumption = VALUES(consumption), fuel_price = VALUES(fuel_price), odometer_km = VALUES(odometer_km),
              odometer_date = VALUES(odometer_date), bt_name = VALUES(bt_name), archived = VALUES(archived),
-             updated_at = VALUES(updated_at)');
+             updated_at = VALUES(updated_at), limit_urban = VALUES(limit_urban),
+             limit_rural = VALUES(limit_rural), limit_highway = VALUES(limit_highway)');
     $synced = [];
     foreach ($vehicles as $v) {
         $uuid = (string)($v['uuid'] ?? '');
@@ -267,6 +269,9 @@ if ($method === 'POST' && $path === '/vehicles/sync') {
             max(0, (int)($v['odometer_km'] ?? 0)), max(0, (int)($v['odometer_date'] ?? 0)),
             mb_substr((string)($v['bt_name'] ?? ''), 0, 100), !empty($v['archived']) ? 1 : 0,
             max(0, (int)($v['updated_at'] ?? 0)),
+            max(10, min(150, (int)($v['limit_urban'] ?? 50))),
+            max(10, min(150, (int)($v['limit_rural'] ?? 90))),
+            max(10, min(200, (int)($v['limit_highway'] ?? 130))),
         ]);
         $synced[] = $uuid;
     }
@@ -275,7 +280,7 @@ if ($method === 'POST' && $path === '/vehicles/sync') {
 
 if ($method === 'GET' && $path === '/vehicles') {
     $stmt = $pdo->prepare('SELECT uuid, name, plate, fuel_type, consumption, fuel_price, odometer_km, odometer_date,
-                                  bt_name, archived, updated_at
+                                  bt_name, archived, updated_at, limit_urban, limit_rural, limit_highway
                            FROM CarTracking_vehicles WHERE user_id = ? ORDER BY name');
     $stmt->execute([$uid]);
     respond(200, ['vehicles' => $stmt->fetchAll()]);

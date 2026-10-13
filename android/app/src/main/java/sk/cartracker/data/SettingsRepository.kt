@@ -70,7 +70,10 @@ data class AppSettings(
     // Štýl jazdy
     val drivingEvents: Boolean = true,
     val speedAlert: Boolean = false,
-    val speedAlertKmh: Int = 130,
+    val speedAlertKmh: Int = 130,         // jednotný limit, ak je rozpoznávanie typu cesty vypnuté
+    val roadLimits: Boolean = true,       // limit podľa typu cesty (obec / mimo obce / diaľnica)
+    val useRoadSigns: Boolean = true,     // použiť limit zo značky v mape, ak je zadaný
+    val speedToleranceKmh: Int = 5,
     // Mapa
     val mapStyle: MapStyle = MapStyle.AUTO,
     // Vozidlá
@@ -143,6 +146,9 @@ class SettingsRepository(private val context: Context) {
         val EVENTS = booleanPreferencesKey("driving_events")
         val SPEED_ALERT = booleanPreferencesKey("speed_alert")
         val SPEED_ALERT_KMH = intPreferencesKey("speed_alert_kmh")
+        val ROAD_LIMITS = booleanPreferencesKey("road_limits")
+        val ROAD_SIGNS = booleanPreferencesKey("road_signs")
+        val TOLERANCE = intPreferencesKey("speed_tolerance")
         val MAP_STYLE = stringPreferencesKey("map_style")
         val ACTIVE_VEHICLE = stringPreferencesKey("active_vehicle")
         val WALK = booleanPreferencesKey("walk_tracking")
@@ -205,6 +211,9 @@ class SettingsRepository(private val context: Context) {
             drivingEvents = p[K.EVENTS] ?: d.drivingEvents,
             speedAlert = p[K.SPEED_ALERT] ?: d.speedAlert,
             speedAlertKmh = p[K.SPEED_ALERT_KMH] ?: d.speedAlertKmh,
+            roadLimits = p[K.ROAD_LIMITS] ?: d.roadLimits,
+            useRoadSigns = p[K.ROAD_SIGNS] ?: d.useRoadSigns,
+            speedToleranceKmh = p[K.TOLERANCE] ?: d.speedToleranceKmh,
             mapStyle = p[K.MAP_STYLE]?.let { runCatching { MapStyle.valueOf(it) }.getOrNull() } ?: d.mapStyle,
             activeVehicleUuid = p[K.ACTIVE_VEHICLE] ?: d.activeVehicleUuid,
             walkTracking = p[K.WALK] ?: d.walkTracking,
@@ -256,6 +265,9 @@ class SettingsRepository(private val context: Context) {
         p[K.EVENTS] = s.drivingEvents
         p[K.SPEED_ALERT] = s.speedAlert
         p[K.SPEED_ALERT_KMH] = s.speedAlertKmh
+        p[K.ROAD_LIMITS] = s.roadLimits
+        p[K.ROAD_SIGNS] = s.useRoadSigns
+        p[K.TOLERANCE] = s.speedToleranceKmh
         p[K.MAP_STYLE] = s.mapStyle.name
         p[K.ACTIVE_VEHICLE] = s.activeVehicleUuid
         p[K.WALK] = s.walkTracking

@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS CarTracking_vehicles (
     bt_name       VARCHAR(100) NOT NULL DEFAULT '',
     archived      TINYINT(1)   NOT NULL DEFAULT 0,
     updated_at    BIGINT       NOT NULL DEFAULT 0 COMMENT 'epoch ms',
+    limit_urban   SMALLINT UNSIGNED NOT NULL DEFAULT 50  COMMENT 'max km/h v obci',
+    limit_rural   SMALLINT UNSIGNED NOT NULL DEFAULT 90  COMMENT 'max km/h mimo obce',
+    limit_highway SMALLINT UNSIGNED NOT NULL DEFAULT 130 COMMENT 'max km/h na diaľnici',
     INDEX idx_vehicles_user (user_id),
     CONSTRAINT CarTracking_fk_vehicles_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

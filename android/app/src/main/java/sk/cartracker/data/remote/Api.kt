@@ -42,6 +42,7 @@ data class VehicleDto(
     val uuid: String, val name: String, val plate: String, val fuelType: String,
     val consumption: Double, val fuelPrice: Double, val odometerKm: Int, val odometerDate: Long,
     val btName: String, val archived: Boolean, val updatedAt: Long,
+    val limitUrban: Int = 50, val limitRural: Int = 90, val limitHighway: Int = 130,
 )
 data class VehicleSyncRequest(val vehicles: List<VehicleDto>)
 data class SyncRequest(val trips: List<TripDto>)

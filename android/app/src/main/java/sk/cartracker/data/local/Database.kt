@@ -39,6 +39,10 @@ data class VehicleEntity(
     val archived: Boolean = false,
     val synced: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis(),
+    // v4 – maximálna rýchlosť podľa typu cesty (napr. dodávka s vozíkom má nižšie)
+    val limitUrban: Int = 50,
+    val limitRural: Int = 90,
+    val limitHighway: Int = 130,
 ) {
     val label: String get() = if (plate.isBlank()) name else "$name · $plate"
     fun liters(distanceM: Double) = distanceM / 1000.0 / 100.0 * consumptionX10 / 10.0
@@ -192,14 +196,22 @@ private val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [TripEntity::class, PointEntity::class, VehicleEntity::class], version = 3, exportSchema = false)
+private val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE vehicles ADD COLUMN limitUrban INTEGER NOT NULL DEFAULT 50")
+        db.execSQL("ALTER TABLE vehicles ADD COLUMN limitRural INTEGER NOT NULL DEFAULT 90")
+        db.execSQL("ALTER TABLE vehicles ADD COLUMN limitHighway INTEGER NOT NULL DEFAULT 130")
+    }
+}
+
+@Database(entities = [TripEntity::class, PointEntity::class, VehicleEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tripDao(): TripDao
 
     companion object {
         fun create(ctx: Context): AppDatabase =
             Room.databaseBuilder(ctx, AppDatabase::class.java, "car_tracking.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .fallbackToDestructiveMigration()
                 .build()
     }

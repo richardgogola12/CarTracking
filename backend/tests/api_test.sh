@@ -22,10 +22,11 @@ check "bez tokenu" 401 "$(req "$API/me")"
 check "me" 200 "$(req "${AUTH[@]}" "$API/me")"
 
 VEH=11111111-2222-3333-4444-555555555555
-check "sync vozidla" 200 "$(req "${AUTH[@]}" -X POST "$API/vehicles/sync" -d "{\"vehicles\":[{\"uuid\":\"$VEH\",\"name\":\"Škoda Octavia\",\"plate\":\"BA123XY\",\"fuel_type\":\"diesel\",\"consumption\":5.4,\"fuel_price\":1.55,\"odometer_km\":120000,\"odometer_date\":1700000000000,\"bt_name\":\"Octavia\",\"archived\":false,\"updated_at\":1700000000000}]}")"
+check "sync vozidla" 200 "$(req "${AUTH[@]}" -X POST "$API/vehicles/sync" -d "{\"vehicles\":[{\"uuid\":\"$VEH\",\"name\":\"Škoda Octavia\",\"plate\":\"BA123XY\",\"fuel_type\":\"diesel\",\"consumption\":5.4,\"fuel_price\":1.55,\"odometer_km\":120000,\"odometer_date\":1700000000000,\"bt_name\":\"Octavia\",\"archived\":false,\"updated_at\":1700000000000,\"limit_urban\":50,\"limit_rural\":80,\"limit_highway\":100}]}")"
 echo "$LAST" | grep -q "$VEH" || fail "vozidlo nebolo prijaté"
 check "zoznam vozidiel" 200 "$(req "${AUTH[@]}" "$API/vehicles")"
 echo "$LAST" | grep -q 'BA123XY' || fail "vozidlo chýba v zozname"
+python3 -c 'import sys,json;v=json.loads(sys.argv[1])["vehicles"][0];assert int(v["limit_rural"])==80 and int(v["limit_highway"])==100, v' "$LAST" || fail "limity vozidla nesedia"
 
 CAR=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
 WALK=aaaaaaaa-bbbb-cccc-dddd-ffffffffffff

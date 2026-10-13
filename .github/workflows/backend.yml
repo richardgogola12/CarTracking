@@ -46,7 +46,7 @@ jobs:
           M="mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4"
           $M -e "DROP DATABASE car_tracking"
           git show c958f61~1:backend/schema.sql > /tmp/old.sql
-          for f in /tmp/old.sql backend/migrate_v2.sql backend/migrate_v3.sql; do
+          for f in /tmp/old.sql backend/migrate_v2.sql backend/migrate_v3.sql backend/migrate_v4.sql; do
             $M < "$f" 2>&1 | tee m.log || { while IFS= read -r l; do echo "::error::$f: $l"; done < m.log; exit 1; }
           done
           echo "::notice::Migrácie v2 a v3 prešli"

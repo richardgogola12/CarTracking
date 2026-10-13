@@ -25,6 +25,11 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Novinky vo verzii 1.3
+- **Max. rýchlosť v obci / mimo obce / na diaľnici** pri každom vozidle (osobné auto 50/90/130).
+- Typ cesty sa počas jazdy rozpozná z OpenStreetMap (Nominatim, bez kľúča); limit zo značky v mape má prednosť. Na Prehľade značka s aktuálnym limitom a ručné prepnutie typu cesty. Tolerancia nastaviteľná.
+- Databáza: `backend/migrate_v4.sql`.
+
 ## Novinky vo verzii 1.2
 - **Viac vozidiel** – každé s vlastnou EČV, palivom, spotrebou, cenou, tachometrom a Bluetooth. Prepínanie na Prehľade (aj počas jazdy), automaticky podľa Bluetooth, dodatočne v detaile jazdy. Kniha jázd a štatistiky po vozidlách.
 - **Sledovanie chôdze** – automatická detekcia, kroky z krokomeru (funguje aj v budove), trasa, voliteľne iba v pracovnom čase; vlastné štatistiky.

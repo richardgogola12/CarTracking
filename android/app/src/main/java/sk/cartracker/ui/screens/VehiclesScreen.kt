@@ -130,7 +130,8 @@ fun VehiclesScreen(onBack: () -> Unit) {
                         Column(Modifier.weight(1f)) {
                             Text(v.name, fontWeight = FontWeight.SemiBold)
                             Text(listOfNotNull(v.plate.ifBlank { null }, fuelLabel(v.fuelType),
-                                String.format(Locale("sk"), "%.1f %s/100 km", v.consumptionX10 / 10.0, v.unit)).joinToString(" · "),
+                                String.format(Locale("sk"), "%.1f %s/100 km", v.consumptionX10 / 10.0, v.unit),
+                                "max ${v.limitUrban}/${v.limitRural}/${v.limitHighway}").joinToString(" · "),
                                 style = MaterialTheme.typography.bodySmall)
                             if (v.btName.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Filled.Bluetooth, null, Modifier.size(14.dp)); Text(" ${v.btName}", style = MaterialTheme.typography.bodySmall)
@@ -174,6 +175,9 @@ private fun VehicleDialog(
     var cons by remember { mutableStateOf(if (initial.consumptionX10 > 0) (initial.consumptionX10 / 10.0).toString().replace('.', ',') else "") }
     var price by remember { mutableStateOf(String.format(Locale("sk"), "%.2f", initial.fuelPriceCents / 100.0)) }
     var odo by remember { mutableStateOf(if (initial.odometerKm > 0) initial.odometerKm.toString() else "") }
+    var limUrban by remember { mutableStateOf(initial.limitUrban.toString()) }
+    var limRural by remember { mutableStateOf(initial.limitRural.toString()) }
+    var limHighway by remember { mutableStateOf(initial.limitHighway.toString()) }
     var btAddress by remember { mutableStateOf(initial.btAddress) }
     var btName by remember { mutableStateOf(initial.btName) }
     var pickBt by remember { mutableStateOf(false) }
@@ -202,6 +206,17 @@ private fun VehicleDialog(
                 OutlinedTextField(odo, { odo = it.filter(Char::isDigit).take(7) }, label = { Text("Stav tachometra (km)") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                     supportingText = { if (initial.odometerDate > 0) Text("zadané ${formatDate(initial.odometerDate)}, ďalej sa dopočítava z jázd") })
+                Text("Maximálna rýchlosť (km/h)", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(limUrban, { limUrban = it.filter(Char::isDigit).take(3) }, label = { Text("V obci") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
+                    OutlinedTextField(limRural, { limRural = it.filter(Char::isDigit).take(3) }, label = { Text("Mimo obce") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
+                    OutlinedTextField(limHighway, { limHighway = it.filter(Char::isDigit).take(3) }, label = { Text("Diaľnica") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
+                }
+                Text("Osobné auto: 50 / 90 / 130. Napr. s prívesom alebo nad 3,5 t zadajte nižšie hodnoty.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable {
                     val need = Build.VERSION.SDK_INT >= 31 &&
                         ContextCompat.checkSelfPermission(ctx, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
@@ -224,7 +239,9 @@ private fun VehicleDialog(
                 val c10 = num(cons)?.let { (it * 10).toInt() }
                 val pc = num(price)?.let { (it * 100).toInt() }
                 val newOdo = odo.toIntOrNull() ?: 0
+                val lu = limUrban.toIntOrNull(); val lr = limRural.toIntOrNull(); val lh = limHighway.toIntOrNull()
                 error = when {
+                    lu == null || lu !in 10..150 || lr == null || lr !in 10..150 || lh == null || lh !in 10..200 -> "Zadajte platné rýchlostné limity"
                     name.isBlank() -> "Zadajte názov vozidla"
                     c10 == null || c10 !in 1..1000 -> "Zadajte platnú spotrebu"
                     pc == null || pc !in 1..2000 -> "Zadajte platnú cenu"
@@ -235,6 +252,7 @@ private fun VehicleDialog(
                     odometerKm = newOdo,
                     odometerDate = if (newOdo != initial.odometerKm) System.currentTimeMillis() else initial.odometerDate,
                     btAddress = btAddress, btName = btName,
+                    limitUrban = lu!!, limitRural = lr!!, limitHighway = lh!!,
                 ))
             }) { Text("Uložiť") }
         },

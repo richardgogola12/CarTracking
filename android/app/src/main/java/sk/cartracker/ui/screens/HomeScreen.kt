@@ -3,6 +3,8 @@ package sk.cartracker.ui.screens
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.mutableStateOf
@@ -176,6 +179,10 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}) {
                 }
                 if (state == DriveState.DRIVING && l != null) {
                     l.vehicleName?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
+                    if (s.roadLimits) {
+                        Spacer(Modifier.height(12.dp))
+                        SpeedLimitRow(l)
+                    }
                     Spacer(Modifier.height(16.dp))
                     Row(Modifier.fillMaxWidth()) {
                         StatBox("Vzdialenosť", formatDistance(l.distanceM), Modifier.weight(1f))
@@ -282,3 +289,34 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}) {
 }
 
 private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
+
+/** Dopravná značka s aktuálnym limitom + ručné prepnutie typu cesty (ak mapa nevie / je offline). */
+@Composable
+private fun SpeedLimitRow(l: sk.cartracker.service.LiveTrip) {
+    val over = l.limitKmh != null && l.speedKmh > l.limitKmh
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(56.dp).background(Color.White, CircleShape)
+                .border(6.dp, Color(0xFFD32F2F), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(l.limitKmh?.toString() ?: "?", color = Color.Black, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge)
+        }
+        Spacer(Modifier.size(12.dp))
+        Column {
+            Text(l.zone?.label?.replaceFirstChar { it.uppercase() } ?: "Zisťujem typ cesty…", fontWeight = FontWeight.SemiBold,
+                color = if (over) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurface)
+            Text(listOfNotNull(l.roadName, if (l.zoneManual) "zvolené ručne" else "z mapy").joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    val override by TrackingState.zoneOverride.collectAsState()
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FilterChip(override == null, { TrackingState.zoneOverride.value = null }, { Text("Auto") })
+        sk.cartracker.data.RoadZone.entries.forEach { z ->
+            FilterChip(override == z, { TrackingState.zoneOverride.value = z }, { Text(z.label.replaceFirstChar { it.uppercase() }) })
+        }
+    }
+}

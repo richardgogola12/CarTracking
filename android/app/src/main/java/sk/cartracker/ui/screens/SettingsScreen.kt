@@ -208,8 +208,16 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
         // ---------- Štýl jazdy ----------
         SectionCard("Štýl jazdy a rýchlosť") {
             SwitchRow("Hodnotiť štýl jazdy", "Prudké brzdenie a zrýchlenie, skóre 0–100 pre každú jazdu", s.drivingEvents) { on -> update { it.copy(drivingEvents = on) } }
-            SliderRow("Rýchlostný limit", s.speedAlertKmh, 50..200, 10, "km/h",
-                "Čas nad limitom znižuje skóre a vyznačí sa na mape.") { v -> update { it.copy(speedAlertKmh = v) } }
+            SwitchRow("Limit podľa typu cesty", "V obci / mimo obce / diaľnica – rozpozná sa z OpenStreetMap, limity sa nastavujú pri vozidle",
+                s.roadLimits) { on -> update { it.copy(roadLimits = on) } }
+            if (s.roadLimits) {
+                SwitchRow("Použiť dopravné značky z mapy", "Ak má cesta v mape zadaný limit (napr. 70 v obci), platí ten",
+                    s.useRoadSigns) { on -> update { it.copy(useRoadSigns = on) } }
+            } else {
+                SliderRow("Jednotný rýchlostný limit", s.speedAlertKmh, 50..200, 10, "km/h") { v -> update { it.copy(speedAlertKmh = v) } }
+            }
+            SliderRow("Tolerancia", s.speedToleranceKmh, 0..20, 1, "km/h",
+                "O koľko môže GPS rýchlosť prekročiť limit, kým sa to počíta ako prekročenie.") { v -> update { it.copy(speedToleranceKmh = v) } }
             SwitchRow("Upozorniť vibráciou pri prekročení", "Najviac raz za minútu", s.speedAlert) { on -> update { it.copy(speedAlert = on) } }
         }
 
