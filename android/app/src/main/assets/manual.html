@@ -220,10 +220,23 @@
   <li><b>Trasu</b> – adresy a časy začiatku (A) a cieľa (B),</li>
   <li><b>Vozidlo</b> – dá sa zmeniť aj po jazde,</li>
   <li><b>Štatistiky</b> – vzdialenosť, trvanie, priemer, maximum, palivo, náklady,</li>
+  <li><b>Rýchlosť počas jazdy</b> – graf (pozri nižšie),</li>
   <li><b>Štýl jazdy</b> – skóre a počty udalostí,</li>
   <li><b>Knihu jázd</b> – prepínač Súkromná / Služobná, účel jazdy a stav tachometra,</li>
   <li>tlačidlá <b>Zdieľať</b> (text s odkazom na mapu), <b>Zlúčiť s nasledujúcou</b> a <b>Zmazať</b> (z telefónu aj zo servera).</li>
 </ul>
+<h3>Graf rýchlosti</h3>
+<p>Pri jazde autom je v detaile karta <b>Rýchlosť počas jazdy</b>:</p>
+<ul>
+  <li><b>Krivka rýchlosti</b> je zafarbená podľa rýchlosti rovnako ako trasa na mape (zelená = pomaly, žltá, oranžová, červená, fialová = nad 150 km/h).</li>
+  <li>Prepínač <b>Podľa času / Podľa km</b> mení vodorovnú os – hodiny alebo prejdené kilometre.</li>
+  <li><b>Ťuknite alebo ťahajte prstom</b> po grafe – nad grafom sa zobrazí rýchlosť, čas a vzdialenosť v danom mieste, prípadne udalosť (prudké brzdenie, zrýchlenie, nad limitom).</li>
+  <li>Prerušovaná čiara <b>Ø</b> je priemer v pohybe, bod <b>max</b> najvyššia rýchlosť. Farebné body sú udalosti štýlu jazdy (červená = brzdenie, oranžová = zrýchlenie, fialová = nad limitom).</li>
+  <li>Pod grafom: <b>maximum</b>, <b>priemer v pohybe</b> (bez státia), <b>čas v pohybe</b> a <b>čas státia</b> (napr. semafory, kolóny).</li>
+  <li>Pruh <b>Čas v pohybe podľa rýchlosti</b> ukazuje, koľko percent času ste išli do 50, 50–90, 90–130 a nad 130 km/h.</li>
+</ul>
+<div class="tip">Krivka je mierne vyhladená, aby GPS šum nevytváral zúbky; maximum sa berie z nevyhladených údajov.</div>
+
 <h3>Zlúčenie jázd</h3>
 <p>Ak sa jedna cesta rozdelila na viac jázd (zastávka na pumpe, v obchode, dlhšie státie), zlúčite ich do jednej:</p>
 <ul>
@@ -253,7 +266,7 @@
 </table>
 <p>Vľavo dole je mierka a legenda, vpravo dole zdroj mapových podkladov. Typ mapy sa pamätá a dá sa nastaviť aj v <b>Nastavenia → Mapa</b>. Mapové podklady sa sťahujú z internetu (Esri, OpenStreetMap, OpenTopoMap) a <b>nevyžadujú API kľúč</b>. Pri chôdzi má trasa jednu farbu a nezobrazujú sa udalosti štýlu jazdy.</p>
 
-<h2 id="styl" class="newpage">11. Štýl jazdy a skóre</h2>
+<h2 id="styl">11. Štýl jazdy a skóre</h2>
 <p>Počas jazdy aplikácia z presných GPS bodov sleduje:</p>
 <table>
   <tr><th>Udalosť</th><th>Kedy sa zaznamená</th><th>Vplyv na skóre</th></tr>
@@ -280,7 +293,7 @@
 <p><b>Hodnotenie:</b> 90–100 výborná · 75–89 dobrá · 55–74 priemerná · pod 55 riziková. Pri zapnutom <i>Upozornení vibráciou</i> telefón pri prekročení limitu trikrát krátko zavibruje a zobrazí platný limit (najviac raz za minútu).</p>
 <div class="note">GPS meranie nie je rovnako presné ako senzory v aute – skóre berte ako orientačné.</div>
 
-<h2 id="kniha" class="newpage">12. Kniha jázd a export</h2>
+<h2 id="kniha">12. Kniha jázd a export</h2>
 <h3>12.1 Nastavenie</h3>
 <p>Kniha jázd sa vedie <b>pre každé vozidlo zvlášť</b>. Pri vozidle (Nastavenia → Vozidlá) vyplňte EČV a <b>aktuálny stav tachometra</b> – od tohto okamihu aplikácia dopočítava tachometer pri každej jazde tohto vozidla. V <b>Nastavenia → Kniha jázd</b> zvoľte predvolený typ novej jazdy (súkromná / služobná).</p>
 <h3>12.2 Úprava jazdy</h3>
@@ -374,7 +387,13 @@
 </ul>
 <p><b>Veľký widget</b> (roztiahnutý aspoň na 3 riadky) ukazuje navyše:</p>
 <ul>
-  <li><b>graf km za posledných 7 dní</b> (dnešok zvýraznený) so súčtom za týždeň,</li>
+  <li><b>prepínateľný graf</b> – <b>ťuknutím na graf</b> prepnete medzi tromi zobrazeniami (bodky ●○○ hore ukazujú, ktoré je zapnuté):
+    <ul>
+      <li><b>Km autom za 7 dní</b> – stĺpce po dňoch, dnešok zvýraznený, súčet za týždeň,</li>
+      <li><b>Rýchlosť</b> – krivka rýchlosti aktuálnej jazdy (počas jazdy sa priebežne dopĺňa), inak poslednej jazdy autom; s priemerom Ø, maximom a časom začiatku a konca,</li>
+      <li><b>Kroky za 7 dní</b> – stĺpce krokov po dňoch so súčtom.</li>
+    </ul>
+    Každý widget na ploche si pamätá svoje zobrazenie, takže môžete mať napr. dva widgety s rôznymi grafmi,</li>
   <li><b>krúžok krokov</b> – dnešné kroky voči dennému cieľu (Nastavenia → Chôdza → Denný cieľ krokov); po splnení zezelená,</li>
   <li>najbližšiu <b>pripomienku</b> (napr. STK o 12 dní) a <b>kde je zaparkované</b> auto.</li>
 </ul>

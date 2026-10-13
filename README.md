@@ -25,6 +25,10 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Graf rýchlosti
+- V detaile jazdy autom graf rýchlosti farbený podľa rýchlosti, os podľa času alebo km, ťuknutím hodnota v bode, priemer, maximum, udalosti, čas v pohybe/státia a rozdelenie času podľa rýchlosti.
+- Vo veľkom widgete sa ťuknutím na graf prepína: km za 7 dní → rýchlosť (aktuálna/posledná jazda) → kroky za 7 dní.
+
 ## Nový widget
 - Farba podľa stavu (čakám / overujem / jazda / chôdza), počas jazdy rýchlosť, značka s limitom, bežiaci čas, km a náklady; počas chôdze kroky.
 - Dlaždice dňa (km, jazdy, kroky, náklady), tlačidlá Jazda / Chôdza / obnoviť, pri overovaní „✓ Je to jazda / ✕ Nie je“.
