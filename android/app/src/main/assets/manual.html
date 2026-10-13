@@ -64,7 +64,7 @@
 <header class="cover">
   <h1>🚗 Car Tracking</h1>
   <p>Používateľská príručka – automatické sledovanie jázd autom a chôdze, viac vozidiel, kniha jázd a štatistiky</p>
-  <div class="ver">Verzia aplikácie 1.3 · Android 8.0 a novší</div>
+  <div class="ver">Verzia aplikácie 1.4 · Android 8.0 a novší</div>
 </header>
 
 <nav class="toc">
@@ -213,8 +213,16 @@
   <li><b>Štatistiky</b> – vzdialenosť, trvanie, priemer, maximum, palivo, náklady,</li>
   <li><b>Štýl jazdy</b> – skóre a počty udalostí,</li>
   <li><b>Knihu jázd</b> – prepínač Súkromná / Služobná, účel jazdy a stav tachometra,</li>
-  <li>tlačidlá <b>Zdieľať</b> (text s odkazom na mapu) a <b>Zmazať</b> (z telefónu aj zo servera).</li>
+  <li>tlačidlá <b>Zdieľať</b> (text s odkazom na mapu), <b>Zlúčiť s nasledujúcou</b> a <b>Zmazať</b> (z telefónu aj zo servera).</li>
 </ul>
+<h3>Zlúčenie jázd</h3>
+<p>Ak sa jedna cesta rozdelila na viac jázd (zastávka na pumpe, v obchode, dlhšie státie), zlúčite ich do jednej:</p>
+<ul>
+  <li><b>Automaticky</b> – ak nová jazda začne najneskôr 10 minút po skončení predchádzajúcej (chôdza 5 min), do 1 km od miesta, kde skončila, a tým istým vozidlom, po skončení sa obe zlúčia samy. Notifikácia pri štarte vtedy oznámi „Pokračovanie jazdy“. Časy a vzdialenosť nastavíte v <b>Nastavenia → Zlučovanie jázd</b>.</li>
+  <li><b>Ručne v zozname</b> – v záložke <b>Jazdy</b> jazdu <b>podržte</b>, ťuknutím označte ďalšie a ťuknite na <b>Zlúčiť</b>.</li>
+  <li><b>Ručne v detaile</b> – ikona zlúčenia hore zlúči jazdu s nasledujúcou jazdou rovnakého typu.</li>
+</ul>
+<p>Zlučujú sa iba záznamy rovnakého typu (auto s autom, chôdza s chôdzou). Vzdialenosť, kroky a udalosti sa sčítajú, čas je od začiatku prvej po koniec poslednej, skóre je priemer podľa km a poznámky sa spoja. Ak je niektorá jazda služobná, zlúčená bude služobná. Pred zlúčením aplikácia upozorní na dlhú prestávku alebo rôzne vozidlá. Zlúčenie sa nedá vrátiť späť; na serveri sa automaticky upraví aj zmaže zlúčená jazda.</p>
 
 <h2 id="mapa">10. Mapa</h2>
 <p>Trasa je vykreslená s obrysom a <b>farbou podľa rýchlosti</b>:</p>
@@ -334,6 +342,10 @@
   <tr><td>Minimálna vzdialenosť</td><td>150 m</td><td>Kratšie presuny sa neukladajú.</td></tr>
   <tr><td>Interval GPS pri chôdzi</td><td>10 s</td><td>Dlhší interval šetrí batériu.</td></tr>
   <tr><td>Notifikácia / vibrácia</td><td>vypnuté</td><td>Pri začiatku a konci chôdze.</td></tr>
+  <tr><td colspan="3"><b>Zlučovanie jázd</b></td></tr>
+  <tr><td>Automaticky zlúčiť po krátkej prestávke</td><td>zapnuté</td><td>Zastávka na pumpe nerozdelí jazdu.</td></tr>
+  <tr><td>Max. prestávka – auto / chôdza</td><td>10 min / 5 min</td><td>Dlhšia prestávka = nová jazda.</td></tr>
+  <tr><td>Max. vzdialenosť konca a začiatku</td><td>1 000 m</td><td>Jazdy iným vozidlom sa nezlučujú.</td></tr>
   <tr><td colspan="3"><b>Kniha jázd</b></td></tr>
   <tr><td>Predvolený typ jazdy</td><td>súkromná</td><td>Typ novo zaznamenanej jazdy.</td></tr>
   <tr><td>Zisťovať adresy</td><td>zapnuté</td><td>Ulica a mesto začiatku a cieľa.</td></tr>
@@ -357,7 +369,8 @@
   <tr><th>Problém</th><th>Riešenie</th></tr>
   <tr><td>Jazda sa nespustila automaticky</td><td>Skontrolujte Povolenia (všetky zelené) a výnimku z batérie. Rozpoznanie trvá 30 s – 2 min od rozbehnutia. Pri telefónoch Xiaomi/Huawei zapnite Automatické spustenie.</td></tr>
   <tr><td>Zaznamenala sa jazda autobusom</td><td>Zmažte ju v detaile jazdy. Do budúcna použite Bluetooth auta a voľbu „Sledovať iba keď je pripojené auto“.</td></tr>
-  <tr><td>Jazda sa ukončila v zápche</td><td>Zvýšte <i>Ukončiť jazdu po státí</i> (napr. na 8 min).</td></tr>
+  <tr><td>Jazda sa ukončila v zápche</td><td>Zvýšte <i>Ukončiť jazdu po státí</i> (napr. na 8 min). Ak sa jazda rozdelila, zlúči sa automaticky (do 10 min), prípadne ju zlúčte ručne.</td></tr>
+  <tr><td>Zlúčili sa jazdy, ktoré mali byť oddelené</td><td>Znížte <i>Max. prestávka</i> alebo vypnite automatické zlučovanie v Nastavenia → Zlučovanie jázd.</td></tr>
   <tr><td>Jazda sa skončila až dlho po zaparkovaní</td><td>Znížte <i>Ukončiť jazdu po státí</i>. Čas konca jazdy sa aj tak počíta od posledného pohybu.</td></tr>
   <tr><td>„Server je nedostupný“</td><td>Na prihlasovacej obrazovke ťuknite na „Server: …“ a otestujte adresu. Musí končiť <code>/api/</code>.</td></tr>
   <tr><td>Jazdy sa neodosielajú</td><td>Prehľad → Synchronizovať teraz. Skontrolujte voľbu „Iba cez Wi-Fi“.</td></tr>
@@ -421,7 +434,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
 </ul>
 
 <footer>
-  Car Tracking · Používateľská príručka pre verziu 1.3 · © 2026 Richard Gogola<br>
+  Car Tracking · Používateľská príručka pre verziu 1.4 · © 2026 Richard Gogola<br>
   Mapové údaje © Esri, HERE, Garmin, © prispievatelia OpenStreetMap, © OpenTopoMap, snímky © Esri, Maxar.
 </footer>
 

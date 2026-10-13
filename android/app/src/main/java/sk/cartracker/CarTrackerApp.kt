@@ -23,7 +23,7 @@ class AppContainer(ctx: Context) {
     val db = AppDatabase.create(ctx)
     val api = ApiProvider(settings, session)
     val auth = AuthRepository(ctx, api, session, settings)
-    val trips = TripRepository(db, api, session)
+    val trips = TripRepository(db, api, session, ctx.getSharedPreferences("pending_deletes", Context.MODE_PRIVATE))
     val vehicles = VehicleRepository(db, session, settings)
 }
 

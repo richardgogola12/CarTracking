@@ -318,7 +318,10 @@ class TrackingService : LifecycleService() {
         startTrip(buffered.firstOrNull()?.time ?: System.currentTimeMillis(), TYPE_CAR)
         var prev: Location? = null
         for (loc in buffered) { recordPoint(loc, speedOf(loc, prev)); prev = loc }
-        Notifications.driveEvent(this, started = true, s = settings, summary = vehicleName?.let { "Vozidlo: $it" })
+        val cont = trip?.let { mergeCandidate(it) } != null
+        Notifications.driveEvent(this, started = true, s = settings,
+            summary = listOfNotNull(if (cont) "Pokračovanie jazdy – po skončení sa zlúči s predchádzajúcou" else null,
+                vehicleName?.let { "Vozidlo: $it" }).joinToString("\n").ifEmpty { null })
         Log.i(TAG, "Jazda potvrdená")
     }
 
@@ -579,38 +582,51 @@ class TrackingService : LifecycleService() {
         val avg = if (hours > 0) dist / 1000.0 / hours else 0.0
         val minDist = if (t.isWalk) settings.walkMinDistanceM else settings.minTripDistanceM
 
+        // Krátka prestávka po predchádzajúcej jazde (pumpa, obchod) → automaticky sa zlúčia
+        val mergeWith = mergeCandidate(t)
+
         val summary: String?
-        if (!manual && dist < minDist) {
+        if (!manual && dist < minDist && mergeWith == null) {
             dao.deleteTrip(t.id)
             summary = if (t.isWalk) null else "Jazda bola kratšia ako $minDist m – neuložená"
         } else {
             val startAddr = if (settings.detectAddresses && t.startLat != null) Geo.address(this, t.startLat, t.startLng!!) else null
             val endAddr = if (settings.detectAddresses && last != null) Geo.address(this, last.lat, last.lng) else null
-            if (t.isWalk) {
-                dao.updateTrip(
-                    t.copy(
-                        endedAt = end, distanceM = dist, avgSpeedKmh = avg, steps = steps,
-                        endLat = last?.lat, endLng = last?.lng, finished = true,
-                        startAddress = startAddr, endAddress = endAddr,
-                    )
+            var saved = if (t.isWalk) {
+                t.copy(
+                    endedAt = end, distanceM = dist, avgSpeedKmh = avg, steps = steps,
+                    endLat = last?.lat, endLng = last?.lng, finished = true,
+                    startAddress = startAddr, endAddress = endAddr,
                 )
-                summary = "${String.format(Locale("sk"), "%,d", steps)} krokov · ${formatDistance(dist)} · ${formatDuration(end - t.startedAt)}"
             } else {
                 val speedingSec = (speedingMs / 1000).toInt()
-                val score = if (settings.drivingEvents) DrivingScore.compute(dist, end - t.startedAt, hardBrakes, hardAccels, speedingSec) else null
-                val saved = t.copy(
+                t.copy(
                     endedAt = end, distanceM = dist, maxSpeedKmh = maxSpeed, avgSpeedKmh = avg,
                     endLat = last?.lat, endLng = last?.lng, finished = true,
-                    startAddress = startAddr, endAddress = endAddr, score = score,
+                    startAddress = startAddr, endAddress = endAddr,
+                    score = if (settings.drivingEvents) DrivingScore.compute(dist, end - t.startedAt, hardBrakes, hardAccels, speedingSec) else null,
                     hardBrakes = hardBrakes, hardAccels = hardAccels, speedingSec = speedingSec,
                 )
-                dao.updateTrip(saved)
+            }
+            dao.updateTrip(saved)
+            var merged = false
+            if (mergeWith != null) {
+                runCatching { container.trips.merge(listOf(mergeWith, saved)) }
+                    .onSuccess { id -> dao.getTrip(id)?.let { saved = it; merged = true } }
+                    .onFailure { Log.e(TAG, "Automatické zlúčenie zlyhalo", it) }
+            }
+            val total = (saved.endedAt ?: end) - saved.startedAt
+            val prefix = if (merged) "Zlúčené s predchádzajúcou · spolu " else ""
+            if (t.isWalk) {
+                summary = prefix + "${String.format(Locale("sk"), "%,d", saved.steps)} krokov · ${formatDistance(saved.distanceM)} · ${formatDuration(total)}"
+            } else {
                 if (last != null) RuntimeState.setParking(this, last.lat, last.lng, end, endAddr)
                 val vehicle = container.vehicles.byUuid(saved.vehicleUuid)
                 summary = buildString {
-                    append("${formatDistance(dist)} · ${formatDuration(end - t.startedAt)} · Ø ${avg.toInt()} km/h")
+                    append(prefix)
+                    append("${formatDistance(saved.distanceM)} · ${formatDuration(total)} · Ø ${saved.avgSpeedKmh.toInt()} km/h")
                     append(" · ~").append(String.format(Locale("sk"), "%.2f €", saved.cost(vehicle, settings)))
-                    if (score != null) append(" · štýl $score/100")
+                    saved.score?.let { append(" · štýl $it/100") }
                     vehicle?.let { append("\n").append(it.label) }
                 }
             }
@@ -624,6 +640,25 @@ class TrackingService : LifecycleService() {
         val next = then ?: (if (!t.isWalk && pendingWalk && settings.walkActiveNow()) walkNext else null)
         pendingWalk = false
         if (next != null) next() else shutdown()
+    }
+
+    /** Predchádzajúci záznam rovnakého typu, s ktorým sa má tento automaticky zlúčiť. */
+    private suspend fun mergeCandidate(t: TripEntity): TripEntity? {
+        if (!settings.autoMerge) return null
+        val prev = dao.previousTrip(userId, t.type, t.startedAt) ?: return null
+        val prevEnd = prev.endedAt ?: return null
+        val gap = t.startedAt - prevEnd
+        val maxGap = (if (t.isWalk) settings.walkMergeGapMin else settings.autoMergeGapMin) * 60_000L
+        if (gap < 0 || gap > maxGap) return null
+        // iné auto = iná jazda
+        if (!t.isWalk && prev.vehicleUuid != null && t.vehicleUuid != null && prev.vehicleUuid != t.vehicleUuid) return null
+        val a = prev.endLat; val b = prev.endLng; val la = t.startLat; val lo = t.startLng
+        if (a != null && b != null && la != null && lo != null) {
+            val d = FloatArray(1)
+            Location.distanceBetween(a, b, la, lo, d)
+            if (d[0] > settings.autoMergeMaxDistanceM) return null
+        }
+        return prev
     }
 
     private suspend fun discard(then: (suspend () -> Unit)? = null) {

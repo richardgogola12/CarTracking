@@ -192,6 +192,21 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
             }
         }
 
+        // ---------- Zlučovanie ----------
+        SectionCard("Zlučovanie jázd") {
+            SwitchRow("Automaticky zlúčiť po krátkej prestávke", "Napr. zastávka na pumpe – vznikne jedna jazda namiesto dvoch",
+                s.autoMerge) { on -> update { it.copy(autoMerge = on) } }
+            if (s.autoMerge) {
+                SliderRow("Max. prestávka – auto", s.autoMergeGapMin, 1..60, 1, "min") { v -> update { it.copy(autoMergeGapMin = v) } }
+                SliderRow("Max. prestávka – chôdza", s.walkMergeGapMin, 1..30, 1, "min") { v -> update { it.copy(walkMergeGapMin = v) } }
+                SliderRow("Max. vzdialenosť konca a začiatku", s.autoMergeMaxDistanceM, 100..5000, 100, "m",
+                    "Ak nová jazda začne ďalej, ide o samostatnú jazdu. Jazdy iným vozidlom sa nezlučujú.") { v -> update { it.copy(autoMergeMaxDistanceM = v) } }
+            }
+            Text("Ručne: v záložke Jazdy podržte jazdu, označte ďalšie a ťuknite na Zlúčiť; alebo v detaile jazdy ikona zlúčenia s nasledujúcou.",
+                Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
         // ---------- Kniha jázd ----------
         SectionCard("Kniha jázd") {
             Text("Predvolený typ novej jazdy", Modifier.padding(horizontal = 16.dp, vertical = 4.dp))

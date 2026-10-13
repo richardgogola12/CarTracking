@@ -25,6 +25,10 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Novinky vo verzii 1.4
+- **Zlúčenie jázd** – automaticky po krátkej prestávke (auto 10 min, chôdza 5 min, do 1 km, rovnaké vozidlo), ručne výberom v zozname (podržať → označiť → Zlúčiť) alebo „Zlúčiť s nasledujúcou“ v detaile.
+- Mazanie jázd na serveri sa pri výpadku siete dokončí pri ďalšej synchronizácii.
+
 ## Novinky vo verzii 1.3
 - **Max. rýchlosť v obci / mimo obce / na diaľnici** pri každom vozidle (osobné auto 50/90/130).
 - Typ cesty sa počas jazdy rozpozná z OpenStreetMap (Nominatim, bez kľúča); limit zo značky v mape má prednosť. Na Prehľade značka s aktuálnym limitom a ručné prepnutie typu cesty. Tolerancia nastaviteľná.

@@ -57,6 +57,15 @@ check "detail jazdy" 200 "$(req "${AUTH[@]}" "$API/trips/$CAR")"
 python3 -c 'import sys,json;d=json.loads(sys.argv[1]);assert len(d["points"])==2 and d["points"][1]["event"]=="brake"' "$LAST" || fail "body jazdy nesedia"
 check "zmazanie" 200 "$(req "${AUTH[@]}" -X DELETE "$API/trips/$WALK")"
 check "zmazaná jazda" 404 "$(req "${AUTH[@]}" "$API/trips/$WALK")"
+# Zlúčenie: druhá jazda sa zmaže, jej body prídu pod prvou jazdou
+B2=aaaaaaaa-bbbb-cccc-dddd-000000000002
+check "sync druhej jazdy" 200 "$(req "${AUTH[@]}" -X POST "$API/trips/sync" -d "{\"trips\":[{\"uuid\":\"$B2\",\"started_at\":1700000900000,\"ended_at\":1700001200000,\"distance_m\":3000,\"trigger_source\":\"auto\",\"type\":\"car\",\"vehicle_uuid\":\"$VEH\",\"points\":[{\"ts\":1700000900000,\"lat\":48.2,\"lng\":17.2,\"speed_kmh\":30}]}]}")"
+check "zlúčená jazda (body + súčty)" 200 "$(req "${AUTH[@]}" -X POST "$API/trips/sync" -d "{\"trips\":[{\"uuid\":\"$CAR\",\"started_at\":1700000000000,\"ended_at\":1700001200000,\"distance_m\":11200,\"max_speed_kmh\":92,\"avg_speed_kmh\":33,\"end_lat\":48.2,\"end_lng\":17.2,\"trigger_source\":\"auto\",\"category\":\"business\",\"type\":\"car\",\"vehicle_uuid\":\"$VEH\",\"points\":[{\"ts\":1700000900000,\"lat\":48.2,\"lng\":17.2,\"speed_kmh\":30}]}]}")"
+check "zmazanie zlúčenej druhej jazdy" 200 "$(req "${AUTH[@]}" -X DELETE "$API/trips/$B2")"
+check "detail po zlúčení" 200 "$(req "${AUTH[@]}" "$API/trips/$CAR")"
+python3 -c 'import sys,json;d=json.loads(sys.argv[1]);assert len(d["points"])==3, len(d["points"]);assert float(d["trip"]["distance_m"])==11200 and int(d["trip"]["ended_at"])==1700001200000' "$LAST" || fail "zlúčenie na serveri nesedí"
+check "druhá jazda je preč" 404 "$(req "${AUTH[@]}" "$API/trips/$B2")"
+
 check "odhlásenie" 200 "$(req "${AUTH[@]}" -X POST "$API/logout")"
 check "token po odhlásení" 401 "$(req "${AUTH[@]}" "$API/me")"
 echo "::notice::Všetky testy API prešli ✅"

@@ -90,6 +90,11 @@ data class AppSettings(
     val walkGpsIntervalSec: Int = 10,
     val walkNotify: Boolean = false,
     val walkVibrate: Boolean = false,
+    // Automatické zlučovanie (zastávka na pumpe, v obchode…)
+    val autoMerge: Boolean = true,
+    val autoMergeGapMin: Int = 10,        // auto: max. dĺžka prestávky
+    val walkMergeGapMin: Int = 5,         // chôdza: max. dĺžka prestávky
+    val autoMergeMaxDistanceM: Int = 1000, // koniec predchádzajúcej ↔ začiatok novej
 ) {
     val workDaySet: Set<Int> get() = workDays.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
 
@@ -162,6 +167,10 @@ class SettingsRepository(private val context: Context) {
         val WALK_GPS = intPreferencesKey("walk_gps_interval")
         val WALK_NOTIFY = booleanPreferencesKey("walk_notify")
         val WALK_VIBRATE = booleanPreferencesKey("walk_vibrate")
+        val AUTO_MERGE = booleanPreferencesKey("auto_merge")
+        val MERGE_GAP = intPreferencesKey("auto_merge_gap")
+        val WALK_MERGE_GAP = intPreferencesKey("walk_merge_gap")
+        val MERGE_DIST = intPreferencesKey("auto_merge_distance")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data
@@ -227,6 +236,10 @@ class SettingsRepository(private val context: Context) {
             walkGpsIntervalSec = p[K.WALK_GPS] ?: d.walkGpsIntervalSec,
             walkNotify = p[K.WALK_NOTIFY] ?: d.walkNotify,
             walkVibrate = p[K.WALK_VIBRATE] ?: d.walkVibrate,
+            autoMerge = p[K.AUTO_MERGE] ?: d.autoMerge,
+            autoMergeGapMin = p[K.MERGE_GAP] ?: d.autoMergeGapMin,
+            walkMergeGapMin = p[K.WALK_MERGE_GAP] ?: d.walkMergeGapMin,
+            autoMergeMaxDistanceM = p[K.MERGE_DIST] ?: d.autoMergeMaxDistanceM,
         )
     }
 
@@ -281,5 +294,9 @@ class SettingsRepository(private val context: Context) {
         p[K.WALK_GPS] = s.walkGpsIntervalSec
         p[K.WALK_NOTIFY] = s.walkNotify
         p[K.WALK_VIBRATE] = s.walkVibrate
+        p[K.AUTO_MERGE] = s.autoMerge
+        p[K.MERGE_GAP] = s.autoMergeGapMin
+        p[K.WALK_MERGE_GAP] = s.walkMergeGapMin
+        p[K.MERGE_DIST] = s.autoMergeMaxDistanceM
     }
 }

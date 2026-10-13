@@ -1,6 +1,17 @@
 package sk.cartracker.ui.screens
 
 import android.content.Intent
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.automirrored.filled.CallMerge
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -109,7 +120,11 @@ private fun shortPlace(a: String) = a.substringAfterLast(", ").ifBlank { a }
 
 @Composable
 fun TripsScreen(onOpenTrip: (Long) -> Unit) {
-    val c = LocalContext.current.container
+    val ctx = LocalContext.current
+    val c = ctx.container
+    val scope = rememberCoroutineScope()
+    var selected by remember { mutableStateOf(setOf<Long>()) }
+    var confirmMerge by remember { mutableStateOf(false) }
     val trips by remember { c.trips.trips() }.collectAsStateWithLifecycle(emptyList())
     val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
     val vehicleList by remember { c.vehicles.vehicles() }.collectAsStateWithLifecycle(emptyList())
@@ -139,6 +154,35 @@ fun TripsScreen(onOpenTrip: (Long) -> Unit) {
         }
     }
     val grouped = remember(shown) { shown.groupBy { formatDay(it.startedAt) } }
+    val selectedTrips = trips.filter { it.id in selected }
+
+    fun toggle(t: TripEntity) {
+        val first = selectedTrips.firstOrNull()
+        selected = when {
+            t.id in selected -> selected - t.id
+            first != null && first.type != t.type -> {
+                Toast.makeText(ctx, "Zlúčiť možno iba jazdy rovnakého typu (auto s autom, chôdzu s chôdzou)", Toast.LENGTH_SHORT).show()
+                selected
+            }
+            else -> selected + t.id
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+    if (selected.isNotEmpty()) {
+        Surface(color = MaterialTheme.colorScheme.secondaryContainer, tonalElevation = 3.dp) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { selected = emptySet() }) { Icon(Icons.Filled.Close, "Zrušiť výber") }
+                Column(Modifier.weight(1f)) {
+                    Text("Vybrané: ${selected.size}", fontWeight = FontWeight.SemiBold)
+                    Text(formatDistance(selectedTrips.sumOf { it.distanceM }), style = MaterialTheme.typography.bodySmall)
+                }
+                Button(enabled = selected.size >= 2, onClick = { confirmMerge = true }) {
+                    Icon(Icons.AutoMirrored.Filled.CallMerge, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text("Zlúčiť")
+                }
+            }
+        }
+    }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item(key = "filter") {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -162,14 +206,89 @@ fun TripsScreen(onOpenTrip: (Long) -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            items(list, key = { it.id }) { TripRow(it, s, allVehicles[it.vehicleUuid]) { onOpenTrip(it.id) } }
+            items(list, key = { it.id }) { t ->
+                TripRow(
+                    t, s, allVehicles[t.vehicleUuid], selected = t.id in selected,
+                    onClick = { if (selected.isNotEmpty()) toggle(t) else onOpenTrip(t.id) },
+                    onLongClick = { toggle(t) },
+                )
+            }
         }
+        if (selected.isEmpty()) item(key = "hint") {
+            Text("Tip: podržaním jazdy ich môžete označiť a zlúčiť do jednej.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+    }
+
+    if (confirmMerge && selectedTrips.size >= 2) {
+        MergeDialog(
+            trips = selectedTrips,
+            vehicles = allVehicles,
+            onDismiss = { confirmMerge = false },
+            onConfirm = {
+                confirmMerge = false
+                scope.launch {
+                    runCatching { c.trips.merge(selectedTrips) }
+                        .onSuccess { id ->
+                            selected = emptySet()
+                            if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
+                            Toast.makeText(ctx, "Jazdy boli zlúčené", Toast.LENGTH_SHORT).show()
+                            onOpenTrip(id)
+                        }
+                        .onFailure { Toast.makeText(ctx, it.message ?: "Zlúčenie zlyhalo", Toast.LENGTH_LONG).show() }
+                }
+            },
+        )
     }
 }
 
+/** Potvrdenie zlúčenia so súhrnom a upozorneniami (dlhá prestávka, rôzne vozidlá). */
 @Composable
-private fun TripRow(t: TripEntity, s: AppSettings, vehicle: VehicleEntity?, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+private fun MergeDialog(trips: List<TripEntity>, vehicles: Map<String, VehicleEntity>, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    val sorted = trips.sortedBy { it.startedAt }
+    val first = sorted.first()
+    val end = sorted.maxOf { it.endedAt ?: it.startedAt }
+    val maxGap = sorted.zipWithNext { a, b -> b.startedAt - (a.endedAt ?: a.startedAt) }.maxOrNull() ?: 0L
+    val vehicleSet = sorted.mapNotNull { it.vehicleUuid }.distinct()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.AutoMirrored.Filled.CallMerge, null) },
+        title = { Text("Zlúčiť ${trips.size} ${if (first.isWalk) "záznamy chôdze" else "jazdy"}?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("${formatDateTime(first.startedAt)} – ${formatTime(end)}")
+                Text("Spolu: ${formatDistance(sorted.sumOf { it.distanceM })}" +
+                    if (first.isWalk) " · ${sorted.sumOf { it.steps }} krokov" else "", fontWeight = FontWeight.SemiBold)
+                Text("Z: ${first.startAddress ?: "—"}", style = MaterialTheme.typography.bodySmall)
+                Text("Do: ${sorted.maxBy { it.endedAt ?: it.startedAt }.endAddress ?: "—"}", style = MaterialTheme.typography.bodySmall)
+                if (maxGap > 2 * 3_600_000L) Text("⚠️ Medzi jazdami je prestávka ${formatDuration(maxGap)}.",
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                if (vehicleSet.size > 1) Text("⚠️ Jazdy majú rôzne vozidlá – zlúčená jazda bude patriť vozidlu " +
+                    "${vehicles[first.vehicleUuid]?.label ?: "prvej jazdy"} (dá sa zmeniť v detaile).",
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text("Vzdialenosť, čas, udalosti a kroky sa sčítajú; ak je niektorá jazda služobná, zlúčená bude služobná. " +
+                    "Zlúčenie sa nedá vrátiť späť.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Zlúčiť") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušiť") } },
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TripRow(
+    t: TripEntity, s: AppSettings, vehicle: VehicleEntity?, selected: Boolean,
+    onClick: () -> Unit, onLongClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clip(CardDefaults.shape).combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        colors = if (selected) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else CardDefaults.cardColors(),
+        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+    ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(42.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp)),
@@ -226,7 +345,9 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
     LaunchedEffect(trip?.vehicleUuid, vehicles) { vehicle = c.vehicles.byUuid(trip?.vehicleUuid) }
     var confirmDelete by remember { mutableStateOf(false) }
     var fullscreen by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(tripId) { points = c.trips.points(tripId) }
+    var reload by remember { mutableIntStateOf(0) }
+    var mergeNext by remember { mutableStateOf<TripEntity?>(null) }
+    LaunchedEffect(tripId, reload) { points = c.trips.points(tripId) }
     LaunchedEffect(trip?.startedAt, vehicle) { trip?.let { odometer = c.trips.odometerAt(it.startedAt, vehicle) } }
 
     val routes = remember(points, trip?.startAddress, trip?.endAddress) {
@@ -249,6 +370,13 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                     }
                     ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Zdieľať jazdu"))
                 }) { Icon(Icons.Filled.Share, "Zdieľať") }
+                IconButton(onClick = {
+                    val t = trip ?: return@IconButton
+                    scope.launch {
+                        mergeNext = c.trips.nextTrip(t)
+                        if (mergeNext == null) Toast.makeText(ctx, "Po tejto jazde nenasleduje žiadna ďalšia", Toast.LENGTH_SHORT).show()
+                    }
+                }) { Icon(Icons.AutoMirrored.Filled.CallMerge, "Zlúčiť s nasledujúcou") }
                 IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Zmazať") }
             },
         )
@@ -334,6 +462,27 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                 )
             }
         }
+    }
+
+    val next = mergeNext
+    val cur = trip
+    if (next != null && cur != null) {
+        MergeDialog(
+            trips = listOf(cur, next), vehicles = emptyMap(),
+            onDismiss = { mergeNext = null },
+            onConfirm = {
+                mergeNext = null
+                scope.launch {
+                    runCatching { c.trips.merge(listOf(cur, next)) }
+                        .onSuccess {
+                            reload++
+                            if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
+                            Toast.makeText(ctx, "Zlúčené s nasledujúcou jazdou", Toast.LENGTH_SHORT).show()
+                        }
+                        .onFailure { Toast.makeText(ctx, it.message ?: "Zlúčenie zlyhalo", Toast.LENGTH_LONG).show() }
+                }
+            },
+        )
     }
 
     if (confirmDelete) {

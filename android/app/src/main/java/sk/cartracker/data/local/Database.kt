@@ -144,6 +144,15 @@ interface TripDao {
     @Query("SELECT * FROM points WHERE tripId = :tripId AND synced = 0 ORDER BY ts LIMIT :limit")
     suspend fun unsyncedPoints(tripId: Long, limit: Int): List<PointEntity>
     @Query("UPDATE points SET synced = 1 WHERE id IN (:ids)") suspend fun markPointsSynced(ids: List<Long>)
+    /** Zlúčenie: body ostatných jázd sa presunú do cieľovej jazdy (a znova sa odošlú na server). */
+    @Query("UPDATE points SET tripId = :target, synced = 0 WHERE tripId IN (:sources)")
+    suspend fun movePoints(sources: List<Long>, target: Long)
+    @Query("""SELECT * FROM trips WHERE userId = :userId AND finished = 1 AND type = :type AND startedAt > :after
+              ORDER BY startedAt LIMIT 1""")
+    suspend fun nextTrip(userId: Int, type: String, after: Long): TripEntity?
+    @Query("""SELECT * FROM trips WHERE userId = :userId AND finished = 1 AND type = :type AND startedAt < :before
+              ORDER BY startedAt DESC LIMIT 1""")
+    suspend fun previousTrip(userId: Int, type: String, before: Long): TripEntity?
 
     @Query("""SELECT COALESCE(SUM(distanceM), 0) FROM trips WHERE userId = :userId AND finished = 1 AND type = 'car'
               AND vehicleUuid = :vehicle AND startedAt >= :from AND startedAt < :to""")

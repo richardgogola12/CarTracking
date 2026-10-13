@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import sk.cartracker.data.local.AppDatabase
+import androidx.room.withTransaction
+import sk.cartracker.data.local.CATEGORY_BUSINESS
 import sk.cartracker.data.local.TripEntity
 import sk.cartracker.data.local.VehicleEntity
 import sk.cartracker.data.remote.ApiProvider
@@ -88,6 +90,8 @@ class TripRepository(
     private val db: AppDatabase,
     private val api: ApiProvider,
     private val session: SessionStore,
+    /** Jazdy zmazané v telefóne, ktoré treba zmazať aj na serveri (pri výpadku siete sa to dokončí pri synchronizácii). */
+    private val pendingDeletes: android.content.SharedPreferences,
 ) {
     private val dao = db.tripDao()
 
@@ -98,7 +102,65 @@ class TripRepository(
 
     suspend fun delete(trip: TripEntity) {
         dao.deleteTrip(trip.id)
-        if (trip.uploaded) runCatching { api.get().deleteTrip(trip.uuid) }
+        if (trip.uploaded) deleteRemote(listOf(trip.uuid))
+    }
+
+    private suspend fun deleteRemote(uuids: List<String>) {
+        val failed = uuids.filterNot { uuid ->
+            try { api.get().deleteTrip(uuid); true }
+            catch (e: HttpException) { e.code() == 404 }   // na serveri už nie je = hotovo
+            catch (e: Exception) { false }
+        }
+        synchronized(pendingDeletes) {
+            val set = pendingDeletes.getStringSet("uuids", emptySet())!!.toMutableSet()
+            set.removeAll(uuids.toSet()); set.addAll(failed)
+            pendingDeletes.edit().putStringSet("uuids", set).apply()
+        }
+    }
+
+    suspend fun nextTrip(t: TripEntity): TripEntity? = session.user()?.let { dao.nextTrip(it.id, t.type, t.startedAt) }
+
+    /**
+     * Zlúči viac jázd (rovnakého typu) do jednej – do najstaršej z nich.
+     * Vzdialenosť, kroky a udalosti sa sčítajú, čas je od začiatku prvej po koniec poslednej,
+     * skóre je vážený priemer podľa km. Ak je niektorá služobná, výsledok je služobný.
+     * @return id zlúčenej jazdy
+     */
+    suspend fun merge(list: List<TripEntity>): Long = withContext(Dispatchers.IO) {
+        require(list.size >= 2) { "Vyberte aspoň dve jazdy" }
+        require(list.map { it.type }.distinct().size == 1) { "Zlúčiť možno iba jazdy rovnakého typu" }
+        val sorted = list.sortedBy { it.startedAt }
+        val target = sorted.first()
+        val others = sorted.drop(1)
+        val last = sorted.maxBy { it.endedAt ?: it.startedAt }
+
+        db.withTransaction {
+            dao.movePoints(others.map { it.id }, target.id)
+            val dist = sorted.sumOf { it.distanceM }
+            val end = sorted.maxOf { it.endedAt ?: it.startedAt }
+            val hours = (end - target.startedAt) / 3_600_000.0
+            val scored = sorted.filter { it.score != null }
+            val score = if (scored.isEmpty()) null
+                else (scored.sumOf { it.score!! * it.distanceM.coerceAtLeast(1.0) } / scored.sumOf { it.distanceM.coerceAtLeast(1.0) }).toInt()
+            dao.updateTrip(
+                target.copy(
+                    endedAt = end, distanceM = dist,
+                    maxSpeedKmh = sorted.maxOf { it.maxSpeedKmh },
+                    avgSpeedKmh = if (hours > 0) dist / 1000.0 / hours else 0.0,
+                    endLat = last.endLat, endLng = last.endLng, endAddress = last.endAddress ?: target.endAddress,
+                    steps = sorted.sumOf { it.steps },
+                    hardBrakes = sorted.sumOf { it.hardBrakes }, hardAccels = sorted.sumOf { it.hardAccels },
+                    speedingSec = sorted.sumOf { it.speedingSec }, score = score,
+                    category = if (sorted.any { it.category == CATEGORY_BUSINESS }) CATEGORY_BUSINESS else target.category,
+                    note = sorted.map { it.note.trim() }.filter { it.isNotEmpty() }.distinct().joinToString("; ").take(500),
+                    finished = true, synced = false,
+                )
+            )
+            others.forEach { dao.deleteTrip(it.id) }
+        }
+        val uploaded = others.filter { it.uploaded }.map { it.uuid }
+        if (uploaded.isNotEmpty()) deleteRemote(uploaded)
+        target.id
     }
 
     /** Zmena kategórie / poznámky – jazda sa znova odošle na server. */
@@ -129,6 +191,9 @@ class TripRepository(
     /** Pošle na server všetky ukončené jazdy, ktoré tam ešte nie sú (po dávkach bodov). */
     suspend fun syncAll(): Int = withContext(Dispatchers.IO) {
         val user = session.user() ?: return@withContext 0
+        // nedokončené mazania zo servera
+        val pending = synchronized(pendingDeletes) { pendingDeletes.getStringSet("uuids", emptySet())!!.toList() }
+        if (pending.isNotEmpty()) deleteRemote(pending)
         // najprv vozidlá (jazdy sa na ne odkazujú)
         val vehicles = dao.vehiclesToSync(user.id)
         if (vehicles.isNotEmpty()) {
