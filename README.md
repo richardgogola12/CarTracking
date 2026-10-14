@@ -25,6 +25,14 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Novinky vo verzii 1.9
+- **Diagnostika detekcie** – kontrola podmienok (povolenia, batéria, Bluetooth) a záznam udalostí: čo hlásil systém, rýchlosti GPS pri overovaní, prečo sa jazda spustila / zahodila / ukončila; zdieľanie súboru.
+- **Ručné pridanie** jazdy / chôdze a **rozdelenie jazdy** (predvolene v najdlhšom státí, prepočet km, rýchlostí, krokov a udalostí; na serveri sa nahradí).
+- **Kalibrácia km podľa tachometra** (z tankovaní, pre nové aj staršie jazdy) a **kalibrácia dĺžky kroku** z chôdze vonku s GPS.
+- **Časová os dňa** – jazdy, chôdza a pobyty za sebou, súhrn dňa, tlač/PDF a CSV.
+- **Prehľadnejšie nastavenia** v rozbaľovacích skupinách so súhrnom; všetky nastavenia (aj nové) sa ukladajú na server a obnovia sa na novom telefóne.
+- **Prepínanie záložiek potiahnutím** doľava / doprava.
+
 ## Novinky vo verzii 1.8
 - **4 nové widgety**: tlačidlá (Jazda/Chôdza), kroky (krúžok, séria, týždeň), parkovanie (miesto, čas, odpočet lístka, Nájsť auto), mesiac (km, jazdy, náklady, kroky, porovnanie, graf).
 - **Posuvníky od 0** a **vlastná hodnota** ťuknutím na číslo (aj nad koniec posuvníka, čas ako 7:30).
