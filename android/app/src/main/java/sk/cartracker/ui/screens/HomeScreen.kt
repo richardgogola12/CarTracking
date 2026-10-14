@@ -324,6 +324,8 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
             resumeTick++
         }
 
+        OutlinedButton(onClick = { onNavigate("timeline") }, modifier = Modifier.fillMaxWidth()) { Text("🕒 Časová os dnešného dňa") }
+
         // ---- Štatistiky ----
         val startOfDay = remember(trips) { Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0) }.timeInMillis }
         val startOfWeek = startOfDay - ((Calendar.getInstance().get(Calendar.DAY_OF_WEEK) + 5) % 7) * 86_400_000L

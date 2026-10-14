@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.BusinessCenter
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Share
@@ -120,7 +121,7 @@ fun TripEntity.routeTitle(): String {
 private fun shortPlace(a: String) = a.substringAfterLast(", ").ifBlank { a }
 
 @Composable
-fun TripsScreen(onOpenTrip: (Long) -> Unit) {
+fun TripsScreen(onOpenTrip: (Long) -> Unit, onNavigate: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     val c = ctx.container
     val scope = rememberCoroutineScope()
@@ -132,6 +133,8 @@ fun TripsScreen(onOpenTrip: (Long) -> Unit) {
     var allVehicles by remember { mutableStateOf<Map<String, VehicleEntity>>(emptyMap()) }
     LaunchedEffect(vehicleList) { allVehicles = c.vehicles.all().associateBy { it.uuid } }
     var filter by rememberSaveable { mutableStateOf("all") }
+    var showAdd by remember { mutableStateOf(false) }
+    if (showAdd) AddTripDialog(onDismiss = { showAdd = false }) { id -> showAdd = false; onOpenTrip(id) }
 
     if (trips.isEmpty()) {
         Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -141,6 +144,8 @@ fun TripsScreen(onOpenTrip: (Long) -> Unit) {
                 Text("Zatiaľ žiadne jazdy", style = MaterialTheme.typography.titleMedium)
                 Text("Jazda sa zaznamená automaticky, keď nasadnete do auta a pohnete sa.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { showAdd = true }) { Text("+ Pridať záznam ručne") }
             }
         }
         return
@@ -187,6 +192,8 @@ fun TripsScreen(onOpenTrip: (Long) -> Unit) {
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item(key = "filter") {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.AssistChip(onClick = { showAdd = true }, label = { Text("+ Pridať") })
+                androidx.compose.material3.AssistChip(onClick = { onNavigate("timeline") }, label = { Text("🕒 Časová os") })
                 FilterChip(filter == "all", { filter = "all" }, { Text("Všetko") })
                 FilterChip(filter == TYPE_CAR, { filter = TYPE_CAR }, { Text("Auto") },
                     leadingIcon = { Icon(Icons.Filled.DirectionsCar, null, Modifier.size(16.dp)) })
@@ -349,6 +356,7 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
     var reload by remember { mutableIntStateOf(0) }
     var newPlace by remember { mutableStateOf<sk.cartracker.data.local.PlaceEntity?>(null) }
     var mergeNext by remember { mutableStateOf<TripEntity?>(null) }
+    var splitOpen by remember { mutableStateOf(false) }
     LaunchedEffect(tripId, reload) { points = c.trips.points(tripId) }
     LaunchedEffect(trip?.startedAt, vehicle) { trip?.let { odometer = c.trips.odometerAt(it.startedAt, vehicle) } }
 
@@ -379,11 +387,13 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                         if (mergeNext == null) Toast.makeText(ctx, "Po tejto jazde nenasleduje žiadna ďalšia", Toast.LENGTH_SHORT).show()
                     }
                 }) { Icon(Icons.AutoMirrored.Filled.CallMerge, "Zlúčiť s nasledujúcou") }
+                IconButton(onClick = { splitOpen = true }) { Icon(Icons.Filled.ContentCut, "Rozdeliť jazdu") }
                 IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Zmazať") }
             },
         )
     }) { pad ->
         val t = trip ?: return@Scaffold
+        if (splitOpen) SplitTripDialog(t, points, onDismiss = { splitOpen = false }) { splitOpen = false; reload++ }
         if (fullscreen) {
             RouteMap(routes, Modifier.padding(pad).fillMaxSize(), colorBySpeed = !t.isWalk, showEvents = !t.isWalk,
                 fullscreen = true, onToggleFullscreen = { fullscreen = false })

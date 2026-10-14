@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
+import sk.cartracker.data.local.RefuelEntity
 import sk.cartracker.data.local.AppDatabase
 import androidx.room.withTransaction
 import sk.cartracker.data.local.CATEGORY_BUSINESS
@@ -123,6 +124,100 @@ class TripRepository(
     suspend fun updateTripRaw(t: TripEntity) = dao.updateTrip(t)
 
     suspend fun nextTrip(t: TripEntity): TripEntity? = session.user()?.let { dao.nextTrip(it.id, t.type, t.startedAt) }
+
+    /**
+     * Kalibrácia km podľa tachometra: porovná rozdiel tachometra medzi prvým a posledným tankovaním
+     * s km jázd vozidla v tom istom období. @return (pomer tachometer/aplikácia, km tachometra, km jázd) alebo null
+     */
+    suspend fun odometerRatio(vehicleUuid: String, refuels: List<RefuelEntity>): Triple<Double, Double, Double>? {
+        val user = session.user() ?: return null
+        val r = refuels.filter { it.odometerKm > 0 }.sortedBy { it.ts }
+        if (r.size < 2) return null
+        val odoKm = (r.last().odometerKm - r.first().odometerKm).toDouble()
+        val appKm = dao.vehicleDistanceBetween(user.id, vehicleUuid, r.first().ts, r.last().ts) / 1000.0
+        if (odoKm < 100 || appKm < 50) return null
+        return Triple(odoKm / appKm, odoKm, appKm)
+    }
+
+    /** Prepočíta km všetkých jázd vozidla koeficientom (pri oprave podľa tachometra aj spätne). */
+    suspend fun rescaleVehicleTrips(vehicleUuid: String, ratio: Double): Int = withContext(Dispatchers.IO) {
+        val user = session.user() ?: return@withContext 0
+        val list = dao.allTrips(user.id).filter { !it.isWalk && it.vehicleUuid == vehicleUuid && it.finished }
+        db.withTransaction {
+            list.forEach { t ->
+                val d = t.distanceM * ratio
+                val h = ((t.endedAt ?: t.startedAt) - t.startedAt) / 3_600_000.0
+                dao.updateTrip(t.copy(distanceM = d, avgSpeedKmh = if (h > 0) d / 1000 / h else t.avgSpeedKmh, synced = false))
+            }
+        }
+        list.size
+    }
+
+    /** Ručne pridaná jazda / chôdza (zabudnutá, bez trasy). @return id */
+    suspend fun addManual(t: TripEntity): Long = withContext(Dispatchers.IO) {
+        val user = session.user() ?: error("Nie ste prihlásený")
+        val hours = ((t.endedAt ?: t.startedAt) - t.startedAt) / 3_600_000.0
+        dao.insertTrip(t.copy(
+            id = 0, uuid = java.util.UUID.randomUUID().toString(), userId = user.id, triggerSource = "manual",
+            avgSpeedKmh = if (hours > 0) t.distanceM / 1000.0 / hours else 0.0, finished = true, synced = false, uploaded = false,
+        ))
+    }
+
+    /**
+     * Rozdelí jazdu v čase [splitTs] na dve. Body od tohto času patria novej jazde; vzdialenosť, rýchlosti,
+     * kroky (podľa času) a udalosti sa prepočítajú pre obe časti. Na serveri sa pôvodná jazda nahradí dvoma novými.
+     * @return id druhej (novej) jazdy
+     */
+    suspend fun split(t: TripEntity, splitTs: Long, ctx: android.content.Context): Long = withContext(Dispatchers.IO) {
+        val pts = dao.points(t.id)
+        val a = pts.filter { it.ts < splitTs }
+        val b = pts.filter { it.ts >= splitTs }
+        require(a.size >= 2 && b.size >= 2) { "Každá časť musí mať aspoň 2 body trasy" }
+        val end = t.endedAt ?: pts.last().ts
+        fun dist(list: List<sk.cartracker.data.local.PointEntity>): Double {
+            var d = 0.0
+            for (i in 1 until list.size) {
+                val r = FloatArray(1)
+                android.location.Location.distanceBetween(list[i - 1].lat, list[i - 1].lng, list[i].lat, list[i].lng, r)
+                if (r[0] > 3f) d += r[0]   // ignoruj GPS „tancovanie“ na mieste
+            }
+            return d
+        }
+        val dA = dist(a); val dB = dist(b)
+        val total = (dA + dB).coerceAtLeast(1.0)
+        // celková vzdialenosť jazdy (napr. podľa krokov či opravy tachometra) sa rozdelí v pomere GPS úsekov
+        val distA = t.distanceM * dA / total; val distB = t.distanceM * dB / total
+        val endA = a.last().ts; val startB = b.first().ts
+        val fracA = ((endA - t.startedAt).toDouble() / (end - t.startedAt).coerceAtLeast(1)).coerceIn(0.0, 1.0)
+        fun avg(dm: Double, from: Long, to: Long) = ((to - from) / 3_600_000.0).let { h -> if (h > 0) dm / 1000.0 / h else 0.0 }
+        val addrA = runCatching { Geo.address(ctx, a.last().lat, a.last().lng) }.getOrNull()
+        val addrB = runCatching { Geo.address(ctx, b.first().lat, b.first().lng) }.getOrNull()
+        val oldUuid = t.uuid
+        val newId = db.withTransaction {
+            val second = t.copy(
+                id = 0, uuid = java.util.UUID.randomUUID().toString(), startedAt = startB, endedAt = end,
+                distanceM = distB, maxSpeedKmh = b.mapNotNull { it.speedKmh }.maxOrNull()?.toDouble() ?: 0.0, avgSpeedKmh = avg(distB, startB, end),
+                startLat = b.first().lat, startLng = b.first().lng, startAddress = addrB, startPlace = null,
+                steps = (t.steps * (1 - fracA)).toInt(),
+                hardBrakes = b.count { it.event == "brake" }, hardAccels = b.count { it.event == "accel" },
+                speedingSec = (t.speedingSec * (1 - fracA)).toInt(), synced = false, uploaded = false,
+            )
+            val id = dao.insertTrip(second)
+            dao.movePointsFrom(t.id, id, splitTs)
+            dao.updateTrip(t.copy(
+                uuid = java.util.UUID.randomUUID().toString(), endedAt = endA, distanceM = distA,
+                maxSpeedKmh = a.mapNotNull { it.speedKmh }.maxOrNull()?.toDouble() ?: 0.0, avgSpeedKmh = avg(distA, t.startedAt, endA),
+                endLat = a.last().lat, endLng = a.last().lng, endAddress = addrA, endPlace = null,
+                steps = (t.steps * fracA).toInt(),
+                hardBrakes = a.count { it.event == "brake" }, hardAccels = a.count { it.event == "accel" },
+                speedingSec = (t.speedingSec * fracA).toInt(), synced = false, uploaded = false,
+            ))
+            dao.markPointsUnsynced(t.id)
+            id
+        }
+        if (t.uploaded) deleteRemote(listOf(oldUuid))
+        newId
+    }
 
     /**
      * Zlúči viac jázd (rovnakého typu) do jednej – do najstaršej z nich.

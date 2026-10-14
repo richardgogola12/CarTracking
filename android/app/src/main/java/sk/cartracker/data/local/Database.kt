@@ -252,6 +252,9 @@ interface TripDao {
     @Query("UPDATE points SET synced = 1 WHERE id IN (:ids)") suspend fun markPointsSynced(ids: List<Long>)
     /** Jazda, ktorá na serveri chýba – odošle sa znova celá aj s bodmi. */
     @Query("UPDATE points SET synced = 0 WHERE tripId = :tripId") suspend fun markPointsUnsynced(tripId: Long)
+    /** Rozdelenie jazdy: body od času [fromTs] presunie do novej jazdy. */
+    @Query("UPDATE points SET tripId = :target, synced = 0 WHERE tripId = :source AND ts >= :fromTs")
+    suspend fun movePointsFrom(source: Long, target: Long, fromTs: Long)
     @Query("UPDATE trips SET synced = 0, uploaded = 0 WHERE id = :tripId") suspend fun markTripUnsynced(tripId: Long)
     /** Zlúčenie: body ostatných jázd sa presunú do cieľovej jazdy (a znova sa odošlú na server). */
     @Query("UPDATE points SET tripId = :target, synced = 0 WHERE tripId IN (:sources)")

@@ -60,6 +60,9 @@ class CarTrackerApp : Application() {
         sk.cartracker.sync.ReminderWorker.schedule(this)
         sk.cartracker.widget.CarWidget.updateAll(this)
 
+        // Diagnostika zapnutá / vypnutá podľa nastavení
+        appScope.launch { container.settings.flow.collect { sk.cartracker.data.DiagLog.enabled = it.diagnostics } }
+
         // Tlačidlá v rýchlej lište a widget sledujú stav jazdy
         appScope.launch {
             sk.cartracker.service.TrackingState.state.collect { sk.cartracker.service.BaseTrackTile.requestUpdate(this@CarTrackerApp) }

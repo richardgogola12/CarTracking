@@ -261,6 +261,65 @@ Chôdza mimo pracovného času sa nezapočítava; záznam presahujúci pracovný
         return sb.toString()
     }
 
+    /** Časová os dňa na tlač. */
+    fun timelineHtml(seg: List<sk.cartracker.ui.screens.DaySegment>, day: Long, vehicles: Map<String, VehicleEntity>, s: AppSettings, name: String): String {
+        val K = sk.cartracker.ui.screens.DaySegment.Kind
+        val rows = StringBuilder()
+        seg.forEach { g ->
+            val t = g.trip
+            val (icon, what) = when (g.kind) {
+                K.CAR -> "🚗" to "Jazda"
+                K.WALK -> "🚶" to "Chôdza"
+                K.STAY -> "🅿️" to "Pobyt"
+            }
+            val desc = if (t == null) esc(g.place ?: "na mieste")
+                else esc((t.startPlace ?: t.startAddress ?: "?") + " → " + (t.endPlace ?: t.endAddress ?: "?")) +
+                    (if (t.note.isNotBlank()) "<div style='color:#666'>${esc(t.note)}</div>" else "")
+            val detail = when {
+                t == null -> ""
+                g.kind == K.CAR -> "Ø ${t.avgSpeedKmh.toInt()} km/h" + (vehicles[t.vehicleUuid]?.let { " · " + esc(it.name) } ?: "") +
+                    (if (t.category == CATEGORY_BUSINESS) " · služobná" else "")
+                else -> String.format(sk, "%,d krokov", t.steps)
+            }
+            rows.append("<tr class='${g.kind.name.lowercase()}'><td class='c'>${formatTime(g.from)}–${formatTime(g.to)}</td><td>$icon $what</td><td>$desc</td>")
+                .append("<td class='r'>${t?.let { km(it.distanceM) } ?: ""}</td><td class='r'>${formatDuration(g.ms)}</td><td>$detail</td></tr>\n")
+        }
+        val cars = seg.filter { it.kind == K.CAR }.mapNotNull { it.trip }
+        val walks = seg.filter { it.kind == K.WALK }.mapNotNull { it.trip }
+        return """<!doctype html><html lang="sk"><head><meta charset="utf-8"><title>Časová os – ${esc(formatDay(day))}</title><style>$CSS
+ tr.car td:first-child { border-left: 4px solid #2e7d32; } tr.walk td:first-child { border-left: 4px solid #1565c0; } tr.stay td { color: #555; }
+ tr.stay td:first-child { border-left: 4px solid #bcaaa4; }</style></head><body>
+<h1>Časová os dňa</h1>
+<div class="meta"><div><b>Deň:</b> ${esc(formatDay(day))}</div><div><b>Meno:</b> ${esc(name)}</div></div>
+<table><thead><tr><th>Čas</th><th>Činnosť</th><th>Odkiaľ → kam / miesto</th><th>km</th><th>Trvanie</th><th>Podrobnosti</th></tr></thead>
+<tbody>$rows</tbody></table>
+<div class="sum">
+ <div class="box"><div>Autom</div><b>${km(cars.sumOf { it.distanceM })} km</b></div>
+ <div class="box"><div>Jázd / za volantom</div><b>${cars.size} · ${formatDuration(cars.sumOf { (it.endedAt ?: it.startedAt) - it.startedAt })}</b></div>
+ <div class="box"><div>Pešo</div><b>${km(walks.sumOf { it.distanceM })} km · ${String.format(sk, "%,d", walks.sumOf { it.steps })} krokov</b></div>
+ <div class="box"><div>Náklady na palivo</div><b>${money(cars.sumOf { it.cost(vehicles[it.vehicleUuid], s) })} €</b></div>
+</div>
+<div class="foot">Vygenerované aplikáciou Car Tracking ${esc(formatDateTime(System.currentTimeMillis()))}.</div>
+</body></html>"""
+    }
+
+    fun timelineCsv(seg: List<sk.cartracker.ui.screens.DaySegment>, vehicles: Map<String, VehicleEntity>): String {
+        fun q(x: String?) = "\"" + (x ?: "").replace("\"", "\"\"") + "\""
+        val sb = StringBuilder("﻿")
+        sb.append("Dátum;Od;Do;Činnosť;Odkiaľ;Kam / miesto;km;Trvanie min;Kroky;Vozidlo;Typ;Účel\r\n")
+        seg.forEach { g ->
+            val t = g.trip
+            sb.append(listOf(formatDate(g.from), formatTime(g.from), formatTime(g.to),
+                when (g.kind.name) { "CAR" -> "jazda"; "WALK" -> "chôdza"; else -> "pobyt" },
+                q(t?.let { it.startPlace ?: it.startAddress }), q(t?.let { it.endPlace ?: it.endAddress } ?: g.place),
+                t?.let { String.format(sk, "%.2f", it.distanceM / 1000) } ?: "", (g.ms / 60_000).toString(),
+                t?.steps?.takeIf { it > 0 }?.toString() ?: "", q(t?.vehicleUuid?.let { vehicles[it]?.name }),
+                t?.let { if (it.isWalk) "" else if (it.category == CATEGORY_BUSINESS) "služobná" else "súkromná" } ?: "", q(t?.note),
+            ).joinToString(";")).append("\r\n")
+        }
+        return sb.toString()
+    }
+
     fun shareFile(ctx: Context, fileName: String, content: String, mime: String) {
         val dir = File(ctx.cacheDir, "exports").apply { mkdirs() }
         val file = File(dir, fileName).apply { writeText(content, Charsets.UTF_8) }

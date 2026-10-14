@@ -90,6 +90,9 @@ fun RefuelsScreen(vehicleUuid: String, onBack: () -> Unit) {
         odoEstimate = c.reminders.odometerNow(vehicleUuid)
     }
     val stats = remember(refuels) { RefuelRepository.stats(refuels) }
+    var odoRatio by remember { mutableStateOf<Triple<Double, Double, Double>?>(null) }
+    LaunchedEffect(refuels) { odoRatio = c.trips.odometerRatio(vehicleUuid, refuels) }
+    var calMsg by remember { mutableStateOf<String?>(null) }
     val perRefuel = remember(stats) { stats.points.associate { it.refuel.uuid to it.per100 } }
     val unit = vehicle?.unit ?: "l"
 
@@ -111,6 +114,47 @@ fun RefuelsScreen(vehicleUuid: String, onBack: () -> Unit) {
     ) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 96.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                // Kalibrácia km podľa tachometra
+                SectionCard("Kalibrácia km podľa tachometra") {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val current = s.odoFactor(vehicleUuid)
+                        Text("Aktuálna oprava: " + if (current == 1.0) "žiadna" else "${fmt((current - 1) * 100, 1)} % (× ${fmt(current, 4)})",
+                            fontWeight = FontWeight.SemiBold)
+                        val r = odoRatio
+                        if (r == null) {
+                            Text("Zadávajte stav tachometra pri tankovaní. Po dvoch tankovaniach s odstupom aspoň 100 km aplikácia porovná tachometer s km z GPS a navrhne opravu.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            val (ratio, odoKm, appKm) = r
+                            val suggested = (current * ratio).coerceIn(0.5, 1.5)
+                            Text("Tachometer: ${fmt(odoKm, 0)} km · aplikácia: ${fmt(appKm, 0)} km → rozdiel ${fmt((ratio - 1) * 100, 1)} %",
+                                style = MaterialTheme.typography.bodySmall)
+                            if (kotlin.math.abs(ratio - 1) < 0.005) Text("Km sedia s tachometrom ✓", color = MaterialTheme.colorScheme.primary)
+                            else {
+                                OutlinedButton(onClick = {
+                                    scope.launch {
+                                        c.settings.update { it.copy(odoFactors = it.withOdoFactor(vehicleUuid, suggested)) }
+                                        calMsg = "Oprava ${fmt((suggested - 1) * 100, 1)} % sa použije pre nové jazdy."
+                                    }
+                                }, modifier = Modifier.fillMaxWidth()) { Text("Použiť pre nové jazdy") }
+                                OutlinedButton(onClick = {
+                                    scope.launch {
+                                        c.settings.update { it.copy(odoFactors = it.withOdoFactor(vehicleUuid, suggested)) }
+                                        val n = c.trips.rescaleVehicleTrips(vehicleUuid, ratio)
+                                        if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
+                                        calMsg = "Opravené aj staršie jazdy ($n) a nové jazdy."
+                                    }
+                                }, modifier = Modifier.fillMaxWidth()) { Text("Použiť aj na všetky staršie jazdy") }
+                            }
+                        }
+                        if (current != 1.0) TextButton(onClick = {
+                            scope.launch { c.settings.update { it.copy(odoFactors = it.withOdoFactor(vehicleUuid, null)) }; calMsg = "Oprava zrušená (staršie jazdy ostávajú)." }
+                        }) { Text("Zrušiť opravu") }
+                        calMsg?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+                    }
+                }
+            }
             item {
                 SectionCard("Skutočná spotreba") {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

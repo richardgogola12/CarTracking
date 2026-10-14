@@ -97,6 +97,16 @@ data class AppSettings(
     val monthlySummary: Boolean = true,
     val offlineMaps: Boolean = false,      // mapy iba z uložených dlaždíc (bez internetu)
     val mapCacheMb: Int = 500,
+    // Diagnostika a kalibrácia
+    val diagnostics: Boolean = true,
+    /** Opravný koeficient km podľa tachometra pre vozidlá: "uuid=1.0340;uuid2=0.9910" */
+    val odoFactors: String = "",
+    /** Automaticky upravovať dĺžku kroku podľa chôdze vonku s GPS. */
+    val strideAuto: Boolean = false,
+    /** Nazbierané údaje pre kalibráciu kroku: metre GPS a kroky z vhodných chôdzí. */
+    val strideCalMeters: Int = 0,
+    val strideCalSteps: Int = 0,
+    val strideCalWalks: Int = 0,
     // Automatické zlučovanie (zastávka na pumpe, v obchode…)
     val autoMerge: Boolean = true,
     val autoMergeGapMin: Int = 10,        // auto: max. dĺžka prestávky
@@ -118,6 +128,19 @@ data class AppSettings(
     val fuelConsumption get() = fuelConsumptionX10 / 10.0
     val fuelPrice get() = fuelPriceCents / 100.0
     fun fuelCost(distanceM: Double) = distanceM / 1000.0 / 100.0 * fuelConsumption * fuelPrice
+    /** Opravný koeficient km pre vozidlo (1.0 = bez opravy). */
+    fun odoFactor(vehicleUuid: String?): Double = vehicleUuid?.let { u ->
+        odoFactors.split(';').firstOrNull { it.startsWith("$u=") }?.substringAfter('=')?.toDoubleOrNull()
+    }?.takeIf { it in 0.5..1.5 } ?: 1.0
+
+    fun withOdoFactor(vehicleUuid: String, factor: Double?): String {
+        val rest = odoFactors.split(';').filter { it.isNotBlank() && !it.startsWith("$vehicleUuid=") }
+        return (rest + listOfNotNull(factor?.let { "$vehicleUuid=" + String.format(java.util.Locale.US, "%.4f", it) })).joinToString(";")
+    }
+
+    /** Dĺžka kroku vypočítaná z GPS (cm) alebo null, ak je málo údajov. */
+    val strideFromGpsCm: Int? get() = if (strideCalWalks >= 3 && strideCalSteps > 500) (strideCalMeters * 100.0 / strideCalSteps).toInt().takeIf { it in 30..150 } else null
+
     fun fuelLiters(distanceM: Double) = distanceM / 1000.0 / 100.0 * fuelConsumption
 }
 
@@ -179,6 +202,12 @@ class SettingsRepository(private val context: Context) {
         val MONTHLY = booleanPreferencesKey("monthly_summary")
         val OFFLINE_MAPS = booleanPreferencesKey("offline_maps")
         val MAP_CACHE = intPreferencesKey("map_cache_mb")
+        val DIAG = booleanPreferencesKey("diagnostics")
+        val ODO_FACTORS = stringPreferencesKey("odo_factors")
+        val STRIDE_AUTO = booleanPreferencesKey("stride_auto")
+        val STRIDE_CAL_M = intPreferencesKey("stride_cal_m")
+        val STRIDE_CAL_S = intPreferencesKey("stride_cal_steps")
+        val STRIDE_CAL_W = intPreferencesKey("stride_cal_walks")
         val AUTO_MERGE = booleanPreferencesKey("auto_merge")
         val MERGE_GAP = intPreferencesKey("auto_merge_gap")
         val WALK_MERGE_GAP = intPreferencesKey("walk_merge_gap")
@@ -255,6 +284,12 @@ class SettingsRepository(private val context: Context) {
             monthlySummary = p[K.MONTHLY] ?: d.monthlySummary,
             offlineMaps = p[K.OFFLINE_MAPS] ?: d.offlineMaps,
             mapCacheMb = p[K.MAP_CACHE] ?: d.mapCacheMb,
+            diagnostics = p[K.DIAG] ?: d.diagnostics,
+            odoFactors = p[K.ODO_FACTORS] ?: d.odoFactors,
+            strideAuto = p[K.STRIDE_AUTO] ?: d.strideAuto,
+            strideCalMeters = p[K.STRIDE_CAL_M] ?: d.strideCalMeters,
+            strideCalSteps = p[K.STRIDE_CAL_S] ?: d.strideCalSteps,
+            strideCalWalks = p[K.STRIDE_CAL_W] ?: d.strideCalWalks,
             autoMerge = p[K.AUTO_MERGE] ?: d.autoMerge,
             autoMergeGapMin = p[K.MERGE_GAP] ?: d.autoMergeGapMin,
             walkMergeGapMin = p[K.WALK_MERGE_GAP] ?: d.walkMergeGapMin,
@@ -318,6 +353,12 @@ class SettingsRepository(private val context: Context) {
         p[K.MONTHLY] = s.monthlySummary
         p[K.OFFLINE_MAPS] = s.offlineMaps
         p[K.MAP_CACHE] = s.mapCacheMb
+        p[K.DIAG] = s.diagnostics
+        p[K.ODO_FACTORS] = s.odoFactors
+        p[K.STRIDE_AUTO] = s.strideAuto
+        p[K.STRIDE_CAL_M] = s.strideCalMeters
+        p[K.STRIDE_CAL_S] = s.strideCalSteps
+        p[K.STRIDE_CAL_W] = s.strideCalWalks
         p[K.AUTO_MERGE] = s.autoMerge
         p[K.MERGE_GAP] = s.autoMergeGapMin
         p[K.WALK_MERGE_GAP] = s.walkMergeGapMin

@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxSize
+import kotlinx.coroutines.launch
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -100,6 +102,8 @@ private fun AppNavigation(start: String) {
         composable("refuels/{vehicle}") { RefuelsScreen(it.arguments?.getString("vehicle") ?: "", onBack = { nav.popBackStack() }) }
         composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
         composable("offline") { sk.cartracker.ui.screens.OfflineMapScreen(onBack = { nav.popBackStack() }) }
+        composable("diagnostics") { sk.cartracker.ui.screens.DiagnosticsScreen(onBack = { nav.popBackStack() }) }
+        composable("timeline") { sk.cartracker.ui.screens.TimelineScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
         composable("routes") { sk.cartracker.ui.screens.RoutesScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
         composable("trip/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
             TripDetailScreen(it.arguments?.getLong("id") ?: 0L, onBack = { nav.popBackStack() })
@@ -115,22 +119,31 @@ private fun MainTabs(
     onOpenTrip: (Long) -> Unit, onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpenHelp: () -> Unit,
     onOpenVehicles: () -> Unit, onNavigate: (String) -> Unit,
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    // Záložky sa dajú prepínať aj potiahnutím doľava / doprava
+    var saved by rememberSaveable { mutableIntStateOf(0) }
+    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = saved) { 4 }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    androidx.compose.runtime.LaunchedEffect(pager.currentPage) { saved = pager.currentPage }
+    fun go(i: Int) { scope.launch { pager.animateScrollToPage(i) } }
     Scaffold(bottomBar = {
         NavigationBar {
-            NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.Dashboard, null) }, label = { Text("Prehľad") })
-            NavigationBarItem(tab == 1, { tab = 1 }, { Icon(Icons.Filled.Route, null) }, label = { Text("Jazdy") })
-            NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Filled.BarChart, null) }, label = { Text("Štatistiky") })
-            NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Filled.Settings, null) }, label = { Text("Nastavenia") })
+            val tab = pager.targetPage
+            NavigationBarItem(tab == 0, { go(0) }, { Icon(Icons.Filled.Dashboard, null) }, label = { Text("Prehľad") })
+            NavigationBarItem(tab == 1, { go(1) }, { Icon(Icons.Filled.Route, null) }, label = { Text("Jazdy") })
+            NavigationBarItem(tab == 2, { go(2) }, { Icon(Icons.Filled.BarChart, null) }, label = { Text("Štatistiky") })
+            NavigationBarItem(tab == 3, { go(3) }, { Icon(Icons.Filled.Settings, null) }, label = { Text("Nastavenia") })
         }
     }) { pad ->
-        val m = Modifier.padding(pad)
-        Surface(m) {
-            when (tab) {
-                0 -> HomeScreen(onOpenPermissions, onOpenVehicles, onNavigate)
-                1 -> TripsScreen(onOpenTrip)
-                2 -> StatsScreen(onNavigate)
-                else -> SettingsScreen(onOpenPermissions, onLoggedOut, onOpenHelp, onOpenVehicles, onNavigate)
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pager, modifier = Modifier.padding(pad), beyondViewportPageCount = 0, key = { it },
+        ) { page ->
+            Surface(Modifier.fillMaxSize()) {
+                when (page) {
+                    0 -> HomeScreen(onOpenPermissions, onOpenVehicles, onNavigate)
+                    1 -> TripsScreen(onOpenTrip, onNavigate)
+                    2 -> StatsScreen(onNavigate)
+                    else -> SettingsScreen(onOpenPermissions, onLoggedOut, onOpenHelp, onOpenVehicles, onNavigate)
+                }
             }
         }
     }

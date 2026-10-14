@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import sk.cartracker.container
+import sk.cartracker.data.DiagLog
 import sk.cartracker.data.RuntimeState
 import sk.cartracker.service.DriveState
 import sk.cartracker.service.TrackingService
@@ -36,19 +37,27 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
         async {
             val c = ctx.container
             val s = c.settings.current()
-            if ((!s.autoDetection && !s.walkTracking) || !c.session.isLoggedIn) return@async
+            if ((!s.autoDetection && !s.walkTracking) || !c.session.isLoggedIn) {
+                DiagLog.log(ctx, DiagLog.SYSTEM, "Udalosť aktivity ignorovaná – automatika je vypnutá alebo nie ste prihlásený")
+                return@async
+            }
 
             val nowNanos = SystemClock.elapsedRealtimeNanos()
             for (ev in result.transitionEvents.sortedBy { it.elapsedRealTimeNanos }) {
-                // ignoruj staré udalosti (napr. doručené po reštarte)
-                if (nowNanos - ev.elapsedRealTimeNanos > 5 * 60 * 1_000_000_000L) continue
                 val enter = ev.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER
-                RuntimeState.setLastActivity(ctx, (if (enter) "začiatok: " else "koniec: ") + ActivityDetectionManager.activityName(ev.activityType))
+                val what = (if (enter) "začiatok: " else "koniec: ") + ActivityDetectionManager.activityName(ev.activityType)
+                // ignoruj staré udalosti (napr. doručené po reštarte)
+                val ageSec = (nowNanos - ev.elapsedRealTimeNanos) / 1_000_000_000L
+                if (ageSec > 5 * 60) { DiagLog.log(ctx, DiagLog.SYSTEM, "$what – ignorované, udalosť je stará ${ageSec / 60} min"); continue }
+                DiagLog.log(ctx, DiagLog.SYSTEM, "Systém hlási $what" + if (ageSec > 20) " (oneskorene o $ageSec s)" else "")
+                RuntimeState.setLastActivity(ctx, what)
 
                 when {
                     ev.activityType == DetectedActivity.IN_VEHICLE && enter -> {
-                        if (!s.autoDetection) continue
-                        if (s.bluetoothRequired && !RuntimeState.isCarBtConnected(ctx)) continue
+                        if (!s.autoDetection) { DiagLog.log(ctx, DiagLog.CHECK, "Nespúšťam – automatické sledovanie jazdy je vypnuté"); continue }
+                        if (s.bluetoothRequired && !RuntimeState.isCarBtConnected(ctx)) {
+                            DiagLog.log(ctx, DiagLog.CHECK, "Nespúšťam – je zapnuté „iba keď je pripojené auto“ a Bluetooth auta nie je pripojené"); continue
+                        }
                         TrackingService.startCandidate(ctx, TrackingService.SOURCE_AUTO)
                     }
                     ev.activityType == DetectedActivity.IN_VEHICLE && !enter ->
@@ -56,7 +65,9 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
                     // Chôdza / beh: ukončí jazdu autom a (ak je zapnuté) spustí sledovanie chôdze
                     enter && ev.activityType in setOf(DetectedActivity.WALKING, DetectedActivity.RUNNING) -> {
                         val idle = TrackingState.state.value == DriveState.IDLE
-                        if (idle && !s.walkActiveNow()) continue
+                        if (idle && !s.walkActiveNow()) {
+                            DiagLog.log(ctx, DiagLog.WALK, if (!s.walkTracking) "Chôdza sa nesleduje – vypnuté v nastaveniach" else "Chôdza sa nesleduje – mimo pracovného času"); continue
+                        }
                         TrackingService.walkSignal(ctx)
                     }
                     enter && ev.activityType == DetectedActivity.ON_BICYCLE ->
@@ -98,6 +109,7 @@ class BluetoothCarReceiver : BroadcastReceiver() {
             if (!c.session.isLoggedIn) return@async
             // Bluetooth patrí niektorému z vozidiel → to sa stane aktívnym (automatické prepnutie vozidla)
             val vehicle = c.vehicles.byBluetooth(address) ?: return@async
+            DiagLog.log(ctx, DiagLog.BT, (if (intent.action == BluetoothDevice.ACTION_ACL_CONNECTED) "Pripojené" else "Odpojené") + " Bluetooth vozidla ${vehicle.name}")
             when (intent.action) {
                 BluetoothDevice.ACTION_ACL_CONNECTED -> {
                     RuntimeState.setCarBtConnected(ctx, true)
