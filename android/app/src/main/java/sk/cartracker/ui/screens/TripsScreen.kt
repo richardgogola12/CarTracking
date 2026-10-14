@@ -477,6 +477,7 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                 if (!t.isWalk) TripLogbookCard(t, odometer) { category, note ->
                     scope.launch {
                         c.trips.updateMeta(t, category, note)
+                        if (category != t.category) c.settings.update { sk.cartracker.data.TripClassifier.learn(it, t, category) }
                         if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
                     }
                 }

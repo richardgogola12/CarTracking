@@ -67,6 +67,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- Nezávislá služba – beží aj po zatvorení hlavného okna -->
@@ -103,6 +104,9 @@
 
         <receiver
             android:name=".service.NotificationActionReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".service.CategoryActionReceiver"
             android:exported="false" />
 
         <!-- Tlačidlá v rýchlej lište -->

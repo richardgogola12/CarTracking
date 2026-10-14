@@ -112,6 +112,16 @@ data class AppSettings(
     val autoMergeGapMin: Int = 10,        // auto: max. dĺžka prestávky
     val walkMergeGapMin: Int = 5,         // chôdza: max. dĺžka prestávky
     val autoMergeMaxDistanceM: Int = 1000, // koniec predchádzajúcej ↔ začiatok novej
+    // Účel jazdy: otázka v notifikácii, učenie a pravidlá
+    val askCategory: Boolean = true,
+    val learnCategory: Boolean = true,
+    val ruleWorkTime: Boolean = false,      // v pracovnom čase → služobná
+    val ruleWeekendPrivate: Boolean = false, // v deň voľna → súkromná
+    /** Naučené trasy: "lat,lng,lat,lng,služobné,súkromné;…" */
+    val learnedRoutes: String = "",
+    // Úspora batérie a kontrola jázd
+    val adaptiveGps: Boolean = true,
+    val tripCheck: Boolean = true,
 ) {
     val workDaySet: Set<Int> get() = workDays.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
 
@@ -212,6 +222,13 @@ class SettingsRepository(private val context: Context) {
         val MERGE_GAP = intPreferencesKey("auto_merge_gap")
         val WALK_MERGE_GAP = intPreferencesKey("walk_merge_gap")
         val MERGE_DIST = intPreferencesKey("auto_merge_distance")
+        val ASK_CAT = booleanPreferencesKey("ask_category")
+        val LEARN_CAT = booleanPreferencesKey("learn_category")
+        val RULE_WORK = booleanPreferencesKey("rule_work_time")
+        val RULE_WEEKEND = booleanPreferencesKey("rule_weekend_private")
+        val LEARNED = stringPreferencesKey("learned_routes")
+        val ADAPTIVE_GPS = booleanPreferencesKey("adaptive_gps")
+        val TRIP_CHECK = booleanPreferencesKey("trip_check")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data
@@ -294,6 +311,13 @@ class SettingsRepository(private val context: Context) {
             autoMergeGapMin = p[K.MERGE_GAP] ?: d.autoMergeGapMin,
             walkMergeGapMin = p[K.WALK_MERGE_GAP] ?: d.walkMergeGapMin,
             autoMergeMaxDistanceM = p[K.MERGE_DIST] ?: d.autoMergeMaxDistanceM,
+            askCategory = p[K.ASK_CAT] ?: d.askCategory,
+            learnCategory = p[K.LEARN_CAT] ?: d.learnCategory,
+            ruleWorkTime = p[K.RULE_WORK] ?: d.ruleWorkTime,
+            ruleWeekendPrivate = p[K.RULE_WEEKEND] ?: d.ruleWeekendPrivate,
+            learnedRoutes = p[K.LEARNED] ?: d.learnedRoutes,
+            adaptiveGps = p[K.ADAPTIVE_GPS] ?: d.adaptiveGps,
+            tripCheck = p[K.TRIP_CHECK] ?: d.tripCheck,
         )
     }
 
@@ -363,5 +387,12 @@ class SettingsRepository(private val context: Context) {
         p[K.MERGE_GAP] = s.autoMergeGapMin
         p[K.WALK_MERGE_GAP] = s.walkMergeGapMin
         p[K.MERGE_DIST] = s.autoMergeMaxDistanceM
+        p[K.ASK_CAT] = s.askCategory
+        p[K.LEARN_CAT] = s.learnCategory
+        p[K.RULE_WORK] = s.ruleWorkTime
+        p[K.RULE_WEEKEND] = s.ruleWeekendPrivate
+        p[K.LEARNED] = s.learnedRoutes
+        p[K.ADAPTIVE_GPS] = s.adaptiveGps
+        p[K.TRIP_CHECK] = s.tripCheck
     }
 }

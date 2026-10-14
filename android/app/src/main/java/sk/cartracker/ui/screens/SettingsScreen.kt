@@ -206,6 +206,8 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 SliderRow("Interval záznamu polohy", s.gpsIntervalSec, 1..15, 1, "s",
                     "Kratší interval = presnejšia trasa, vyššia spotreba batérie.") { v -> update { it.copy(gpsIntervalSec = v) } }
                 SwitchRow("Vysoká presnosť (GPS)", "Vypnutím ušetríte batériu, trasa bude menej presná", s.highAccuracy) { on -> update { it.copy(highAccuracy = on) } }
+                SwitchRow("Šetriť batériu počas jazdy", "Na diaľnici redšie body, pri státí (kolóna, semafor) úsporný režim – pri rozjazde hneď späť. Spotrebu ukazuje Diagnostika.",
+                    s.adaptiveGps) { on -> update { it.copy(adaptiveGps = on) } }
             }
         }
 
@@ -219,7 +221,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 SwitchRow("Iba v pracovnom čase", "Mimo pracovného času sa chôdza nezaznamenáva", s.walkWorkHoursOnly, enabled = s.walkTracking) { on ->
                     update { it.copy(walkWorkHoursOnly = on) }
                 }
-                if (s.walkTracking && s.walkWorkHoursOnly) {
+                if ((s.walkTracking && s.walkWorkHoursOnly) || s.ruleWorkTime || s.ruleWeekendPrivate) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf("Po", "Ut", "St", "Št", "Pi", "So", "Ne").forEachIndexed { i, d ->
                             val day = i + 1
@@ -310,6 +312,26 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 SwitchRow("Zisťovať adresy začiatku a cieľa", "Ulica a mesto v zozname jázd a v knihe jázd (potrebuje internet)", s.detectAddresses) { on -> update { it.copy(detectAddresses = on) } }
             }
 
+            Sub("Účel jazdy automaticky") {
+                SwitchRow("Pýtať sa po jazde v notifikácii", "Tlačidlá Služobná / Súkromná – netreba otvárať aplikáciu", s.askCategory) { on -> update { it.copy(askCategory = on) } }
+                val learned = remember(s.learnedRoutes) { sk.cartracker.data.TripClassifier.parse(s.learnedRoutes).size }
+                SwitchRow("Učiť sa z mojich rozhodnutí", "Keď jazdu na rovnakej trase zaradíte aspoň 2× rovnako, ďalšie sa zaradia samy" +
+                    (if (learned > 0) " · naučené trasy: $learned" else ""), s.learnCategory) { on -> update { it.copy(learnCategory = on) } }
+                if (learned > 0) Text("Zabudnúť naučené trasy", Modifier.fillMaxWidth().clickable { update { it.copy(learnedRoutes = "") } }.padding(horizontal = 16.dp, vertical = 10.dp),
+                    color = MaterialTheme.colorScheme.primary)
+                SwitchRow("V pracovnom čase služobná", "Pracovné dni a čas sa nastavujú v časti Chôdza a kroky (${workSummary(s)})", s.ruleWorkTime) { on -> update { it.copy(ruleWorkTime = on) } }
+                SwitchRow("V deň voľna súkromná", "Víkend a ďalšie dni mimo pracovných dní", s.ruleWeekendPrivate) { on -> update { it.copy(ruleWeekendPrivate = on) } }
+                Text("Poradie: naučená trasa → miesto s nastaveným účelom (napr. Klient) → pravidlá času → predvolený typ.",
+                    Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            Sub("Kontrola jázd") {
+                SwitchRow("Upozorniť na podozrivé jazdy", "Na Prehľade karta, keď sa nájde zabudnutý koniec, rozdelená jazda, výpadok GPS a pod.", s.tripCheck) { on -> update { it.copy(tripCheck = on) } }
+                Text("Otvoriť kontrolu jázd", Modifier.fillMaxWidth().clickable { onNavigate("tripcheck") }.padding(16.dp),
+                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
+
             Sub("Zlučovanie jázd") {
                 SwitchRow("Automaticky zlúčiť po krátkej prestávke", "Napr. zastávka na pumpe – vznikne jedna jazda namiesto dvoch",
                     s.autoMerge) { on -> update { it.copy(autoMerge = on) } }
@@ -391,7 +413,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
         }
 
         // ---------- Widgety a rýchla lišta ----------
-        Group("Widgety a rýchla lišta", Icons.Filled.Widgets, "widgety na ploche, tlačidlá Jazda / Chôdza v lište") {
+        Group("Widgety, lišta a skratky", Icons.Filled.Widgets, "widgety na ploche, tlačidlá Jazda / Chôdza v lište, skratky na ikone") {
             Sub("Tlačidlá v rýchlej lište") {
                 Text("Spustenie alebo ukončenie jazdy / chôdze jedným ťuknutím zo stiahnutej hornej lišty.",
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
@@ -401,6 +423,11 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 }
             }
 
+            Sub("Skratky na ikone aplikácie") {
+                Text("Podržte prst na ikone Car Tracking na ploche: Začať jazdu, Začať chôdzu, Kde je auto (navigácia) a Tankovanie. " +
+                    "Skratku môžete pretiahnuť aj na plochu ako samostatnú ikonu. Druhé ťuknutie na Začať jazdu / chôdzu záznam ukončí.",
+                    Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
+            }
             Sub("Widgety na ploche") {
                 Text("Podržte prst na ploche → Widgety → Car Tracking. K dispozícii je hlavný widget a menšie: tlačidlá, kroky, parkovanie a mesiac.",
                     Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall)
@@ -573,4 +600,11 @@ private fun Sub(title: String, content: @Composable () -> Unit) {
             color = MaterialTheme.colorScheme.primary)
         content()
     }
+}
+
+private fun workSummary(s: sk.cartracker.data.AppSettings): String {
+    val names = listOf("Po", "Ut", "St", "Št", "Pi", "So", "Ne")
+    val days = s.workDaySet.sorted().mapNotNull { names.getOrNull(it - 1) }.joinToString(" ")
+    fun hm(m: Int) = String.format(java.util.Locale.US, "%d:%02d", m / 60, m % 60)
+    return "$days ${hm(s.workFromMin)}–${hm(s.workToMin)}"
 }

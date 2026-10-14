@@ -34,6 +34,8 @@ import kotlinx.coroutines.sync.withLock
 import sk.cartracker.appScope
 import sk.cartracker.container
 import sk.cartracker.data.AppSettings
+import sk.cartracker.data.BatteryStats
+import sk.cartracker.data.TripClassifier
 import sk.cartracker.data.DiagLog
 import sk.cartracker.data.DrivingScore
 import sk.cartracker.data.Geo
@@ -200,6 +202,15 @@ class TrackingService : LifecycleService() {
     private var stepSensorActive = false
 
     private var locationActive = false
+    // Úspora batérie: interval GPS podľa situácie (normálne / diaľnica / státie)
+    private enum class GpsMode(val label: String) { NORMAL("normálny"), HIGHWAY("diaľnica – redšie body"), STOPPED("státie – úsporný") }
+    private var gpsMode = GpsMode.NORMAL
+    private var fastSince = 0L
+    private var slowSince = 0L
+    // Spotreba batérie počas behu GPS
+    private var gpsOnAt = 0L
+    private var battStart = -1
+    private var battCharging = false
     private var lastNotifUpdate = 0L
     private var wakeLock: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -458,6 +469,7 @@ class TrackingService : LifecycleService() {
         } else {
             if (speed >= MOVING_KMH) lastMovingAt = now
             if (speed >= settings.minDriveSpeedKmh) exitSignalAt = null
+            adaptGps(speed, now)
             maybeLookupRoad(loc)
             event = detectEvent(loc, speed)
         }
@@ -624,6 +636,7 @@ class TrackingService : LifecycleService() {
         val mergeWith = mergeCandidate(t)
 
         val summary: String?
+        var classify: Notifications.Classify? = null
         if (!manual && dist < minDist && mergeWith == null) {
             dao.deleteTrip(t.id)
             summary = if (t.isWalk) null else "Jazda bola kratšia ako $minDist m – neuložená"
@@ -647,7 +660,16 @@ class TrackingService : LifecycleService() {
                 )
             }
             // Miesta (Domov, Práca…): názvy, typ jazdy a účel
-            saved = container.places.applyToTrip(saved, container.places.list(), settings, setCategory = true)
+            val places = container.places.list()
+            saved = container.places.applyToTrip(saved, places, settings, setCategory = true)
+            // Účel: naučené trasy → miesta → pravidlá času → predvolený
+            var reason: String? = null
+            if (!t.isWalk) {
+                val d = TripClassifier.decide(saved, places, { la, lo -> container.places.match(places, la, lo) }, settings)
+                saved = saved.copy(category = d.category)
+                reason = d.reason
+                DiagLog.log(this, DiagLog.DRIVE, "Účel jazdy: ${Notifications.categoryLabel(d.category)} (${d.reason})")
+            }
             dao.updateTrip(saved)
             var merged = false
             if (mergeWith != null) {
@@ -655,6 +677,7 @@ class TrackingService : LifecycleService() {
                     .onSuccess { id -> dao.getTrip(id)?.let { saved = it; merged = true } }
                     .onFailure { Log.e(TAG, "Automatické zlúčenie zlyhalo", it) }
             }
+            if (!t.isWalk) classify = Notifications.Classify(saved.uuid, saved.category, reason ?: "")
             val total = (saved.endedAt ?: end) - saved.startedAt
             val prefix = if (merged) "Zlúčené s predchádzajúcou · spolu " else ""
             if (t.isWalk) {
@@ -673,7 +696,7 @@ class TrackingService : LifecycleService() {
             if (settings.autoSync) SyncWorker.enqueueNow(this, settings.syncWifiOnly)
         }
         if (t.isWalk) Notifications.walkEvent(this, started = false, s = settings, summary = summary)
-        else Notifications.driveEvent(this, started = false, s = settings, summary = summary)
+        else Notifications.driveEvent(this, started = false, s = settings, summary = summary, classify = classify)
         Log.i(TAG, "Záznam ukončený: $summary")
         DiagLog.log(this, if (t.isWalk) DiagLog.WALK else DiagLog.DRIVE,
             (if (t.isWalk) "Chôdza ukončená" else "Režim jazdy VYPNUTÝ") + ": " + (summary ?: "kratšie ako minimum (${minDist} m) – neuložené"))
@@ -787,23 +810,35 @@ class TrackingService : LifecycleService() {
     private fun hasLocationPermission() =
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    @SuppressLint("MissingPermission")
-    private fun startLocation() {
-        if (locationActive) return
+    private fun locationRequest(): LocationRequest {
         val walking = state == DriveState.WALKING
-        val intervalMs = (if (walking) settings.walkGpsIntervalSec else settings.gpsIntervalSec).coerceAtLeast(1) * 1000L
+        val base = (if (walking) settings.walkGpsIntervalSec else settings.gpsIntervalSec).coerceAtLeast(1)
+        val sec = when (gpsMode) {
+            GpsMode.NORMAL -> base
+            GpsMode.HIGHWAY -> (base * 2).coerceAtMost(6).coerceAtLeast(base)
+            GpsMode.STOPPED -> maxOf(base, 10)
+        }
         val priority = when {
-            walking -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+            walking || gpsMode == GpsMode.STOPPED -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
             settings.highAccuracy -> Priority.PRIORITY_HIGH_ACCURACY
             else -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
         }
-        val request = LocationRequest.Builder(priority, intervalMs)
+        val intervalMs = sec * 1000L
+        return LocationRequest.Builder(priority, intervalMs)
             .setMinUpdateIntervalMillis(intervalMs / 2)
             .setWaitForAccurateLocation(false)
             .build()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startLocation() {
+        if (locationActive) return
+        gpsMode = GpsMode.NORMAL; fastSince = 0L; slowSince = 0L
         try {
-            fused.requestLocationUpdates(request, callback, Looper.getMainLooper())
+            fused.requestLocationUpdates(locationRequest(), callback, Looper.getMainLooper())
             locationActive = true
+            gpsOnAt = System.currentTimeMillis()
+            BatteryStats.level(this).let { (pct, ch) -> battStart = pct; battCharging = ch }
         } catch (e: SecurityException) {
             Log.e(TAG, "Chýba povolenie polohy", e)
         }
@@ -816,6 +851,39 @@ class TrackingService : LifecycleService() {
         if (!locationActive) return
         fused.removeLocationUpdates(callback)
         locationActive = false
+        val (pct, ch) = BatteryStats.level(this)
+        val now = System.currentTimeMillis()
+        runCatching { BatteryStats.record(this, gpsOnAt, now, battStart, pct, battCharging || ch) }
+        if (battStart in 0..100 && pct in 0..100 && now - gpsOnAt > 5 * 60_000L)
+            DiagLog.log(this, DiagLog.GPS, "Batéria počas sledovania: $battStart % → $pct %" +
+                (if (battCharging || ch) " (nabíjanie – nezarátané)" else " za ${formatDuration(now - gpsOnAt)}"))
+    }
+
+    /**
+     * Úspora batérie počas jazdy: po minúte nad 90 km/h redšie body (diaľnica), po 45 s státia
+     * úsporný režim (10 s, nižšia presnosť). Pri rozbehu sa hneď vráti normálny interval.
+     */
+    @SuppressLint("MissingPermission")
+    private fun adaptGps(speed: Double, now: Long) {
+        if (!settings.adaptiveGps || !locationActive) return
+        if (speed >= 90) { if (fastSince == 0L) fastSince = now } else fastSince = 0L
+        if (speed < 5) { if (slowSince == 0L) slowSince = now } else slowSince = 0L
+        val want = when {
+            speed >= MOVING_KMH && gpsMode == GpsMode.STOPPED -> GpsMode.NORMAL
+            fastSince > 0 && now - fastSince >= 60_000 -> GpsMode.HIGHWAY
+            slowSince > 0 && now - slowSince >= 45_000 -> GpsMode.STOPPED
+            gpsMode == GpsMode.HIGHWAY && speed < 75 -> GpsMode.NORMAL
+            else -> gpsMode
+        }
+        if (want == gpsMode) return
+        gpsMode = want
+        try {
+            fused.removeLocationUpdates(callback)
+            fused.requestLocationUpdates(locationRequest(), callback, Looper.getMainLooper())
+            DiagLog.log(this, DiagLog.GPS, "GPS režim: ${want.label}")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Chýba povolenie polohy", e)
+        }
     }
 
     private fun speedOf(loc: Location, prev: Location?): Double {

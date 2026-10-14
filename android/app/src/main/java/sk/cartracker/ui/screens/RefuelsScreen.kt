@@ -76,7 +76,7 @@ fun pickDate(ctx: Context, initial: Long, onPick: (Long) -> Unit) {
 /** Tankovanie jedného vozidla a skutočná spotreba (metóda plná–plná nádrž). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RefuelsScreen(vehicleUuid: String, onBack: () -> Unit) {
+fun RefuelsScreen(vehicleUuid: String, openAdd: Boolean = false, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val c = ctx.container
     val scope = rememberCoroutineScope()
@@ -88,6 +88,13 @@ fun RefuelsScreen(vehicleUuid: String, onBack: () -> Unit) {
     LaunchedEffect(vehicleUuid, refuels) {
         vehicle = c.vehicles.byUuid(vehicleUuid)
         odoEstimate = c.reminders.odometerNow(vehicleUuid)
+    }
+    // Skratka „Tankovanie“ na ikone aplikácie → hneď formulár nového tankovania
+    LaunchedEffect(Unit) {
+        if (openAdd) editing = RefuelEntity(
+            uuid = UUID.randomUUID().toString(), userId = 0, vehicleUuid = vehicleUuid, ts = System.currentTimeMillis(),
+            liters = 0.0, totalPrice = 0.0, odometerKm = (c.reminders.odometerNow(vehicleUuid) ?: 0.0).toInt(),
+        )
     }
     val stats = remember(refuels) { RefuelRepository.stats(refuels) }
     var odoRatio by remember { mutableStateOf<Triple<Double, Double, Double>?>(null) }

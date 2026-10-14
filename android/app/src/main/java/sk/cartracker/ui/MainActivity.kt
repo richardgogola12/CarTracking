@@ -24,12 +24,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.fillMaxSize
 import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import sk.cartracker.container
@@ -52,9 +54,52 @@ import sk.cartracker.ui.theme.CarTrackerTheme
 
 /** FragmentActivity – potrebné pre BiometricPrompt. Zatvorenie okna sledovanie NEzastaví (beží v službe). */
 class MainActivity : FragmentActivity() {
+    companion object {
+        /** Obrazovka, ktorá sa má otvoriť po odomknutí (napr. zo skratky na ikone). */
+        val pendingRoute = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+        private const val SC = "sk.cartracker.shortcut."
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handleShortcut(intent)
+    }
+
+    /** Skratky na ikone aplikácie: Začať jazdu / chôdzu, Kde je auto, Tankovanie. */
+    private fun handleShortcut(i: android.content.Intent?) {
+        val a = i?.action ?: return
+        if (!a.startsWith(SC)) return
+        fun toast(t: String) = android.widget.Toast.makeText(this, t, android.widget.Toast.LENGTH_SHORT).show()
+        if (!container.session.isLoggedIn) { toast("Najprv sa prihláste"); return }
+        val st = sk.cartracker.service.TrackingState.state.value
+        when (a.removePrefix(SC)) {
+            "DRIVE" -> if (st == sk.cartracker.service.DriveState.DRIVING || st == sk.cartracker.service.DriveState.CANDIDATE) {
+                sk.cartracker.service.TrackingService.signal(this, sk.cartracker.service.TrackingService.ACTION_STOP); toast("Jazda sa ukončuje…")
+            } else { sk.cartracker.service.TrackingService.startManual(this); toast("🚗 Jazda spustená") }
+            "WALK" -> if (st == sk.cartracker.service.DriveState.WALKING) {
+                sk.cartracker.service.TrackingService.signal(this, sk.cartracker.service.TrackingService.ACTION_STOP); toast("Chôdza sa ukončuje…")
+            } else { sk.cartracker.service.TrackingService.startManualWalk(this); toast("🚶 Chôdza spustená") }
+            "PARKING" -> {
+                val p = sk.cartracker.data.RuntimeState.parking(this)
+                if (p == null) toast("Poloha auta nie je uložená – uloží sa po skončení jazdy")
+                else {
+                    val nav = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("google.navigation:q=${p.lat},${p.lng}&mode=w"))
+                    val geo = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("geo:0,0?q=${p.lat},${p.lng}(Moje auto)"))
+                    runCatching { startActivity(if (nav.resolveActivity(packageManager) != null) nav else geo) }
+                        .onFailure { toast("Nenašla sa aplikácia s mapou") }
+                }
+            }
+            "REFUEL" -> lifecycleScope.launch {
+                val v = container.vehicles.active()
+                if (v == null) toast("Najprv pridajte vozidlo") else pendingRoute.value = "refuels/${v.uuid}?add=true"
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) handleShortcut(intent)
         val c = container
         setContent {
             val settings by c.settings.flow.collectAsStateWithLifecycle(initialValue = null as AppSettings?)
@@ -80,6 +125,12 @@ private fun NavHostController.goClean(route: String) = navigate(route) { popUpTo
 @Composable
 private fun AppNavigation(start: String) {
     val nav = rememberNavController()
+    val pending by MainActivity.pendingRoute.collectAsStateWithLifecycle()
+    val entry by nav.currentBackStackEntryAsState()
+    androidx.compose.runtime.LaunchedEffect(pending, entry?.destination?.route) {
+        val r = pending ?: return@LaunchedEffect
+        if (entry?.destination?.route == "main") { MainActivity.pendingRoute.value = null; nav.navigate(r) }
+    }
     NavHost(nav, startDestination = start) {
         composable("login") { LoginScreen(onLoggedIn = { nav.goClean("main") }, onRegister = { nav.navigate("register") }) }
         composable("register") {
@@ -99,11 +150,14 @@ private fun AppNavigation(start: String) {
         composable("vehicles") { VehiclesScreen(onBack = { nav.popBackStack() }, onRefuels = { nav.navigate("refuels/$it") }) }
         composable("places") { PlacesScreen(onBack = { nav.popBackStack() }) }
         composable("reminders") { RemindersScreen(onBack = { nav.popBackStack() }) }
-        composable("refuels/{vehicle}") { RefuelsScreen(it.arguments?.getString("vehicle") ?: "", onBack = { nav.popBackStack() }) }
+        composable("refuels/{vehicle}?add={add}", arguments = listOf(navArgument("add") { type = NavType.BoolType; defaultValue = false })) {
+            RefuelsScreen(it.arguments?.getString("vehicle") ?: "", openAdd = it.arguments?.getBoolean("add") == true, onBack = { nav.popBackStack() })
+        }
         composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
         composable("offline") { sk.cartracker.ui.screens.OfflineMapScreen(onBack = { nav.popBackStack() }) }
         composable("diagnostics") { sk.cartracker.ui.screens.DiagnosticsScreen(onBack = { nav.popBackStack() }) }
         composable("timeline") { sk.cartracker.ui.screens.TimelineScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
+        composable("tripcheck") { sk.cartracker.ui.screens.TripCheckScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
         composable("routes") { sk.cartracker.ui.screens.RoutesScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
         composable("trip/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {
             TripDetailScreen(it.arguments?.getLong("id") ?: 0L, onBack = { nav.popBackStack() })

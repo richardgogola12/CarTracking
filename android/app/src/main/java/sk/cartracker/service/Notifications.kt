@@ -16,7 +16,10 @@ import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
 import sk.cartracker.R
+import sk.cartracker.appScope
+import sk.cartracker.container
 import sk.cartracker.data.AppSettings
 import sk.cartracker.data.VibrationPattern
 import sk.cartracker.ui.MainActivity
@@ -105,8 +108,12 @@ object Notifications {
             .build()
     }
 
-    fun driveEvent(ctx: Context, started: Boolean, s: AppSettings, summary: String? = null) {
+    /** Jazda, pri ktorej sa po skončení pýta účel (tlačidlá Služobná / Súkromná). */
+    data class Classify(val tripUuid: String, val category: String, val reason: String)
+
+    fun driveEvent(ctx: Context, started: Boolean, s: AppSettings, summary: String? = null, classify: Classify? = null) {
         if (s.vibrate) vibrate(ctx, s.vibrationPattern)
+        if (!started && classify != null && s.askCategory) { classifyNotification(ctx, s, summary, classify); return }
         if ((started && !s.notifyOnStart) || (!started && !s.notifyOnStop)) return
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
@@ -120,6 +127,48 @@ object Notifications {
             .setContentIntent(openAppIntent(ctx))
             .build()
         NotificationManagerCompat.from(ctx).notify(ID_EVENT, n)
+    }
+
+    private fun canNotify(ctx: Context) = Build.VERSION.SDK_INT < 33 ||
+        ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+    fun categoryLabel(cat: String) = if (cat == sk.cartracker.data.local.CATEGORY_BUSINESS) "Služobná" else "Súkromná"
+
+    /** Koniec jazdy s otázkou na účel – ťuknutím na tlačidlo sa jazda zaradí (a aplikácia sa trasu naučí). */
+    private fun classifyNotification(ctx: Context, s: AppSettings, summary: String?, c: Classify) {
+        if (!canNotify(ctx)) return
+        NotificationManagerCompat.from(ctx).cancel(ID_EVENT)
+        fun action(cat: String, code: Int) = PendingIntent.getBroadcast(
+            ctx, code, Intent(ctx, CategoryActionReceiver::class.java).setAction(CategoryActionReceiver.ACTION)
+                .putExtra(CategoryActionReceiver.EXTRA_UUID, c.tripUuid).putExtra(CategoryActionReceiver.EXTRA_CATEGORY, cat),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val text = (summary ?: "Jazda bola uložená") + "\nÚčel: ${categoryLabel(c.category)} (${c.reason}) – zmeňte tlačidlom nižšie"
+        val n = NotificationCompat.Builder(ctx, if (s.sound && s.notifyOnStop) CH_EVENTS else CH_EVENTS_SILENT)
+            .setSmallIcon(R.drawable.ic_car)
+            .setContentTitle("🅿️ Jazda skončila · ${categoryLabel(c.category)}?")
+            .setContentText(summary ?: "Služobná alebo súkromná?")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(openAppIntent(ctx))
+            .addAction(0, (if (c.category == sk.cartracker.data.local.CATEGORY_BUSINESS) "✓ " else "") + "Služobná", action(sk.cartracker.data.local.CATEGORY_BUSINESS, 51))
+            .addAction(0, (if (c.category != sk.cartracker.data.local.CATEGORY_BUSINESS) "✓ " else "") + "Súkromná", action(sk.cartracker.data.local.CATEGORY_PRIVATE, 52))
+            .build()
+        NotificationManagerCompat.from(ctx).notify(ID_CLASSIFY, n)
+    }
+
+    /** Potvrdenie po ťuknutí na tlačidlo – zmizne o 4 s. */
+    fun classified(ctx: Context, text: String) {
+        if (!canNotify(ctx)) return
+        val n = NotificationCompat.Builder(ctx, CH_EVENTS_SILENT)
+            .setSmallIcon(R.drawable.ic_car)
+            .setContentTitle(text)
+            .setSilent(true)
+            .setTimeoutAfter(4_000)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(ctx).notify(ID_CLASSIFY, n)
     }
 
     /** Začiatok / koniec chôdze – predvolene bez notifikácie a vibrácie (v práci by rušili). */
@@ -176,6 +225,7 @@ object Notifications {
     }
 
     private const val ID_SPEED = 3
+    const val ID_CLASSIFY = 4
 
     private fun vibrateRaw(ctx: Context, timings: LongArray) {
         val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -206,5 +256,35 @@ object Notifications {
 class NotificationActionReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         if (intent.action == TrackingService.ACTION_STOP) TrackingService.signal(ctx, TrackingService.ACTION_STOP)
+    }
+}
+
+/** Tlačidlá Služobná / Súkromná v notifikácii po skončení jazdy. */
+class CategoryActionReceiver : BroadcastReceiver() {
+    companion object {
+        const val ACTION = "sk.cartracker.action.SET_CATEGORY"
+        const val EXTRA_UUID = "uuid"
+        const val EXTRA_CATEGORY = "category"
+    }
+
+    override fun onReceive(ctx: Context, intent: Intent) {
+        if (intent.action != ACTION) return
+        val uuid = intent.getStringExtra(EXTRA_UUID) ?: return
+        val cat = intent.getStringExtra(EXTRA_CATEGORY) ?: return
+        val pending = goAsync()
+        val app = ctx.applicationContext
+        app.appScope.launch {
+            try {
+                val c = app.container
+                val t = c.db.tripDao().tripByUuid(uuid)
+                if (t == null) { Notifications.classified(app, "Jazda sa nenašla (bola zlúčená alebo zmazaná)"); return@launch }
+                c.trips.updateMeta(t, cat, t.note)
+                c.settings.update { sk.cartracker.data.TripClassifier.learn(it, t, cat) }
+                val s = c.settings.current()
+                if (s.autoSync) sk.cartracker.sync.SyncWorker.enqueueNow(app, s.syncWifiOnly)
+                sk.cartracker.data.DiagLog.log(app, sk.cartracker.data.DiagLog.APP, "Účel jazdy z notifikácie: ${Notifications.categoryLabel(cat)}")
+                Notifications.classified(app, "✓ Jazda je ${Notifications.categoryLabel(cat).lowercase()}" + if (s.learnCategory) " – zapamätané pre túto trasu" else "")
+            } finally { pending.finish() }
+        }
     }
 }

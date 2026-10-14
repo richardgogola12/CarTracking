@@ -5,4 +5,12 @@
     <string name="widget_parking_desc">Kde stojí auto, ako dlho a parkovací lístok</string>
     <string name="widget_month_desc">Tento mesiac: km, jazdy, náklady, kroky a porovnanie</string>
     <string name="widget_description">Jazda naživo, dnešné km, kroky, týždeň, pripomienky a rýchle spustenie</string>
+    <string name="sc_drive">Začať jazdu</string>
+    <string name="sc_drive_long">Začať jazdu (alebo ukončiť)</string>
+    <string name="sc_walk">Začať chôdzu</string>
+    <string name="sc_walk_long">Začať chôdzu (alebo ukončiť)</string>
+    <string name="sc_parking">Kde je auto</string>
+    <string name="sc_parking_long">Kde som zaparkoval – navigovať</string>
+    <string name="sc_refuel">Tankovanie</string>
+    <string name="sc_refuel_long">Pridať tankovanie</string>
 </resources>

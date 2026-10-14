@@ -114,6 +114,27 @@ fun DiagnosticsScreen(onBack: () -> Unit) {
                 }
             }
             item {
+                val days = remember(entries) { sk.cartracker.data.BatteryStats.days(ctx) }
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Batéria počas sledovania", fontWeight = FontWeight.Bold)
+                        if (days.isEmpty()) Text("Zatiaľ bez údajov – zapíšu sa po prvej jazde alebo chôdzi.", style = MaterialTheme.typography.bodySmall)
+                        days.take(7).forEach { d ->
+                            val date = runCatching { java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).parse(d.day)!!.time }.getOrNull()
+                            Text(
+                                (date?.let { sk.cartracker.ui.formatShortDate(it) } ?: d.day) + ": GPS ${sk.cartracker.ui.formatDuration(d.trackedMs)}" +
+                                    (if (d.measuredMs > 0) " · −${d.dropPct} %" else " · nabíjal sa") +
+                                    (d.perHour?.let { String.format(java.util.Locale("sk"), " (≈ %.1f %%/h)", it) } ?: ""),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Text("Úspora batérie (redšie body na diaľnici a pri státí): " + (if (s.adaptiveGps) "zapnutá" else "vypnutá") +
+                            " · interval GPS ${s.gpsIntervalSec} s" + (if (s.highAccuracy) ", vysoká presnosť" else ""),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            item {
                 SwitchRow("Zaznamenávať diagnostiku", "Krátky záznam v telefóne (max. ~400 kB), nikam sa neposiela, kým ho nezdieľate.", s.diagnostics) { on ->
                     scope.launch { c.settings.update { it.copy(diagnostics = on) } }
                 }

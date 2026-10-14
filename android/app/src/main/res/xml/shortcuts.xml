@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Skratky na ikone aplikácie (podržte ikonu Car Tracking na ploche) -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="drive" android:enabled="true" android:icon="@drawable/sc_drive"
+        android:shortcutShortLabel="@string/sc_drive" android:shortcutLongLabel="@string/sc_drive_long">
+        <intent android:action="sk.cartracker.shortcut.DRIVE" android:targetPackage="sk.cartracker" android:targetClass="sk.cartracker.ui.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="walk" android:enabled="true" android:icon="@drawable/sc_walk"
+        android:shortcutShortLabel="@string/sc_walk" android:shortcutLongLabel="@string/sc_walk_long">
+        <intent android:action="sk.cartracker.shortcut.WALK" android:targetPackage="sk.cartracker" android:targetClass="sk.cartracker.ui.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="parking" android:enabled="true" android:icon="@drawable/sc_parking"
+        android:shortcutShortLabel="@string/sc_parking" android:shortcutLongLabel="@string/sc_parking_long">
+        <intent android:action="sk.cartracker.shortcut.PARKING" android:targetPackage="sk.cartracker" android:targetClass="sk.cartracker.ui.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="refuel" android:enabled="true" android:icon="@drawable/sc_refuel"
+        android:shortcutShortLabel="@string/sc_refuel" android:shortcutLongLabel="@string/sc_refuel_long">
+        <intent android:action="sk.cartracker.shortcut.REFUEL" android:targetPackage="sk.cartracker" android:targetClass="sk.cartracker.ui.MainActivity" />
+    </shortcut>
+</shortcuts>

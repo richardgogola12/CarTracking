@@ -273,6 +273,26 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
             }
         }
 
+        // ---- Kontrola jázd: podozrivé záznamy s navrhnutou opravou ----
+        var issueCount by remember { mutableIntStateOf(0) }
+        LaunchedEffect(trips.size, resumeTick, s.tripCheck, state) {
+            issueCount = if (s.tripCheck && state == DriveState.IDLE) runCatching { sk.cartracker.data.TripCheck.scan(ctx).size }.getOrDefault(0) else 0
+        }
+        if (issueCount > 0) {
+            Card(onClick = { onNavigate("tripcheck") }, modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("🔍", style = MaterialTheme.typography.titleLarge)
+                    Spacer(Modifier.size(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Kontrola jázd: $issueCount na kontrolu", fontWeight = FontWeight.SemiBold)
+                        Text("Zabudnutý koniec, rozdelená jazda, výpadok GPS… – oprava jedným ťuknutím",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+
         // ---- Kde som zaparkoval + parkovací lístok ----
         val parking = remember(resumeTick, state) { RuntimeState.parking(ctx) }
         val parkUntil = remember(resumeTick, state) { sk.cartracker.service.ParkingTimer.until(ctx) }
