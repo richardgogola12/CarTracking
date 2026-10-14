@@ -705,7 +705,7 @@
   <tr><td>Záloha a obnova</td><td>–</td><td>Súbor .ctbak so všetkými údajmi.</td></tr>
   <tr><td colspan="3"><b>Kniha jázd</b></td></tr>
   <tr><td>Predvolený typ jazdy</td><td>súkromná</td><td>Typ novo zaznamenanej jazdy.</td></tr>
-  <tr><td>Zisťovať adresy</td><td>zapnuté</td><td>Ulica a mesto začiatku a cieľa.</td></tr>
+  <tr><td>Zisťovať adresy</td><td>zapnuté</td><td>Ulica a obec začiatku a cieľa. Obec sa určuje podľa OpenStreetMap, ulica podľa Google; adresa sa berie z najpresnejšieho bodu na začiatku a konci jazdy. Tlačidlo <b>Opraviť adresy jázd</b> ich prepočíta za posledných 90 dní.</td></tr>
   <tr><td>Pýtať sa po jazde v notifikácii</td><td>zapnuté</td><td>Tlačidlá Služobná / Súkromná po skončení jazdy.</td></tr>
   <tr><td>Učiť sa z mojich rozhodnutí</td><td>zapnuté</td><td>Rovnaká trasa zaradená 2× rovnako → ďalšie jazdy automaticky.</td></tr>
   <tr><td>V pracovnom čase služobná / V deň voľna súkromná</td><td>vypnuté</td><td>Pravidlá podľa pracovných dní a hodín.</td></tr>
@@ -778,6 +778,7 @@
   <tr><td>„Server je nedostupný“</td><td>Na prihlasovacej obrazovke ťuknite na „Server: …“ a otestujte adresu. Musí končiť <code>/api/</code>.</td></tr>
   <tr><td>Jazdy sa neodosielajú</td><td>Prehľad → Synchronizovať teraz. Skontrolujte voľbu „Iba cez Wi-Fi“.</td></tr>
   <tr><td>Nezobrazuje sa adresa</td><td>Adresa sa zisťuje pri konci jazdy a potrebuje internet. Bez pripojenia ostane prázdna.</td></tr>
+  <tr><td>Nesprávna obec (napr. okresné mesto namiesto dediny)</td><td>Od verzie 2.0 sa obec zisťuje z OpenStreetMap a stará uložená poloha zo začiatku jazdy sa ignoruje. Staršie jazdy opravíte v <b>Nastavenia → Kniha jázd a zlučovanie → Opraviť adresy jázd</b>. Ak Google ani OpenStreetMap obec nepoznajú, zobrazí sa „okres …“.</td></tr>
   <tr><td>Mapa je sivá</td><td>Mapové podklady potrebujú internet. Skúste iný typ mapy. Šedé mapy Esri majú najviac detailov do priblíženia 16, pri väčšom priblížení zvoľte Podrobnú alebo Klasickú.</td></tr>
   <tr><td>Jazda sa priradila zlému vozidlu</td><td>V detaile jazdy ťuknite na Vozidlo → Zmeniť. Do budúcna priraďte vozidlám Bluetooth – prepnú sa samy.</td></tr>
   <tr><td>Chôdza sa nezaznamenáva</td><td>Skontrolujte Nastavenia → Chôdza (zapnuté, pracovný čas) a povolenie Fyzická aktivita (potrebné aj pre krokomer).</td></tr>
