@@ -46,7 +46,7 @@ a zapnite **„Sledovať iba keď je pripojené auto“**.
 - Databáza: `backend/migrate_v7.sql` (tabuľka `CarTracking_settings`, stĺpec `bt_address`).
 
 ## Novinky vo verzii 1.6
-- **Webový prehľad** (`backend/web/index.html`) – jazdy a chôdza na počítači: mapa, grafy, kniha jázd, náhrady, spoločná kniha jázd, časté trasy, tlač a Excel.
+- **Webový dashboard** (`backend/web/` – `index.html`, `app.css`, `app.js`; Bootstrap 5, Chart.js, Leaflet) – bočné menu s 11 stránkami: Dashboard s trendmi oproti minulému obdobiu, Jazdy (vyhľadávanie, filtre, triedenie, CSV), detail jazdy s grafom rýchlosti, Mapa, Časová os dňa, Kniha jázd, Cestovné náhrady, Vozidlá a tankovanie, Časté trasy, Chôdza (ročná heatmapa krokov), Miesta, Účet; svetlý / tmavý režim, tlač.
 - **Zdieľané vozidlo** – vlastník ho zdieľa e-mailom ďalším vodičom, spoločná kniha jázd všetkých vodičov.
 - **Cestovné náhrady** – sadzba €/km pri vozidle, výkaz za služobné jazdy (základná náhrada + PHL), tlač/PDF a CSV.
 - **Časté trasy** – opakované cesty, priemerný/najrýchlejší čas, najlepšia hodina odchodu.
@@ -113,7 +113,7 @@ adresa servera, automatická synchronizácia, iba cez Wi-Fi · odtlačok prsta �
    GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localhost';
    ```
 3. Skopírujte priečinok `backend/api` na web server (napr. `htdocs/cartracking/api`) a upravte `config.php`.
-   Webový prehľad: priečinok `backend/web` skopírujte vedľa neho (`htdocs/cartracking/web`) – otvorí sa na `https://SERVER/cartracking/web/`.
+   Webový dashboard: celý priečinok `backend/web` (3 súbory) skopírujte vedľa neho (`htdocs/cartracking/web`) – otvorí sa na `https://SERVER/cartracking/web/`.
 4. Apache potrebuje `mod_rewrite` (súbor `.htaccess` je priložený). Pre nginx:
    `location /cartracking/api/ { try_files $uri /cartracking/api/index.php$is_args$args; }`
 5. Test: `curl -X POST http://SERVER/cartracking/api/login -d '{"email":"a@b.sk","password":"x"}'` → JSON s chybou = API beží.

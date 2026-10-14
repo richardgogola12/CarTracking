@@ -569,16 +569,23 @@
 </ul>
 
 <h2 id="web">26. Webový prehľad na počítači</h2>
-<p>Na serveri je aj webová stránka, kde jazdy a chôdzu prezeráte na počítači (alebo tablete) – na veľkej mape, s tlačou knihy jázd a výkazov. Adresu nastaví správca servera, napr. <code>https://vas-server/cartracking/web/</code>. Prihlásite sa rovnakým e-mailom a heslom ako v aplikácii.</p>
-<ul>
-  <li><b>Auto / Chôdza</b>, obdobie <b>Týždeň / Mesiac / Rok</b> s posunom ‹ ›, výber vozidla.</li>
-  <li><b>Súhrn</b> – km, počet jázd, čas, priemerná rýchlosť, služobné km, palivo a náklady (pri chôdzi kroky).</li>
-  <li><b>Mapa</b> – kliknutím na jazdu v tabuľke sa zobrazí jej trasa farbená podľa rýchlosti, so začiatkom A, cieľom B a udalosťami štýlu jazdy; <b>Zobraziť všetky jazdy obdobia</b> nakreslí naraz posledných 40.</li>
-  <li><b>Graf po dňoch</b> a <b>graf rýchlosti</b> vybranej jazdy (priemer, maximum, čas v pohybe a státia).</li>
-  <li>Záložky: <b>Jazdy</b>, <b>Kniha jázd</b> (tlač / PDF, Excel), <b>Cestovné náhrady</b>, <b>Spoločná kniha jázd</b> (vlastník tu môže aj spravovať zdieľanie), <b>Časté trasy</b> (za posledný rok).</li>
-  <li>Tlač (<b>🖨 Tlač / PDF</b>) vytlačí iba tabuľku s hlavičkou – v dialógu tlače zvoľte „Uložiť ako PDF“.</li>
-  <li>Prepínač 🌓 mení svetlý / tmavý vzhľad. Prihlásenie si stránka môže zapamätať (iba v tomto prehliadači).</li>
-</ul>
+<p>Na serveri je aj moderný webový dashboard (Bootstrap), kde jazdy a chôdzu prezeráte na počítači alebo tablete. Adresu nastaví správca servera, napr. <code>https://vas-server/cartracking/web/</code>. Prihlásite sa rovnakým e-mailom a heslom ako v aplikácii; prihlásenie si stránka môže zapamätať (iba v tomto prehliadači).</p>
+<p><b>Horná lišta</b> platí pre všetky stránky: obdobie <b>Týždeň / Mesiac / Rok</b> s posunom ‹ ›, výber vozidla, obnovenie, svetlý / tmavý režim a menu účtu (tlač, odhlásenie). Na mobile sa bočné menu otvára tlačidlom ☰.</p>
+<table>
+  <tr><th>Stránka</th><th>Čo ukazuje</th></tr>
+  <tr><td><b>Dashboard</b></td><td>6 ukazovateľov (km, jazdy, čas za volantom, náklady na palivo, služobné km, kroky) so šípkou a % zmeny oproti predchádzajúcemu obdobiu; graf km (služobné / súkromné) a krokov, podiel vozidiel, jazdy podľa hodiny a dňa v týždni, mapa posledných jázd, posledné jazdy, štýl jazdy, rekordy a blížiace sa pripomienky.</td></tr>
+  <tr><td><b>Jazdy a chôdza</b></td><td>Tabuľka s vyhľadávaním, filtrami (auto / chôdza, služobné / súkromné), triedením podľa stĺpcov a stránkovaním; export CSV. Kliknutím na riadok sa otvorí detail.</td></tr>
+  <tr><td><b>Detail jazdy</b></td><td>Bočný panel s mapou trasy farbenej podľa rýchlosti, grafom rýchlosti v čase a štatistikami (vzdialenosť, čas, priemer, maximum, štýl).</td></tr>
+  <tr><td><b>Mapa</b></td><td>Veľká mapa až 150 jázd obdobia, prepínače auto / chôdza / miesta a farbenie podľa rýchlosti.</td></tr>
+  <tr><td><b>Časová os dňa</b></td><td>Jazdy, chôdza a zastávky vybraného dňa v poradí, s mapou; tlač a CSV.</td></tr>
+  <tr><td><b>Kniha jázd</b> a <b>Cestovné náhrady</b></td><td>Tlačové zostavy s hlavičkou (v dialógu tlače zvoľte „Uložiť ako PDF“) a export CSV pre Excel.</td></tr>
+  <tr><td><b>Vozidlá a tankovanie</b></td><td>Štatistiky každého vozidla, graf skutočnej spotreby, tankovania a pripomienky; spoločná kniha jázd a správa zdieľania (pre vlastníka).</td></tr>
+  <tr><td><b>Časté trasy</b></td><td>Najčastejšie opakované trasy s počtom, priemerným časom a vzdialenosťou.</td></tr>
+  <tr><td><b>Chôdza a kroky</b></td><td>Grafy krokov a vzdialenosti, ročná „heatmapa“ krokov (365 dní) a séria dní so splneným cieľom.</td></tr>
+  <tr><td><b>Miesta</b></td><td>Uložené miesta na mape a zoznam.</td></tr>
+  <tr><td><b>Účet a server</b></td><td>Stav zálohy na serveri a prehľad uložených nastavení.</td></tr>
+</table>
+<div class="tip">Odkaz na konkrétny deň sa dá uložiť ako záložku – napr. <code>…/web/#/den?d=…</code>. Tmavý režim sa pamätá v prehliadači.</div>
 
 <h2 id="zaloha">27. Záloha a obnova</h2>
 <p><b>Nastavenia → Záloha a obnova</b>:</p>
@@ -782,7 +789,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>POST /trips/points</code></td><td>Body trasy až 50 jázd naraz (<code>{uuids:[…]}</code>) – obnova na novom telefóne</td></tr>
 </table>
 <h3>31.5 Webový prehľad</h3>
-<p>Priečinok <code>backend/web</code> skopírujte vedľa priečinka <code>api</code> (napr. <code>/cartracking/web</code>). Stránka je jeden súbor <code>index.html</code> bez inštalácie; API hľadá v <code>../api/</code> (dá sa zmeniť na prihlasovacej obrazovke). Knižnica mapy Leaflet sa načítava z cdnjs.cloudflare.com.</p>
+<p>Priečinok <code>backend/web</code> skopírujte vedľa priečinka <code>api</code> (napr. <code>/cartracking/web</code>). Stránku tvoria tri súbory – <code>index.html</code>, <code>app.css</code> a <code>app.js</code> – bez inštalácie; API hľadá v <code>../api/</code> (dá sa zmeniť na prihlasovacej obrazovke). Knižnice Bootstrap, Chart.js a Leaflet sa načítavajú z cdnjs.cloudflare.com.</p>
 
 <h2 id="sukromie">32. Bezpečnosť a súkromie</h2>
 <ul>
