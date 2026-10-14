@@ -16,6 +16,7 @@ import sk.cartracker.data.liters
 import sk.cartracker.data.local.TripEntity
 import sk.cartracker.data.local.VehicleEntity
 import java.io.File
+import sk.cartracker.ui.screens.DaySegment
 import java.util.Locale
 
 object Reports {
@@ -262,8 +263,8 @@ Chôdza mimo pracovného času sa nezapočítava; záznam presahujúci pracovný
     }
 
     /** Časová os dňa na tlač. */
-    fun timelineHtml(seg: List<sk.cartracker.ui.screens.DaySegment>, day: Long, vehicles: Map<String, VehicleEntity>, s: AppSettings, name: String): String {
-        val K = sk.cartracker.ui.screens.DaySegment.Kind
+    fun timelineHtml(seg: List<DaySegment>, day: Long, vehicles: Map<String, VehicleEntity>, s: AppSettings, name: String): String {
+        val K = DaySegment.Kind
         val rows = StringBuilder()
         seg.forEach { g ->
             val t = g.trip
@@ -303,7 +304,7 @@ Chôdza mimo pracovného času sa nezapočítava; záznam presahujúci pracovný
 </body></html>"""
     }
 
-    fun timelineCsv(seg: List<sk.cartracker.ui.screens.DaySegment>, vehicles: Map<String, VehicleEntity>): String {
+    fun timelineCsv(seg: List<DaySegment>, vehicles: Map<String, VehicleEntity>): String {
         fun q(x: String?) = "\"" + (x ?: "").replace("\"", "\"\"") + "\""
         val sb = StringBuilder("﻿")
         sb.append("Dátum;Od;Do;Činnosť;Odkiaľ;Kam / miesto;km;Trvanie min;Kroky;Vozidlo;Typ;Účel\r\n")
