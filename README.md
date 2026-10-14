@@ -54,7 +54,7 @@ a zapnite **„Sledovať iba keď je pripojené auto“**.
 - Databáza: `backend/migrate_v7.sql` (tabuľka `CarTracking_settings`, stĺpec `bt_address`).
 
 ## Novinky vo verzii 1.6
-- **Webový dashboard** (`backend/web/` – `index.html`, `app.css`, `app.js`; Bootstrap 5, Chart.js, Leaflet) – bočné menu s 11 stránkami: Dashboard s trendmi oproti minulému obdobiu, Jazdy (vyhľadávanie, filtre, triedenie, CSV), detail jazdy s grafom rýchlosti, Mapa, Časová os dňa, Kniha jázd, Cestovné náhrady, Vozidlá a tankovanie, Časté trasy, Chôdza (ročná heatmapa krokov), Miesta, Účet; svetlý / tmavý režim, tlač.
+- **Webový dashboard** (`backend/web/` – `index.html`, `app.css`, `app.js`; Bootstrap 5, DataTables 2 s Responsive a Buttons, Chart.js, Leaflet; responzívny – počítač, tablet, mobil so spodnou navigáciou; tabuľky s vyhľadávaním, exportom do Excelu/CSV a výberom stĺpcov) – bočné menu s 11 stránkami: Dashboard s trendmi oproti minulému obdobiu, Jazdy (vyhľadávanie, filtre, triedenie, CSV), detail jazdy s grafom rýchlosti, Mapa, Časová os dňa, Kniha jázd, Cestovné náhrady, Vozidlá a tankovanie, Časté trasy, Chôdza (ročná heatmapa krokov), Miesta, Účet; svetlý / tmavý režim, tlač.
 - **Zdieľané vozidlo** – vlastník ho zdieľa e-mailom ďalším vodičom, spoločná kniha jázd všetkých vodičov.
 - **Cestovné náhrady** – sadzba €/km pri vozidle, výkaz za služobné jazdy (základná náhrada + PHL), tlač/PDF a CSV.
 - **Časté trasy** – opakované cesty, priemerný/najrýchlejší čas, najlepšia hodina odchodu.

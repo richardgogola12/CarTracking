@@ -1,4 +1,4 @@
-/* Car Tracking – webový prehľad. Vanilla JS + Bootstrap 5.3 + Chart.js 4 + Leaflet 1.9 */
+/* Car Tracking – webový prehľad. Bootstrap 5.3 + DataTables 2 (Responsive, Buttons) + Chart.js 4 + Leaflet 1.9 */
 "use strict";
 
 // =====================================================================
@@ -34,6 +34,7 @@ const DAY = 864e5;
 const tripMs = (t) => (t.ended_at || t.started_at) - t.started_at;
 const isWalk = (t) => t.type === "walk";
 const placeShort = (p, a) => p || (a ? a.split(",").slice(0, 2).join(",").trim() : "—");
+const strip = (h) => String(h ?? "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
 let toastObj;
@@ -235,15 +236,15 @@ function kpi(icon, cls, label, value, cur, prev, invert) {
     if (prev > 0) {
       const p = Math.round((cur - prev) / prev * 100);
       const good = invert ? p < 0 : p > 0;
-      tr = `<span class="trend ${p === 0 ? "flat" : good ? "up" : "down"}" title="oproti predchádzajúcemu obdobiu"><i class="bi bi-arrow-${p >= 0 ? "up" : "down"}-right"></i>${Math.abs(p)} %<span class="opacity-75 fw-normal ms-1">vs. predtým</span></span>`;
+      tr = `<span class="trend ${p === 0 ? "flat" : good ? "up" : "down"}" title="oproti predchádzajúcemu obdobiu"><i class="bi bi-arrow-${p >= 0 ? "up" : "down"}-right"></i>${Math.abs(p)} %<span class="vs ms-1">vs. predtým</span></span>`;
     } else if (cur > 0) tr = `<span class="trend flat">nové</span>`;
   }
-  return `<div class="col-6 col-lg-4 kpi-col"><div class="ct-card kpi"><div class="ico ${cls}"><i class="bi bi-${icon}"></i></div>
-    <div class="min-w-0"><div class="lbl">${label}</div><div class="val">${value}</div>${tr}</div></div></div>`;
+  return `<div class="col-6 col-md-4 kpi-col"><div class="ct-card kpi"><div class="ico ${cls}"><i class="bi bi-${icon}"></i></div>
+    <div class="min-w-0 w-100"><div class="lbl">${label}</div><div class="val" title="${strip(String(value))}">${value}</div>${tr}</div></div></div>`;
 }
 function card(title, body, opts = {}) {
   return `<div class="${opts.col || "col-12"}"><div class="ct-card">
-    <div class="ct-head"><h2>${title}</h2>${opts.sub ? `<span class="sub">· ${opts.sub}</span>` : ""}<div class="ms-auto d-flex gap-1 noprint">${opts.tools || ""}</div></div>
+    <div class="ct-head"><h2>${title}</h2>${opts.sub ? `<span class="sub">· ${opts.sub}</span>` : ""}${opts.tools ? `<div class="tools noprint">${opts.tools}</div>` : ""}</div>
     <div class="ct-body">${body}</div></div></div>`;
 }
 const empty = (icon, text) => `<div class="empty-state"><i class="bi bi-${icon}"></i>${text}</div>`;
@@ -265,6 +266,94 @@ function modal(title, html) {
 }
 
 // =====================================================================
+//  Tabuľky – DataTables 2 (Responsive: na úzkom displeji sa stĺpce zbalia do riadku, Buttons: Excel/CSV/tlač/stĺpce)
+// =====================================================================
+const DT_LANG = {
+  decimal: ",", thousands: " ", emptyTable: "Žiadne záznamy", info: "_START_–_END_ z _TOTAL_", infoEmpty: "0 záznamov",
+  infoFiltered: "(z _MAX_)", lengthMenu: "_MENU_ na stranu", loadingRecords: "Načítavam…", processing: "Spracúvam…",
+  search: "", searchPlaceholder: "Hľadať…", zeroRecords: "Nič sa nenašlo",
+  paginate: { first: "«", last: "»", next: "›", previous: "‹" },
+};
+const tables = {};
+const tableFilters = {};
+if (window.DataTable) DataTable.ext.search.push((st, _d, _i, row) => !tableFilters[st.nTable.id] || tableFilters[st.nTable.id](row));
+const csvVal = (v) => typeof v === "number" ? String(v).replace(".", ",") : v;
+function destroyTables() { for (const k in tables) { try { tables[k].destroy(); } catch {} delete tables[k]; } }
+/**
+ * Tabuľka v prvku [host]. cols: { t: nadpis, d: (r) => HTML, s: (r) => hodnota na triedenie, x: (r) => hodnota pre Excel/CSV,
+ * cls: trieda, pri: priorita pri zbaľovaní (1 = zostane najdlhšie) }. o: order, pageLength, foot: (riadky) => [päta], file, title, …
+ */
+function grid(host, rows, cols, o = {}) {
+  const el = $(host); if (!el) return null;
+  const id = host + "T";
+  if (tables[id]) { try { tables[id].destroy(); } catch {} delete tables[id]; }
+  const foot = o.foot ? `<tfoot><tr><th class="dtr-control"></th>${cols.map(c => `<th class="${c.cls || ""}"></th>`).join("")}</tr></tfoot>` : "";
+  el.innerHTML = `<table id="${id}" class="table table-ct table-hover ${o.sm ? "table-sm" : ""}">${foot}</table>`;
+  const tbl = $(id);
+  if (typeof DataTable === "undefined") {   // knižnica sa nenačítala – jednoduchá tabuľka
+    tbl.innerHTML = `<thead><tr>${cols.map(c => `<th class="${c.cls || ""}">${c.t}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr ${r.uuid && o.rowTrip !== false ? `data-trip="${r.uuid}"` : ""}>${cols.map(c => `<td class="${c.cls || ""}">${c.d(r)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+    el.innerHTML = `<div class="table-responsive">${el.innerHTML}</div>`;
+    $(id).addEventListener("click", (e) => { const tr = e.target.closest("tr[data-trip]"); if (tr) openTrip(tr.dataset.trip); });
+    return null;
+  }
+  const columns = [{ data: null, title: "", className: "dtr-control", orderable: false, searchable: false, render: () => "" }].concat(cols.map(c => ({
+    data: null, title: c.t, className: (c.cls || "") + (/text-end/.test(c.cls || "") ? "" : " ta-start"), orderable: c.sort !== false, responsivePriority: c.pri ?? 50,
+    render: (_x, type, r) => {
+      if (type === "display") return c.d(r);
+      if (type === "sort" || type === "type") return c.s ? c.s(r) : strip(c.d(r));
+      if (type === "export") return c.x ? c.x(r) : strip(c.d(r));
+      if (type === "csv") return csvVal(c.x ? c.x(r) : strip(c.d(r)));
+      return strip(c.d(r)) + (c.f ? " " + c.f(r) : "");
+    },
+  })));
+  const ex = (orth) => ({ orthogonal: orth, columns: ":not(.dtr-control)" });
+  const file = (o.file || "export").replace(/[\s/\\]+/g, "-");
+  const buttons = o.buttons === false ? null : {
+    dom: { button: { className: "btn btn-sm btn-outline-secondary" } },
+    buttons: [
+      { extend: "excelHtml5", text: '<i class="bi bi-file-earmark-excel me-1"></i>Excel', title: o.title || null, filename: file, exportOptions: ex("export"), footer: !!o.foot },
+      { extend: "csvHtml5", text: '<i class="bi bi-filetype-csv me-1"></i>CSV', filename: file, fieldSeparator: ";", bom: true, charset: "utf-8", exportOptions: ex("csv"), footer: !!o.foot },
+      { text: '<i class="bi bi-printer me-1"></i>Tlač', action: () => print() },
+      { extend: "colvis", text: '<i class="bi bi-layout-three-columns me-1"></i>Stĺpce', columns: ":not(.dtr-control)" },
+    ],
+  };
+  const paging = o.paging !== false && rows.length > (o.pageLength || 25);
+  const t = new DataTable(tbl, {
+    data: rows, columns, autoWidth: false, language: DT_LANG, deferRender: true,
+    responsive: { details: { type: "column", target: 0, renderer: (_api, _row, cols) => {
+      // zbalené stĺpce ako zoznam „názov: hodnota“ – prázdne sa vynechajú
+      const li = cols.filter(c => c.hidden && c.title && strip(String(c.data)) !== "")
+        .map(c => `<li><span class="dtr-title">${c.title}</span><span class="dtr-data">${c.data}</span></li>`).join("");
+      return li ? `<ul class="dtr-details">${li}</ul>` : false;
+    } } },
+    order: o.order || [[1, "desc"]],
+    paging, pageLength: o.pageLength || 25,
+    lengthMenu: (() => { const l = [...new Set([o.pageLength || 25, 10, 25, 50, 100])].sort((a, b) => a - b); return [[...l, -1], [...l, "všetky"]]; })(),
+    layout: {
+      topStart: buttons ? { buttons } : null,
+      topEnd: o.search === false ? null : "search",
+      bottomStart: paging ? ["pageLength", "info"] : (o.info === false ? null : "info"),
+      bottomEnd: paging ? "paging" : null,
+    },
+    createdRow: (row, r) => { if (o.rowTrip !== false && r.uuid) row.dataset.trip = r.uuid; },
+    footerCallback: o.foot ? function () {
+      const api = this.api(), f = o.foot(api.rows({ search: "applied" }).data().toArray());
+      cols.forEach((_c, i) => { const cell = api.column(i + 1).footer(); if (cell) cell.innerHTML = f[i] ?? ""; });
+    } : undefined,
+  });
+  tbl.querySelector("tbody").addEventListener("click", (e) => {
+    if (e.target.closest("td.dtr-control, tr.child, a, button")) return;
+    const tr = e.target.closest("tr[data-trip]"); if (tr) openTrip(tr.dataset.trip);
+  });
+  tables[id] = t;
+  return t;
+}
+// Pri tlači vždy všetky riadky (stránkovanie by vytlačilo len aktuálnu stranu)
+const printLens = {};
+window.addEventListener("beforeprint", () => { for (const k in tables) { printLens[k] = tables[k].page.len(); if (printLens[k] !== -1) tables[k].page.len(-1).draw(false); } });
+window.addEventListener("afterprint", () => { for (const k in tables) if (printLens[k] && printLens[k] !== -1) tables[k].page.len(printLens[k]).draw(false); });
+
+// =====================================================================
 //  Smerovanie
 // =====================================================================
 const PAGES = {
@@ -276,14 +365,17 @@ const PAGES = {
 function route() {
   const p = (location.hash.replace(/^#\/?/, "").split("?")[0]) || "prehlad";
   S.page = PAGES[p] ? p : "prehlad";
-  document.querySelectorAll("#nav .nav-link").forEach(a => a.classList.toggle("active", a.dataset.page === S.page));
+  document.querySelectorAll("#nav .nav-link, #bottomNav a[data-page]").forEach(a => a.classList.toggle("active", a.dataset.page === S.page));
   $("pageTitle").textContent = PAGES[S.page][0];
   $("periodBar").classList.toggle("d-none", ["den", "ucet", "trasy"].includes(S.page));
   bootstrap.Offcanvas.getInstance($("sidebar"))?.hide();
+  window.scrollTo({ top: 0 });
   render();
 }
 async function render() {
   Object.keys(charts).forEach(k => { charts[k].destroy(); delete charts[k]; });
+  destroyTables();
+  for (const k in tableFilters) delete tableFilters[k];
   try {
     if (!["den", "ucet", "trasy"].includes(S.page)) await loadPeriod();
     await PAGES[S.page][1]();
@@ -313,17 +405,17 @@ async function pageDashboard() {
     ${kpi("person-walking", "ico-rose", "Kroky", int(steps), steps, pSteps)}
 
     ${card("Kilometre v čase", `<div class="chart-box lg"><canvas id="chKm"></canvas></div>`, { col: "col-xl-8", sub: "služobné / súkromné" })}
-    ${card("Podľa vozidiel", S.vehicles.length ? `<div class="chart-box lg"><canvas id="chVeh"></canvas></div>` : empty("car-front", "Žiadne vozidlá"), { col: "col-xl-4" })}
+    ${card("Podľa vozidiel", S.vehicles.length ? `<div class="chart-box lg"><canvas id="chVeh"></canvas></div>` : empty("car-front", "Žiadne vozidlá"), { col: "col-md-5 col-xl-4" })}
 
-    ${card("Kedy jazdíte", `<div class="chart-box"><canvas id="chHour"></canvas></div>`, { col: "col-lg-6", sub: "začiatky jázd podľa hodiny" })}
-    ${card("Dni v týždni", `<div class="chart-box"><canvas id="chDow"></canvas></div>`, { col: "col-lg-6", sub: "km a kroky" })}
+    ${card("Kedy jazdíte", `<div class="chart-box lg"><canvas id="chHour"></canvas></div>`, { col: "col-md-7 col-xl-6", sub: "začiatky jázd podľa hodiny" })}
+    ${card("Dni v týždni", `<div class="chart-box"><canvas id="chDow"></canvas></div>`, { col: "col-xl-6", sub: "km a kroky" })}
 
     ${card("Mapa obdobia", `<div class="map-box" id="dashMap"></div><div class="small text-body-secondary mt-2">Posledných 30 jázd obdobia · <a href="#/mapa">celá mapa</a></div>`, { col: "col-xl-7" })}
     ${card("Posledné záznamy", recentList(S.trips.slice(-8).reverse()), { col: "col-xl-5", tools: '<a class="btn btn-sm btn-outline-secondary" href="#/jazdy">Všetky</a>' })}
 
     ${card("Štýl jazdy", styleBlock(cars), { col: "col-md-6 col-xl-4" })}
     ${card("Rekordy obdobia", recordsBlock(cars, walks), { col: "col-md-6 col-xl-4" })}
-    ${card("Pripomienky", remindersBlock(reminders), { col: "col-xl-4", tools: '<a class="btn btn-sm btn-outline-secondary" href="#/vozidla">Vozidlá</a>' })}
+    ${card("Pripomienky", remindersBlock(reminders), { col: "col-md-12 col-xl-4", tools: '<a class="btn btn-sm btn-outline-secondary" href="#/vozidla">Vozidlá</a>' })}
   </div>`;
   bindTripLinks();
 
@@ -373,7 +465,7 @@ function recentList(list) {
     <div class="ico ${isWalk(t) ? "ico-blue" : "ico-green"} rounded-3 d-grid" style="width:38px;height:38px;place-items:center"><i class="bi bi-${isWalk(t) ? "person-walking" : "car-front-fill"}"></i></div>
     <div class="flex-grow-1 min-w-0"><div class="fw-semibold text-truncate">${esc(placeShort(t.start_place, t.start_address))} → ${esc(placeShort(t.end_place, t.end_address))}</div>
       <div class="small text-body-secondary">${dt(t.started_at)} ${tm(t.started_at)} · ${dur(tripMs(t))}${isWalk(t) ? " · " + int(t.steps) + " krokov" : veh(t) ? " · " + esc(veh(t).name) : ""}</div></div>
-    <div class="text-end"><div class="fw-bold">${km(t.distance_m)}</div>${isWalk(t) ? "" : `<div class="small text-body-secondary">${eur(cost(t))}</div>`}</div></div>`).join("") + `</div>`;
+    <div class="text-end text-nowrap"><div class="fw-bold">${km(t.distance_m)}</div>${isWalk(t) ? "" : `<div class="small text-body-secondary">${eur(cost(t))}</div>`}</div></div>`).join("") + `</div>`;
 }
 function styleBlock(cars) {
   const scored = cars.filter(t => t.score != null);
@@ -443,10 +535,10 @@ async function openTrip(uuid) {
     : [["Vzdialenosť", km(t.distance_m)], ["Trvanie", dur(tripMs(t))], ["Ø rýchlosť", int(t.avg_speed_kmh) + " km/h"], ["Max", int(t.max_speed_kmh) + " km/h"],
        ["Palivo", nf(liters(t), 2) + " l"], ["Náklady", eur(cost(t))], ["Skóre", t.score ?? "–"], ["Udalosti", `${t.hard_brakes} / ${t.hard_accels}`]];
   $("tripBody").innerHTML = `
-    <div class="map-box mb-3" id="tripMap" style="height:300px"></div>
+    <div class="map-box mb-3" id="tripMap" style="height:min(300px, 40vh)"></div>
     <div class="row g-2 mb-3">${stats.map(([l, val]) => `<div class="col-6 col-md-3"><div class="stat-mini"><div class="v">${val}</div><div class="l">${l}</div></div></div>`).join("")}</div>
     ${isWalk(t) ? "" : `<h6 class="fw-bold">Rýchlosť počas jazdy</h6><div class="chart-box sm mb-1"><canvas id="chTripSpeed"></canvas></div><div class="small text-body-secondary mb-3" id="speedInfo"></div>`}
-    <dl class="row small mb-0">
+    <dl class="row small mb-0 g-1">
       <dt class="col-4 text-body-secondary fw-normal">Začiatok</dt><dd class="col-8">${esc(t.start_address || "—")}${t.start_place ? ` <span class="badge text-bg-light">${esc(t.start_place)}</span>` : ""}</dd>
       <dt class="col-4 text-body-secondary fw-normal">Cieľ</dt><dd class="col-8">${esc(t.end_address || "—")}${t.end_place ? ` <span class="badge text-bg-light">${esc(t.end_place)}</span>` : ""}</dd>
       ${isWalk(t) ? "" : `<dt class="col-4 text-body-secondary fw-normal">Vozidlo</dt><dd class="col-8">${esc(v ? v.name + (v.plate ? " · " + v.plate : "") : "—")}</dd>
@@ -481,63 +573,44 @@ async function openTrip(uuid) {
 // =====================================================================
 //  Jazdy a chôdza (tabuľka)
 // =====================================================================
-const TS = { q: "", type: "", cat: "", sort: "started_at", dir: -1, page: 0 };
+const TS = { type: "", cat: "" };
+const routeCell = (t) => `<div class="route"><span class="from">${esc(placeShort(t.start_place, t.start_address))}</span><span class="to">→ ${esc(placeShort(t.end_place, t.end_address))}</span></div>${t.note ? `<div class="small text-body-secondary text-truncate" style="max-width:340px">${esc(t.note)}</div>` : ""}`;
+const routeText = (t) => placeShort(t.start_place, t.start_address) + " → " + placeShort(t.end_place, t.end_address);
 function pageTrips() {
-  $("content").innerHTML = printHead("Jazdy a chôdza") + `<div class="ct-card"><div class="ct-body pt-3">
-    <div class="row g-2 mb-3 noprint">
-      <div class="col-md-4"><div class="input-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" id="tq" placeholder="Hľadať adresu, miesto, účel…" value="${esc(TS.q)}"></div></div>
-      <div class="col-6 col-md-2"><select class="form-select" id="tt"><option value="">Všetko</option><option value="car">Jazdy</option><option value="walk">Chôdza</option></select></div>
-      <div class="col-6 col-md-2"><select class="form-select" id="tc"><option value="">Typ jazdy</option><option value="business">Služobné</option><option value="private">Súkromné</option></select></div>
-      <div class="col-md-4 text-md-end"><button class="btn btn-outline-secondary" id="tcsv"><i class="bi bi-filetype-csv me-1"></i>Export CSV</button> <button class="btn btn-outline-secondary" onclick="print()"><i class="bi bi-printer me-1"></i>Tlač</button></div>
-    </div>
-    <div class="table-responsive"><table class="table table-ct table-hover"><thead><tr>
-      <th class="sortable" data-s="started_at">Dátum</th><th>Trasa</th><th>Typ</th><th>Vozidlo</th>
-      <th class="sortable text-end" data-s="distance_m">km</th><th class="sortable text-end" data-s="dur">Trvanie</th>
-      <th class="sortable text-end" data-s="avg_speed_kmh">Ø</th><th class="sortable text-end" data-s="max_speed_kmh">Max</th>
-      <th class="sortable text-end" data-s="score">Skóre</th><th class="sortable text-end" data-s="cost">Náklady</th></tr></thead><tbody id="tbody"></tbody>
-      <tfoot id="tfoot"></tfoot></table></div>
-    <div class="d-flex align-items-center gap-2 mt-3 noprint"><div class="small text-body-secondary me-auto" id="tinfo"></div><div id="tpager"></div></div>
-  </div></div>`;
+  const list = S.trips.filter(t => isWalk(t) || !S.vehicle || t.vehicle_uuid === S.vehicle);
+  const cars = list.filter(t => !isWalk(t)), walks = list.filter(isWalk);
+  $("content").innerHTML = printHead("Jazdy a chôdza") + `<div class="row g-3">
+    ${kpi("signpost-2", "ico-green", "Jázd autom", int(cars.length))}${kpi("speedometer", "ico-blue", "Km autom", km(sum(cars, t => t.distance_m)))}
+    ${kpi("briefcase", "ico-violet", "Služobné", km(sum(cars.filter(t => t.category === "business"), t => t.distance_m)))}${kpi("fuel-pump", "ico-amber", "Náklady", eur(sum(cars, cost)))}
+    ${kpi("person-walking", "ico-rose", "Chôdza", int(walks.length) + "×")}${kpi("geo", "ico-cyan", "Kroky", int(sum(walks, t => t.steps)))}
+    ${card("Všetky záznamy obdobia", `
+      <div class="filters mb-2 noprint">
+        <select class="form-select form-select-sm" id="tt" aria-label="Druh"><option value="">Jazdy aj chôdza</option><option value="car">Iba jazdy autom</option><option value="walk">Iba chôdza</option></select>
+        <select class="form-select form-select-sm" id="tc" aria-label="Typ jazdy"><option value="">Služobné aj súkromné</option><option value="business">Iba služobné</option><option value="private">Iba súkromné</option></select>
+      </div>
+      <div id="tripsGrid"></div>`, { sub: "ťuknite na riadok pre detail" })}
+  </div>`;
   $("tt").value = TS.type; $("tc").value = TS.cat;
-  const rerun = () => { TS.page = 0; tripsTable(); };
-  $("tq").oninput = (e) => { TS.q = e.target.value; rerun(); };
-  $("tt").onchange = (e) => { TS.type = e.target.value; rerun(); };
-  $("tc").onchange = (e) => { TS.cat = e.target.value; rerun(); };
-  document.querySelectorAll("th.sortable").forEach(th => th.onclick = () => { TS.dir = TS.sort === th.dataset.s ? -TS.dir : -1; TS.sort = th.dataset.s; tripsTable(); });
-  $("tcsv").onclick = () => csvDownload(`jazdy-${S.range.title}.csv`, [["Dátum", "Začiatok", "Koniec", "Typ", "Odkiaľ", "Kam", "Vozidlo", "Kategória", "km", "Trvanie min", "Ø km/h", "Max km/h", "Kroky", "Skóre", "Náklady €", "Účel"]]
-    .concat(filteredTrips().map(t => [dt(t.started_at), tm(t.started_at), t.ended_at ? tm(t.ended_at) : "", isWalk(t) ? "chôdza" : "jazda", t.start_address || t.start_place || "", t.end_address || t.end_place || "",
-      veh(t)?.name || "", isWalk(t) ? "" : t.category === "business" ? "služobná" : "súkromná", +(t.distance_m / 1000).toFixed(2), Math.round(tripMs(t) / 60000),
-      Math.round(t.avg_speed_kmh), Math.round(t.max_speed_kmh), t.steps || "", t.score ?? "", +cost(t).toFixed(2), t.note || ""])));
-  tripsTable();
-}
-function filteredTrips() {
-  const q = TS.q.trim().toLowerCase();
-  return S.trips.filter(t => (!TS.type || t.type === TS.type) && (!TS.cat || (!isWalk(t) && t.category === TS.cat))
-    && (isWalk(t) || !S.vehicle || t.vehicle_uuid === S.vehicle)
-    && (!q || [t.start_address, t.end_address, t.start_place, t.end_place, t.note, veh(t)?.name].some(x => (x || "").toLowerCase().includes(q))));
-}
-function tripsTable() {
-  const key = { dur: tripMs, cost: cost }[TS.sort] || ((t) => t[TS.sort] ?? -1);
-  const list = filteredTrips().sort((a, b) => (key(a) - key(b)) * TS.dir);
-  const per = 25, pages = Math.max(1, Math.ceil(list.length / per));
-  TS.page = Math.min(TS.page, pages - 1);
-  const rows = list.slice(TS.page * per, TS.page * per + per);
-  $("tbody").innerHTML = rows.length ? rows.map(t => `<tr class="clickable" data-trip="${t.uuid}">
-    <td class="text-nowrap"><div class="fw-semibold">${dt(t.started_at)}</div><div class="small text-body-secondary">${tm(t.started_at)}–${t.ended_at ? tm(t.ended_at) : ""}</div></td>
-    <td><div class="route"><span class="from">${esc(placeShort(t.start_place, t.start_address))}</span><span class="to">→ ${esc(placeShort(t.end_place, t.end_address))}</span></div>${t.note ? `<div class="small text-body-secondary text-truncate" style="max-width:340px">${esc(t.note)}</div>` : ""}</td>
-    <td>${typeBadge(t)}</td><td class="small">${esc(veh(t)?.name || "")}</td>
-    <td class="text-end fw-semibold">${nf(t.distance_m / 1000, 1)}</td><td class="text-end">${dur(tripMs(t))}</td>
-    <td class="text-end">${isWalk(t) ? nf(t.avg_speed_kmh, 1) : int(t.avg_speed_kmh)}</td><td class="text-end">${isWalk(t) ? "" : int(t.max_speed_kmh)}</td>
-    <td class="text-end">${t.score ?? ""}</td><td class="text-end">${isWalk(t) ? int(t.steps) + " kr." : eur(cost(t))}</td></tr>`).join("")
-    : `<tr><td colspan="10">${empty("search", "Nič sa nenašlo")}</td></tr>`;
-  $("tfoot").innerHTML = list.length ? `<tr><td colspan="4">Spolu ${list.length} záznamov</td><td class="text-end">${nf(sum(list, t => t.distance_m) / 1000, 1)}</td>
-    <td class="text-end">${durH(sum(list, tripMs))}</td><td></td><td></td><td></td><td class="text-end">${eur(sum(list, cost))}</td></tr>` : "";
-  document.querySelectorAll("th.sortable").forEach(th => th.innerHTML = th.innerHTML.replace(/ <i.*$/, "") + (th.dataset.s === TS.sort ? ` <i class="bi bi-caret-${TS.dir < 0 ? "down" : "up"}-fill"></i>` : ""));
-  $("tinfo").textContent = list.length ? `${TS.page * per + 1}–${Math.min(list.length, TS.page * per + per)} z ${list.length}` : "";
-  $("tpager").innerHTML = pages > 1 ? `<div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" ${TS.page ? "" : "disabled"} id="pp"><i class="bi bi-chevron-left"></i></button>
-    <button class="btn btn-outline-secondary" disabled>${TS.page + 1} / ${pages}</button><button class="btn btn-outline-secondary" ${TS.page < pages - 1 ? "" : "disabled"} id="pn"><i class="bi bi-chevron-right"></i></button></div>` : "";
-  if ($("pp")) { $("pp").onclick = () => { TS.page--; tripsTable(); }; $("pn").onclick = () => { TS.page++; tripsTable(); }; }
-  bindTripLinks();
+  tableFilters.tripsGridT = (t) => (!TS.type || t.type === TS.type) && (!TS.cat || (!isWalk(t) && t.category === TS.cat));
+  const g = grid("tripsGrid", list, [
+    { t: "Dátum", pri: 1, cls: "text-nowrap", d: t => `<div class="fw-semibold">${dt(t.started_at)}</div><div class="small text-body-secondary">${tm(t.started_at)}–${t.ended_at ? tm(t.ended_at) : ""}</div>`,
+      s: t => t.started_at, x: t => dt(t.started_at) + " " + tm(t.started_at) },
+    { t: "Trasa", pri: 2, d: routeCell, x: routeText, f: t => (t.start_address || "") + " " + (t.end_address || "") + " " + (t.note || "") },
+    { t: "Typ", pri: 6, d: typeBadge, x: t => isWalk(t) ? "chôdza" : t.category === "business" ? "služobná" : "súkromná" },
+    { t: "Vozidlo", pri: 9, cls: "small", d: t => esc(veh(t)?.name || "") },
+    { t: "km", pri: 3, cls: "text-end fw-semibold", d: t => nf(t.distance_m / 1000, 1), s: t => t.distance_m, x: t => +(t.distance_m / 1000).toFixed(2) },
+    { t: "Trvanie", pri: 5, cls: "text-end text-nowrap", d: t => dur(tripMs(t)), s: tripMs, x: t => Math.round(tripMs(t) / 60000) },
+    { t: "Ø km/h", pri: 10, cls: "text-end", d: t => isWalk(t) ? nf(t.avg_speed_kmh, 1) : int(t.avg_speed_kmh), s: t => t.avg_speed_kmh, x: t => Math.round(t.avg_speed_kmh) },
+    { t: "Max", pri: 11, cls: "text-end", d: t => isWalk(t) ? "" : int(t.max_speed_kmh), s: t => t.max_speed_kmh, x: t => isWalk(t) ? "" : Math.round(t.max_speed_kmh) },
+    { t: "Skóre", pri: 8, cls: "text-end", d: t => t.score ?? "", s: t => t.score ?? -1, x: t => t.score ?? "" },
+    { t: "Náklady / kroky", pri: 4, cls: "text-end text-nowrap", d: t => isWalk(t) ? int(t.steps) + " kr." : eur(cost(t)), s: t => isWalk(t) ? t.steps / 1e6 : cost(t), x: t => isWalk(t) ? t.steps : +cost(t).toFixed(2) },
+  ], {
+    order: [[1, "desc"]], file: `jazdy-${S.range.title}`, title: `Jazdy a chôdza – ${S.range.title}`,
+    foot: (r) => [`${r.length} záznamov`, "", "", "", nf(sum(r, t => t.distance_m) / 1000, 1), durH(sum(r, tripMs)), "", "", "", r.some(t => !isWalk(t)) ? eur(sum(r.filter(t => !isWalk(t)), cost)) : int(sum(r, t => t.steps)) + " kr."],
+  });
+  const redraw = () => g?.draw();
+  $("tt").onchange = (e) => { TS.type = e.target.value; redraw(); };
+  $("tc").onchange = (e) => { TS.cat = e.target.value; redraw(); };
 }
 
 // =====================================================================
@@ -545,7 +618,7 @@ function tripsTable() {
 // =====================================================================
 async function pageMap() {
   $("content").innerHTML = `<div class="ct-card"><div class="ct-body pt-3">
-    <div class="d-flex flex-wrap gap-3 align-items-center mb-3 noprint">
+    <div class="toggles mb-3 noprint">
       <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="mCar" checked><label class="form-check-label" for="mCar"><span class="dot" style="background:${C.car}"></span> Jazdy</label></div>
       <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="mWalk" checked><label class="form-check-label" for="mWalk"><span class="dot" style="background:${C.walk}"></span> Chôdza</label></div>
       <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="mSpeed"><label class="form-check-label" for="mSpeed">Farba podľa rýchlosti</label></div>
@@ -610,12 +683,12 @@ async function pageDay() {
     const cars = trips.filter(t => !isWalk(t)), walks = trips.filter(isWalk);
     const colors = { car: C.car, walk: C.walk, stay: "#a16207" };
     $("content").innerHTML = `<div class="print-head"><h2 class="h4 fw-bold">Časová os – ${dayName(day)}</h2><div>${esc(S.user?.name || "")}</div></div>
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-3 noprint">
-      <div class="btn-group"><button class="btn btn-outline-secondary" id="dPrev"><i class="bi bi-chevron-left"></i></button>
-        <input type="date" class="form-control rounded-0" id="dPick" style="max-width:170px" value="${new Date(day - new Date(day).getTimezoneOffset() * 6e4).toISOString().slice(0, 10)}">
-        <button class="btn btn-outline-secondary" id="dNext" ${day >= sod(Date.now()) ? "disabled" : ""}><i class="bi bi-chevron-right"></i></button></div>
-      <span class="fw-semibold">${dayName(day)}</span>
-      <div class="ms-auto"><button class="btn btn-outline-secondary" id="dCsv"><i class="bi bi-filetype-csv me-1"></i>CSV</button> <button class="btn btn-primary" onclick="print()"><i class="bi bi-printer me-1"></i>Tlač / PDF</button></div>
+    <div class="day-bar mb-3 noprint">
+      <div class="input-group date-group"><button class="btn btn-outline-secondary" id="dPrev" aria-label="Predchádzajúci deň"><i class="bi bi-chevron-left"></i></button>
+        <input type="date" class="form-control" id="dPick" value="${new Date(day - new Date(day).getTimezoneOffset() * 6e4).toISOString().slice(0, 10)}">
+        <button class="btn btn-outline-secondary" id="dNext" aria-label="Nasledujúci deň" ${day >= sod(Date.now()) ? "disabled" : ""}><i class="bi bi-chevron-right"></i></button></div>
+      <span class="fw-semibold d-none d-md-inline">${dayName(day)}</span>
+      <div class="ms-auto actions"><button class="btn btn-outline-secondary" id="dCsv"><i class="bi bi-filetype-csv me-1"></i>CSV</button><button class="btn btn-primary" onclick="print()"><i class="bi bi-printer me-1"></i>Tlač / PDF</button></div>
     </div>
     <div class="row g-3">
       ${kpi("speedometer", "ico-green", "Autom", km(sum(cars, t => t.distance_m)))}${kpi("stopwatch", "ico-cyan", "Za volantom", dur(sum(cars, tripMs)))}
@@ -629,7 +702,7 @@ async function pageDay() {
         return `<div class="tl-item"><div class="tl-time">${tm(g.from)}<small>${tm(g.to)}</small></div>
           <div class="tl-rail ${g.k === "stay" ? "stay" : ""}" style="--c:${colors[g.k]}"><div class="tl-dot"></div></div><div class="tl-body">${body}</div></div>`;
       }).join("") + `</div>` : empty("calendar-x", "V tento deň nie sú žiadne záznamy"), { col: "col-xl-6" })}
-      ${card("Mapa dňa", `<div class="map-box" id="dayMap" style="height:520px"></div>`, { col: "col-xl-6" })}
+      ${card("Mapa dňa", `<div class="map-box tall" id="dayMap"></div>`, { col: "col-xl-6" })}
     </div>`;
     const go = (d) => { day = d; history.replaceState(null, "", "#/den?d=" + day); draw(); };
     $("dPrev").onclick = () => go(sod(day - DAY / 2));
@@ -663,27 +736,32 @@ function needVehicle(what) {
 }
 function pageLogbook() {
   const v = needVehicle("Kniha jázd"); if (!v) return;
-  const list = carTrips();
+  const list = carTrips().map((t, i) => ({ ...t, n: i + 1 }));
   const total = sum(list, t => t.distance_m), biz = sum(list.filter(t => t.category === "business"), t => t.distance_m);
   $("content").innerHTML = printHead("Kniha jázd") + `<div class="row g-3">
     ${kpi("signpost-2", "ico-blue", "Jázd", list.length)}${kpi("speedometer", "ico-green", "Spolu", km(total))}
     ${kpi("briefcase", "ico-violet", "Služobné (S)", km(biz))}${kpi("house", "ico-cyan", "Súkromné (P)", km(total - biz))}
     ${kpi("fuel-pump", "ico-amber", "Palivo", nf(sum(list, liters), 1) + " l")}${kpi("cash", "ico-rose", "Náklady", eur(sum(list, cost)))}
-    ${card(`Kniha jázd · ${esc(v.name)} ${v.plate ? `<span class="plate ms-1">${esc(v.plate)}</span>` : ""}`, list.length ? `<div class="table-responsive"><table class="table table-ct table-sm">
-      <thead><tr><th>#</th><th>Dátum</th><th>Čas</th><th>Odkiaľ</th><th>Kam</th><th>Účel</th><th>Typ</th><th class="text-end">km</th><th class="text-end">Palivo l</th><th class="text-end">Náklady €</th></tr></thead>
-      <tbody>${list.map((t, i) => `<tr class="clickable" data-trip="${t.uuid}"><td>${i + 1}</td><td class="text-nowrap">${dt(t.started_at)}</td><td class="text-nowrap">${tm(t.started_at)}–${t.ended_at ? tm(t.ended_at) : ""}</td>
-        <td>${esc(t.start_address || t.start_place || "—")}</td><td>${esc(t.end_address || t.end_place || "—")}</td><td>${esc(t.note || (t.category === "business" ? "služobná cesta" : ""))}</td>
-        <td><span class="badge ${t.category === "business" ? "badge-biz" : "badge-priv"}">${t.category === "business" ? "S" : "P"}</span></td>
-        <td class="text-end fw-semibold">${nf(t.distance_m / 1000, 1)}</td><td class="text-end">${nf(liters(t), 2)}</td><td class="text-end">${nf(cost(t), 2)}</td></tr>`).join("")}</tbody>
-      <tfoot><tr><td colspan="7">Spolu ${list.length} jázd</td><td class="text-end">${nf(total / 1000, 1)}</td><td class="text-end">${nf(sum(list, liters), 1)}</td><td class="text-end">${nf(sum(list, cost), 2)}</td></tr></tfoot></table></div>
-      <div class="d-flex justify-content-between mt-5 small text-body-secondary"><span>Dátum: ______________</span><span>Podpis vodiča: ________________________</span></div>`
-      : empty("journal", "V období nie sú žiadne jazdy tohto vozidla"),
-      { tools: `<button class="btn btn-sm btn-outline-secondary" id="lCsv"><i class="bi bi-filetype-csv me-1"></i>CSV</button><button class="btn btn-sm btn-primary" onclick="print()"><i class="bi bi-printer me-1"></i>Tlač / PDF</button>` })}
+    ${card(`Kniha jázd · ${esc(v.name)} ${v.plate ? `<span class="plate ms-1">${esc(v.plate)}</span>` : ""}`, list.length ? `<div id="logGrid"></div>
+      <div class="sign-row small text-body-secondary"><span>Dátum: ______________</span><span>Podpis vodiča: ________________________</span></div>`
+      : empty("journal", "V období nie sú žiadne jazdy tohto vozidla"))}
   </div>`;
-  bindTripLinks();
-  $("lCsv").onclick = () => csvDownload(`kniha-jazd-${v.plate || v.name}-${S.range.title}.csv`, [["Dátum", "Začiatok", "Koniec", "Odkiaľ", "Kam", "Účel", "Typ", "km", "Palivo l", "Náklady €"]]
-    .concat(list.map(t => [dt(t.started_at), tm(t.started_at), t.ended_at ? tm(t.ended_at) : "", t.start_address || "", t.end_address || "", t.note || "",
-      t.category === "business" ? "služobná" : "súkromná", +(t.distance_m / 1000).toFixed(2), +liters(t).toFixed(2), +cost(t).toFixed(2)])));
+  if (!list.length) return;
+  grid("logGrid", list, [
+    { t: "#", pri: 12, d: t => t.n, s: t => t.n, x: t => t.n },
+    { t: "Dátum", pri: 1, cls: "text-nowrap", d: t => dt(t.started_at), s: t => t.started_at },
+    { t: "Čas", pri: 7, cls: "text-nowrap", d: t => `${tm(t.started_at)}–${t.ended_at ? tm(t.ended_at) : ""}`, s: t => t.started_at },
+    { t: "Odkiaľ", pri: 2, d: t => esc(t.start_address || t.start_place || "—") },
+    { t: "Kam", pri: 2, d: t => esc(t.end_address || t.end_place || "—") },
+    { t: "Účel", pri: 5, d: t => esc(t.note || (t.category === "business" ? "služobná cesta" : "")) },
+    { t: "Typ", pri: 4, d: t => `<span class="badge ${t.category === "business" ? "badge-biz" : "badge-priv"}">${t.category === "business" ? "S" : "P"}</span>`, x: t => t.category === "business" ? "S" : "P" },
+    { t: "km", pri: 3, cls: "text-end fw-semibold", d: t => nf(t.distance_m / 1000, 1), s: t => t.distance_m, x: t => +(t.distance_m / 1000).toFixed(2) },
+    { t: "Palivo l", pri: 8, cls: "text-end", d: t => nf(liters(t), 2), s: liters, x: t => +liters(t).toFixed(2) },
+    { t: "Náklady €", pri: 6, cls: "text-end", d: t => nf(cost(t), 2), s: cost, x: t => +cost(t).toFixed(2) },
+  ], {
+    order: [[1, "asc"]], pageLength: 50, file: `kniha-jazd-${v.plate || v.name}-${S.range.title}`, title: `Kniha jázd – ${v.name} ${v.plate || ""} – ${S.range.title}`,
+    foot: (r) => [`${r.length} jázd`, "", "", "", "", "", "", nf(sum(r, t => t.distance_m) / 1000, 1), nf(sum(r, liters), 1), nf(sum(r, cost), 2)],
+  });
 }
 
 // =====================================================================
@@ -692,26 +770,32 @@ function pageLogbook() {
 function pageReimb() {
   const v = needVehicle("Výkaz náhrad"); if (!v) return;
   const rate = v.rate_per_km;
-  const rows = carTrips().filter(t => t.category === "business").map(t => { const k = t.distance_m / 1000; return { t, k, basic: k * rate, fuel: cost(t) }; });
-  const tot = (f) => sum(rows, f);
+  const rows = carTrips().filter(t => t.category === "business").map((t, i) => { const k = t.distance_m / 1000; return { ...t, n: i + 1, k, basic: k * rate, fuel: cost(t) }; });
+  const tot = (arr, f) => sum(arr, f);
   $("content").innerHTML = printHead("Cestovné náhrady – použitie vlastného vozidla") + `<div class="row g-3">
-    ${kpi("signpost-2", "ico-blue", "Služobných jázd", rows.length)}${kpi("speedometer", "ico-violet", "Služobné km", km(tot(r => r.k * 1000)))}
-    ${kpi("cash-stack", "ico-green", "Základná náhrada", eur(tot(r => r.basic)))}${kpi("fuel-pump", "ico-amber", "Náhrada za PHL", eur(tot(r => r.fuel)))}
-    ${kpi("wallet2", "ico-rose", "Na vyplatenie", eur(tot(r => r.basic + r.fuel)))}${kpi("calculator", "ico-cyan", "Sadzba", nf(rate, 4) + " €/km")}
+    ${kpi("signpost-2", "ico-blue", "Služobných jázd", rows.length)}${kpi("speedometer", "ico-violet", "Služobné km", km(tot(rows, r => r.k * 1000)))}
+    ${kpi("cash-stack", "ico-green", "Základná náhrada", eur(tot(rows, r => r.basic)))}${kpi("fuel-pump", "ico-amber", "Náhrada za PHL", eur(tot(rows, r => r.fuel)))}
+    ${kpi("wallet2", "ico-rose", "Na vyplatenie", eur(tot(rows, r => r.basic + r.fuel)))}${kpi("calculator", "ico-cyan", "Sadzba", nf(rate, 4) + " €/km")}
     ${rate ? "" : `<div class="col-12"><div class="alert alert-warning mb-0"><i class="bi bi-exclamation-triangle me-1"></i>Pri vozidle nie je nastavená sadzba €/km (v aplikácii: Vozidlá → upraviť). Počíta sa iba náhrada za palivo.</div></div>`}
-    ${card(`Výkaz náhrad · ${esc(v.name)}`, rows.length ? `<div class="small text-body-secondary mb-2">Spotreba ${nf(v.consumption, 1)} l/100 km · cena PHL ${nf(v.fuel_price, 3)} €</div><div class="table-responsive"><table class="table table-ct table-sm">
-      <thead><tr><th>#</th><th>Dátum</th><th>Trasa</th><th>Účel</th><th class="text-end">km</th><th class="text-end">Základná</th><th class="text-end">PHL</th><th class="text-end">Spolu</th></tr></thead>
-      <tbody>${rows.map((r, i) => `<tr class="clickable" data-trip="${r.t.uuid}"><td>${i + 1}</td><td class="text-nowrap">${dt(r.t.started_at)}</td><td>${esc(placeShort(r.t.start_place, r.t.start_address))} → ${esc(placeShort(r.t.end_place, r.t.end_address))}</td>
-        <td>${esc(r.t.note || "služobná cesta")}</td><td class="text-end">${nf(r.k, 1)}</td><td class="text-end">${eur(r.basic)}</td><td class="text-end">${eur(r.fuel)}</td><td class="text-end fw-bold">${eur(r.basic + r.fuel)}</td></tr>`).join("")}</tbody>
-      <tfoot><tr><td colspan="4">Spolu</td><td class="text-end">${nf(tot(r => r.k), 1)}</td><td class="text-end">${eur(tot(r => r.basic))}</td><td class="text-end">${eur(tot(r => r.fuel))}</td><td class="text-end">${eur(tot(r => r.basic + r.fuel))}</td></tr></tfoot></table></div>
-      <div class="d-flex justify-content-between mt-5 small text-body-secondary"><span>Podpis zamestnanca: ________________</span><span>Schválil: ________________</span></div>
+    ${card(`Výkaz náhrad · ${esc(v.name)}`, rows.length ? `<div class="small text-body-secondary mb-2">Spotreba ${nf(v.consumption, 1)} l/100 km · cena PHL ${nf(v.fuel_price, 3)} €</div><div id="reimbGrid"></div>
+      <div class="sign-row small text-body-secondary"><span>Podpis zamestnanca: ________________</span><span>Schválil: ________________</span></div>
       <div class="small text-body-secondary mt-3">Sadzbu a spôsob výpočtu overte podľa platných predpisov a pokynov zamestnávateľa.</div>`
-      : empty("briefcase", "V období nie sú žiadne služobné jazdy tohto vozidla"),
-      { tools: `<button class="btn btn-sm btn-outline-secondary" id="rCsv"><i class="bi bi-filetype-csv me-1"></i>CSV</button><button class="btn btn-sm btn-primary" onclick="print()"><i class="bi bi-printer me-1"></i>Tlač / PDF</button>` })}
+      : empty("briefcase", "V období nie sú žiadne služobné jazdy tohto vozidla"))}
   </div>`;
-  bindTripLinks();
-  $("rCsv").onclick = () => csvDownload(`nahrady-${S.range.title}.csv`, [["Dátum", "Trasa", "Účel", "km", "Základná náhrada €", "Náhrada za PHL €", "Spolu €"]].concat(rows.map(r =>
-    [dt(r.t.started_at), placeShort(r.t.start_place, r.t.start_address) + " → " + placeShort(r.t.end_place, r.t.end_address), r.t.note || "", +r.k.toFixed(2), +r.basic.toFixed(2), +r.fuel.toFixed(2), +(r.basic + r.fuel).toFixed(2)])));
+  if (!rows.length) return;
+  grid("reimbGrid", rows, [
+    { t: "#", pri: 12, d: r => r.n, s: r => r.n, x: r => r.n },
+    { t: "Dátum", pri: 1, cls: "text-nowrap", d: r => dt(r.started_at), s: r => r.started_at },
+    { t: "Trasa", pri: 2, d: r => esc(routeText(r)) },
+    { t: "Účel", pri: 6, d: r => esc(r.note || "služobná cesta") },
+    { t: "km", pri: 4, cls: "text-end", d: r => nf(r.k, 1), s: r => r.k, x: r => +r.k.toFixed(2) },
+    { t: "Základná", pri: 7, cls: "text-end text-nowrap", d: r => eur(r.basic), s: r => r.basic, x: r => +r.basic.toFixed(2) },
+    { t: "PHL", pri: 8, cls: "text-end text-nowrap", d: r => eur(r.fuel), s: r => r.fuel, x: r => +r.fuel.toFixed(2) },
+    { t: "Spolu", pri: 3, cls: "text-end fw-bold text-nowrap", d: r => eur(r.basic + r.fuel), s: r => r.basic + r.fuel, x: r => +(r.basic + r.fuel).toFixed(2) },
+  ], {
+    order: [[2, "asc"]], pageLength: 50, file: `nahrady-${S.range.title}`, title: `Cestovné náhrady – ${v.name} – ${S.range.title}`,
+    foot: (r) => ["Spolu", "", "", "", nf(sum(r, x => x.k), 1), eur(sum(r, x => x.basic)), eur(sum(r, x => x.fuel)), eur(sum(r, x => x.basic + x.fuel))],
+  });
 }
 
 // =====================================================================
@@ -740,10 +824,10 @@ function pageVehicles() {
     const odo = v.odometer_km ? v.odometer_km + sum(S.trips.filter(t => t.vehicle_uuid === v.uuid && t.started_at > +v.odometer_date), t => t.distance_m) / 1000 : null;
     const rem = S.items.reminder.filter(r => !r.done && r.vehicle_uuid === v.uuid);
     return `<div class="col-xl-6"><div class="ct-card vehicle-card">
-      <div class="ct-head"><div class="ico ico-green rounded-3 d-grid me-1" style="width:42px;height:42px;place-items:center"><i class="bi bi-${v.fuel_type === "electric" ? "ev-front" : "car-front-fill"} fs-5"></i></div>
-        <div><h2 class="mb-0">${esc(v.name)} ${v.plate ? `<span class="plate ms-1">${esc(v.plate)}</span>` : ""}</h2>
+      <div class="ct-head"><div class="ico-box ico-green"><i class="bi bi-${v.fuel_type === "electric" ? "ev-front" : "car-front-fill"}"></i></div>
+        <div class="min-w-0"><h2 class="mb-0">${esc(v.name)} ${v.plate ? `<span class="plate ms-1">${esc(v.plate)}</span>` : ""}</h2>
         <div class="sub">${v.is_owner ? (v.share_count ? `zdieľané s ${v.share_count} vodičmi` : "vlastné vozidlo") : "👥 zdieľané od " + esc(v.owner_name)}</div></div>
-        <div class="ms-auto d-flex gap-1 noprint"><button class="btn btn-sm btn-outline-primary" data-shared="${v.uuid}"><i class="bi bi-people me-1"></i>Spoločná kniha</button>
+        <div class="tools noprint"><button class="btn btn-sm btn-outline-primary" data-shared="${v.uuid}"><i class="bi bi-people me-1"></i>Spoločná kniha</button>
         ${v.is_owner ? `<button class="btn btn-sm btn-outline-secondary" data-share="${v.uuid}" title="Zdieľanie"><i class="bi bi-share"></i></button>` : ""}</div></div>
       <div class="ct-body">
         <div class="row g-2 mb-3">
@@ -754,13 +838,19 @@ function pageVehicles() {
         </div>
         ${st.pts.length > 1 ? `<h6 class="fw-bold small text-uppercase text-body-secondary">Skutočná spotreba (plná–plná)</h6><div class="chart-box sm mb-3"><canvas id="chCons${i}"></canvas></div>` : ""}
         ${rem.length ? `<h6 class="fw-bold small text-uppercase text-body-secondary">Pripomienky</h6>${remindersBlock(rem)}` : ""}
-        ${refuels.length ? `<h6 class="fw-bold small text-uppercase text-body-secondary mt-3">Posledné tankovania</h6><div class="table-responsive"><table class="table table-ct table-sm"><thead><tr><th>Dátum</th><th class="text-end">Množstvo</th><th class="text-end">Suma</th><th class="text-end">€/l</th><th class="text-end">Tachometer</th></tr></thead><tbody>
-          ${refuels.slice(0, 6).map(r => `<tr><td>${dt(r.ts)}${r.full_tank === false ? ' <span class="badge badge-priv">čiastočne</span>' : ""}</td><td class="text-end">${nf(r.liters, 2)}</td><td class="text-end">${eur(r.total_price)}</td>
-            <td class="text-end">${r.liters ? nf(r.total_price / r.liters, 3) : "–"}</td><td class="text-end">${r.odometer_km ? int(r.odometer_km) : "–"}</td></tr>`).join("")}</tbody></table></div>` : `<div class="small text-body-secondary">Zatiaľ žiadne tankovania.</div>`}
+        ${refuels.length ? `<h6 class="fw-bold small text-uppercase text-body-secondary mt-3">Tankovania</h6><div id="refGrid${i}"></div>` : `<div class="small text-body-secondary">Zatiaľ žiadne tankovania.</div>`}
       </div></div></div>`;
   }).join("") + `</div>`;
   list.forEach((v, i) => {
-    const st = refuelStats(S.items.refuel.filter(r => r.vehicle_uuid === v.uuid));
+    const refuels = S.items.refuel.filter(r => r.vehicle_uuid === v.uuid);
+    if (refuels.length) grid("refGrid" + i, refuels, [
+      { t: "Dátum", pri: 1, d: r => dt(r.ts) + (r.full_tank === false ? ' <span class="badge badge-priv">čiastočne</span>' : ""), s: r => +r.ts, x: r => dt(r.ts) },
+      { t: "Množstvo", pri: 2, cls: "text-end", d: r => nf(r.liters, 2), s: r => +r.liters, x: r => +r.liters },
+      { t: "Suma", pri: 3, cls: "text-end text-nowrap", d: r => eur(r.total_price), s: r => +r.total_price, x: r => +r.total_price },
+      { t: "€/l", pri: 4, cls: "text-end", d: r => r.liters ? nf(r.total_price / r.liters, 3) : "–", s: r => r.liters ? r.total_price / r.liters : 0 },
+      { t: "Tachometer", pri: 5, cls: "text-end", d: r => r.odometer_km ? int(r.odometer_km) : "–", s: r => +r.odometer_km || 0, x: r => +r.odometer_km || "" },
+    ], { sm: true, order: [[1, "desc"]], pageLength: 5, search: false, rowTrip: false, file: `tankovania-${v.plate || v.name}`, title: `Tankovania – ${v.name}` });
+    const st = refuelStats(refuels);
     if (st.pts.length > 1) chart("chCons" + i, { type: "line", data: { labels: st.pts.map(p => dtShort(p.ts)), datasets: [
       { label: "Skutočná", data: st.pts.map(p => +p.per100.toFixed(2)), borderColor: C.car, backgroundColor: "rgba(22,163,74,.12)", fill: true, tension: .3 },
       { label: "Nastavená", data: st.pts.map(() => v.consumption), borderColor: C.amber, borderDash: [6, 4], pointRadius: 0 }] }, options: { scales: { y: { title: { display: true, text: "na 100 km" } } } } });
@@ -775,10 +865,22 @@ async function sharedLogbook(v) {
     const T = r.trips.map(normTrip);
     const by = {}; T.forEach(t => by[t.driver_name] = (by[t.driver_name] || 0) + t.distance_m);
     $("modalBody").innerHTML = `<div class="d-flex flex-wrap gap-2 mb-3">${Object.entries(by).map(([d, m]) => `<span class="badge rounded-pill text-bg-primary fs-6 fw-normal">${esc(d)}: ${km(m)}</span>`).join("")}</div>
-      ${T.length ? `<div class="table-responsive"><table class="table table-ct table-sm"><thead><tr><th>#</th><th>Dátum</th><th>Čas</th><th>Vodič</th><th>Odkiaľ</th><th>Kam</th><th>Účel</th><th>Typ</th><th class="text-end">km</th></tr></thead><tbody>
-      ${T.map((t, i) => `<tr><td>${i + 1}</td><td>${dt(t.started_at)}</td><td class="text-nowrap">${tm(t.started_at)}–${t.ended_at ? tm(t.ended_at) : ""}</td><td>${esc(t.driver_name)}</td>
-        <td>${esc(t.start_address || t.start_place || "—")}</td><td>${esc(t.end_address || t.end_place || "—")}</td><td>${esc(t.note || "")}</td><td>${t.category === "business" ? "S" : "P"}</td><td class="text-end">${nf(t.distance_m / 1000, 1)}</td></tr>`).join("")}
-      </tbody><tfoot><tr><td colspan="8">Spolu ${T.length} jázd</td><td class="text-end">${nf(sum(T, t => t.distance_m) / 1000, 1)}</td></tr></tfoot></table></div>` : empty("journal", "Žiadne jazdy v období")}`;
+      ${T.length ? `<div id="sharedGrid"></div>` : empty("journal", "Žiadne jazdy v období")}`;
+    if (T.length) {
+      const g = grid("sharedGrid", T.map((t, i) => ({ ...t, n: i + 1 })), [
+        { t: "#", pri: 12, d: t => t.n, s: t => t.n },
+        { t: "Dátum", pri: 1, cls: "text-nowrap", d: t => dt(t.started_at), s: t => t.started_at },
+        { t: "Čas", pri: 7, cls: "text-nowrap", d: t => `${tm(t.started_at)}–${t.ended_at ? tm(t.ended_at) : ""}`, s: t => t.started_at },
+        { t: "Vodič", pri: 2, d: t => esc(t.driver_name) },
+        { t: "Odkiaľ", pri: 4, d: t => esc(t.start_address || t.start_place || "—") },
+        { t: "Kam", pri: 4, d: t => esc(t.end_address || t.end_place || "—") },
+        { t: "Účel", pri: 6, d: t => esc(t.note || "") },
+        { t: "Typ", pri: 5, d: t => t.category === "business" ? "S" : "P" },
+        { t: "km", pri: 3, cls: "text-end", d: t => nf(t.distance_m / 1000, 1), s: t => t.distance_m, x: t => +(t.distance_m / 1000).toFixed(2) },
+      ], { sm: true, order: [[2, "asc"]], rowTrip: false, file: `spolocna-kniha-${v.plate || v.name}-${S.range.title}`, title: `Spoločná kniha jázd – ${v.name} – ${S.range.title}`,
+        foot: (r) => [`${r.length} jázd`, "", "", "", "", "", "", "", nf(sum(r, t => t.distance_m) / 1000, 1)] });
+      setTimeout(() => g?.columns.adjust().responsive.recalc(), 300);
+    }
   } catch (e) { $("modalBody").innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`; }
 }
 async function manageShares(v) {
@@ -819,7 +921,7 @@ async function pageRoutes() {
   $("content").innerHTML = printHead("Časté trasy") + (routes.length ? `<div class="row g-3">` + routes.map((r, i) => card(
     `${esc(r.from)} <i class="bi bi-arrow-right text-body-secondary"></i> ${esc(r.to)}`,
     `<div class="row g-2 mb-3">${[["Počet", r.l.length + "×"], ["Ø čas", dur(r.avg)], ["Najrýchlejšie", dur(r.min)], ["Najpomalšie", dur(r.max)], ["Ø vzdialenosť", km(r.km)], ["Naposledy", dt(r.l[r.l.length - 1].started_at)]]
-      .map(([l, x]) => `<div class="col-4 col-md-2"><div class="stat-mini"><div class="v">${x}</div><div class="l">${l}</div></div></div>`).join("")}</div>
+      .map(([l, x]) => `<div class="col-6 col-sm-4 col-xxl-2"><div class="stat-mini"><div class="v">${x}</div><div class="l">${l}</div></div></div>`).join("")}</div>
      ${r.best && r.hours.length > 1 ? `<div class="alert alert-success py-2 small mb-2"><i class="bi bi-lightbulb me-1"></i>Najrýchlejšie pri odchode <b>${String(r.best.h).padStart(2, "0")}:00–${String(r.best.h).padStart(2, "0")}:59</b> (Ø ${dur(r.best.avg)})</div>` : ""}
      <div class="chart-box sm"><canvas id="chRoute${i}"></canvas></div>`, { col: "col-xl-6", sub: r.l.length + " jázd za rok" })).join("") + `</div>`
     : `<div class="ct-card">${empty("arrow-repeat", "Zatiaľ žiadne opakované trasy (aspoň 3 jazdy s rovnakým začiatkom a cieľom).")}</div>`);
@@ -846,7 +948,7 @@ async function pageWalk() {
     ${kpi("speedometer2", "ico-rose", "Tempo", dist > 100 ? nf(time / 60000 / (dist / 1000), 1) + " min/km" : "–")}
     ${card("Kroky v čase", `<div class="chart-box lg"><canvas id="chSteps"></canvas></div>`, { col: "col-xl-8", sub: "čiarkovaná čiara = denný cieľ" })}
     ${card("Kedy chodíte", `<div class="chart-box lg"><canvas id="chWalkHour"></canvas></div>`, { col: "col-xl-4" })}
-    ${card("Posledný rok", `<div class="heatmap" id="heat"><div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div></div>`, { col: "col-12", sub: "kroky po dňoch · orámované = splnený cieľ" })}
+    ${card("Posledný rok", `<div id="heat"><div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div></div>`, { col: "col-12", sub: "kroky po dňoch · orámované = splnený cieľ" })}
   </div>`;
   const perB = b.map(x => sum(walks.filter(t => t.started_at >= x.a && t.started_at < x.z), t => t.steps));
   chart("chSteps", { type: "bar", data: { labels: b.map(x => x.label), datasets: [
@@ -874,9 +976,10 @@ async function pageWalk() {
   for (let i = 364; i >= 0; i--) { const v = per[sod(start + i * DAY + 3 * 3.6e6)] || 0; if (v >= goal) streak++; else if (i < 364) break; }
   ["Po", "", "St", "", "Pi", "", "Ne"].forEach((n, r) => { if (n) svg += `<text x="0" y="${28 + r * (cell + gap)}" font-size="10" fill="${css("--ct-muted")}">${n}</text>`; });
   const W = 30 + 54 * (cell + gap);
-  $("heat").innerHTML = `<svg viewBox="0 0 ${W} ${18 + 7 * (cell + gap)}" width="${W}">${svg}</svg>
+  $("heat").innerHTML = `<div class="heat-scroll" id="heatScroll"><svg viewBox="0 0 ${W} ${18 + 7 * (cell + gap)}" width="${W}" height="${18 + 7 * (cell + gap)}">${svg}</svg></div>
     <div class="d-flex flex-wrap gap-3 mt-2 small"><span><i class="bi bi-fire text-warning"></i> aktuálna séria: <b>${streak}</b> dní</span><span><i class="bi bi-trophy text-primary"></i> najdlhšia séria: <b>${best}</b> dní</span>
     <span>dní so splneným cieľom: <b>${Object.values(per).filter(v => v >= goal).length}</b></span><span>spolu za rok: <b>${int(sum(Object.values(per), v => v))}</b> krokov</span></div>`;
+  const hs = $("heatScroll"); hs.scrollLeft = hs.scrollWidth;   // najnovšie dni vpravo
 }
 
 // =====================================================================
@@ -887,9 +990,9 @@ function pagePlaces() {
   const kinds = { home: ["house-door-fill", "Domov"], work: ["building", "Práca"], client: ["briefcase-fill", "Klient"], other: ["geo-alt-fill", "Iné"] };
   const visits = (p) => S.trips.filter(t => t.start_place === p.name || t.end_place === p.name);
   $("content").innerHTML = `<div class="row g-3">
-    ${card("Mapa miest", `<div class="map-box" id="placeMap" style="height:520px"></div>`, { col: "col-xl-7" })}
+    ${card("Mapa miest", `<div class="map-box tall" id="placeMap"></div>`, { col: "col-xl-7" })}
     ${card("Miesta", places.length ? `<div class="list-ct">${places.map((p, i) => { const v = visits(p), k = kinds[p.kind] || kinds.other;
-      return `<div class="item" role="button" data-pl="${i}"><i class="bi bi-${k[0]} fs-4 text-danger"></i><div class="flex-grow-1"><div class="fw-semibold">${esc(p.name)}</div>
+      return `<div class="item clickable" role="button" data-pl="${i}"><i class="bi bi-${k[0]} fs-4 text-danger"></i><div class="flex-grow-1"><div class="fw-semibold">${esc(p.name)}</div>
         <div class="small text-body-secondary">${k[1]} · okruh ${int(p.radius_m || 150)} m${p.category ? " · " + (p.category === "business" ? "služobné" : "súkromné") : ""}</div></div>
         <div class="text-end"><div class="fw-bold">${v.length}×</div><div class="small text-body-secondary">v období</div></div></div>`; }).join("")}</div>`
       : empty("geo-alt", "Žiadne miesta – pridajte ich v aplikácii (Nastavenia → Miesta)."), { col: "col-xl-5" })}

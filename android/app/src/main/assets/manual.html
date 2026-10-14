@@ -603,11 +603,20 @@
 
 <h2 id="web">26. Webový prehľad na počítači</h2>
 <p>Na serveri je aj moderný webový dashboard (Bootstrap), kde jazdy a chôdzu prezeráte na počítači alebo tablete. Adresu nastaví správca servera, napr. <code>https://vas-server/cartracking/web/</code>. Prihlásite sa rovnakým e-mailom a heslom ako v aplikácii; prihlásenie si stránka môže zapamätať (iba v tomto prehliadači).</p>
-<p><b>Horná lišta</b> platí pre všetky stránky: obdobie <b>Týždeň / Mesiac / Rok</b> s posunom ‹ ›, výber vozidla, obnovenie, svetlý / tmavý režim a menu účtu (tlač, odhlásenie). Na mobile sa bočné menu otvára tlačidlom ☰.</p>
+<p><b>Horná lišta</b> platí pre všetky stránky: obdobie <b>Týždeň / Mesiac / Rok</b> s posunom ‹ ›, výber vozidla, obnovenie, svetlý / tmavý režim a menu účtu (tlač, odhlásenie).</p>
+<p>Stránka je <b>responzívna</b> – funguje na počítači, tablete aj mobile. Na mobile je dole <b>navigačná lišta</b> (Prehľad, Jazdy, Mapa, Kniha, Viac), výber obdobia a vozidla sa rozloží na celú šírku a grafy a mapy sa prispôsobia displeju.</p>
+<p><b>Tabuľky</b> (jazdy, kniha jázd, náhrady, tankovania, spoločná kniha) majú:</p>
+<ul>
+  <li><b>vyhľadávanie</b>, triedenie ťuknutím na nadpis stĺpca a stránkovanie (počet riadkov na stranu, aj „všetky“),</li>
+  <li><b>Excel</b> (.xlsx s číslami, ktoré sa dajú sčítať) a <b>CSV</b>, <b>Tlač</b> a <b>Stĺpce</b> – skrytie stĺpcov, ktoré nepotrebujete,</li>
+  <li>riadok <b>Spolu</b>, ktorý sa prepočíta podľa vyhľadávania a filtrov,</li>
+  <li>na úzkom displeji sa menej dôležité stĺpce zbalia – modrá šípka ▸ na začiatku riadku ich rozbalí.</li>
+</ul>
+<p>Pri tlači sa vždy vytlačia <b>všetky riadky a stĺpce</b> bez ovládacích prvkov.</p>
 <table>
   <tr><th>Stránka</th><th>Čo ukazuje</th></tr>
   <tr><td><b>Dashboard</b></td><td>6 ukazovateľov (km, jazdy, čas za volantom, náklady na palivo, služobné km, kroky) so šípkou a % zmeny oproti predchádzajúcemu obdobiu; graf km (služobné / súkromné) a krokov, podiel vozidiel, jazdy podľa hodiny a dňa v týždni, mapa posledných jázd, posledné jazdy, štýl jazdy, rekordy a blížiace sa pripomienky.</td></tr>
-  <tr><td><b>Jazdy a chôdza</b></td><td>Tabuľka s vyhľadávaním, filtrami (auto / chôdza, služobné / súkromné), triedením podľa stĺpcov a stránkovaním; export CSV. Kliknutím na riadok sa otvorí detail.</td></tr>
+  <tr><td><b>Jazdy a chôdza</b></td><td>Súhrn obdobia a tabuľka všetkých záznamov s filtrami (auto / chôdza, služobné / súkromné), vyhľadávaním a exportom. Kliknutím na riadok sa otvorí detail.</td></tr>
   <tr><td><b>Detail jazdy</b></td><td>Bočný panel s mapou trasy farbenej podľa rýchlosti, grafom rýchlosti v čase a štatistikami (vzdialenosť, čas, priemer, maximum, štýl).</td></tr>
   <tr><td><b>Mapa</b></td><td>Veľká mapa až 150 jázd obdobia, prepínače auto / chôdza / miesta a farbenie podľa rýchlosti.</td></tr>
   <tr><td><b>Časová os dňa</b></td><td>Jazdy, chôdza a zastávky vybraného dňa v poradí, s mapou; tlač a CSV.</td></tr>
@@ -830,7 +839,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>POST /trips/points</code></td><td>Body trasy až 50 jázd naraz (<code>{uuids:[…]}</code>) – obnova na novom telefóne</td></tr>
 </table>
 <h3>31.5 Webový prehľad</h3>
-<p>Priečinok <code>backend/web</code> skopírujte vedľa priečinka <code>api</code> (napr. <code>/cartracking/web</code>). Stránku tvoria tri súbory – <code>index.html</code>, <code>app.css</code> a <code>app.js</code> – bez inštalácie; API hľadá v <code>../api/</code> (dá sa zmeniť na prihlasovacej obrazovke). Knižnice Bootstrap, Chart.js a Leaflet sa načítavajú z cdnjs.cloudflare.com.</p>
+<p>Priečinok <code>backend/web</code> skopírujte vedľa priečinka <code>api</code> (napr. <code>/cartracking/web</code>). Stránku tvoria tri súbory – <code>index.html</code>, <code>app.css</code> a <code>app.js</code> – bez inštalácie; API hľadá v <code>../api/</code> (dá sa zmeniť na prihlasovacej obrazovke). Knižnice Bootstrap, Chart.js a Leaflet sa načítavajú z cdnjs.cloudflare.com, DataTables, jQuery a JSZip z cdn.jsdelivr.net.</p>
 
 <h2 id="sukromie">32. Bezpečnosť a súkromie</h2>
 <ul>

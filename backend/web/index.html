@@ -2,13 +2,17 @@
 <html lang="sk" data-bs-theme="light">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
 <title>Car Tracking – prehľad</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/datatables.net-bs5@2.1.8/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/datatables.net-responsive-bs5@3.0.3/css/responsive.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/datatables.net-buttons-bs5@3.1.2/css/buttons.bootstrap5.min.css">
 <link rel="stylesheet" href="app.css">
 <script>
   // téma pred vykreslením (bez bliknutia)
@@ -43,14 +47,16 @@
 
 <!-- ============ Aplikácia ============ -->
 <div id="app" class="d-none">
-  <!-- Bočné menu -->
+  <!-- Bočné menu (na mobile vysúvacie) -->
   <aside class="sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="sidebar">
     <div class="sidebar-inner">
-      <a class="d-flex align-items-center gap-2 px-3 py-4 text-decoration-none" href="#/prehlad">
-        <div class="brand-logo sm"><i class="bi bi-car-front-fill"></i></div>
-        <span class="fs-5 fw-bold text-white">Car Tracking</span>
+      <div class="d-flex align-items-center gap-2 px-3 py-4">
+        <a class="d-flex align-items-center gap-2 text-decoration-none" href="#/prehlad">
+          <div class="brand-logo sm"><i class="bi bi-car-front-fill"></i></div>
+          <span class="fs-5 fw-bold text-white">Car Tracking</span>
+        </a>
         <button type="button" class="btn-close btn-close-white ms-auto d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Zavrieť"></button>
-      </a>
+      </div>
       <nav class="nav flex-column px-2" id="nav">
         <div class="nav-section">Prehľad</div>
         <a class="nav-link" href="#/prehlad" data-page="prehlad"><i class="bi bi-speedometer2"></i>Dashboard</a>
@@ -78,46 +84,57 @@
   <!-- Hlavný obsah -->
   <main class="main">
     <header class="topbar sticky-top">
-      <div class="d-flex align-items-center gap-2 flex-wrap px-3 px-lg-4 py-2">
-        <button class="btn btn-outline-secondary btn-sm d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-label="Menu"><i class="bi bi-list"></i></button>
-        <h1 class="h5 mb-0 fw-bold me-auto" id="pageTitle">Dashboard</h1>
-        <div class="d-flex align-items-center gap-2 flex-wrap" id="periodBar">
-          <div class="btn-group btn-group-sm" role="group" id="periodSeg">
+      <div class="topbar-inner">
+        <button class="btn btn-icon d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-label="Menu"><i class="bi bi-list"></i></button>
+        <h1 class="page-title" id="pageTitle">Dashboard</h1>
+        <div class="filterbar" id="periodBar">
+          <div class="btn-group btn-group-sm seg" role="group" id="periodSeg">
             <button class="btn btn-outline-primary" data-p="week">Týždeň</button>
             <button class="btn btn-outline-primary active" data-p="month">Mesiac</button>
             <button class="btn btn-outline-primary" data-p="year">Rok</button>
           </div>
-          <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-secondary" id="prev" title="Predchádzajúce"><i class="bi bi-chevron-left"></i></button>
+          <div class="btn-group btn-group-sm period-nav">
+            <button class="btn btn-outline-secondary" id="prev" title="Predchádzajúce" aria-label="Predchádzajúce"><i class="bi bi-chevron-left"></i></button>
             <button class="btn btn-outline-secondary period-title" id="periodTitle" disabled></button>
-            <button class="btn btn-outline-secondary" id="next" title="Nasledujúce"><i class="bi bi-chevron-right"></i></button>
+            <button class="btn btn-outline-secondary" id="next" title="Nasledujúce" aria-label="Nasledujúce"><i class="bi bi-chevron-right"></i></button>
           </div>
-          <select class="form-select form-select-sm w-auto" id="vehicleSel"><option value="">Všetky vozidlá</option></select>
+          <select class="form-select form-select-sm vehicle-sel" id="vehicleSel" aria-label="Vozidlo"><option value="">Všetky vozidlá</option></select>
         </div>
-        <button class="btn btn-sm btn-outline-secondary" id="reload" title="Obnoviť"><i class="bi bi-arrow-clockwise"></i></button>
-        <button class="btn btn-sm btn-outline-secondary" id="themeBtn" title="Svetlý / tmavý režim"><i class="bi bi-moon-stars"></i></button>
-        <div class="dropdown">
-          <button class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i><span class="d-none d-md-inline ms-1" id="who"></span></button>
-          <ul class="dropdown-menu dropdown-menu-end shadow">
-            <li><a class="dropdown-item" href="#/ucet"><i class="bi bi-person-gear me-2"></i>Účet a server</a></li>
-            <li><button class="dropdown-item" onclick="window.print()"><i class="bi bi-printer me-2"></i>Tlačiť stránku</button></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><button class="dropdown-item text-danger" id="logoutBtn"><i class="bi bi-box-arrow-right me-2"></i>Odhlásiť</button></li>
-          </ul>
+        <div class="top-actions">
+          <button class="btn btn-icon" id="reload" title="Obnoviť" aria-label="Obnoviť"><i class="bi bi-arrow-clockwise"></i></button>
+          <button class="btn btn-icon" id="themeBtn" title="Svetlý / tmavý režim" aria-label="Téma"><i class="bi bi-moon-stars"></i></button>
+          <div class="dropdown">
+            <button class="btn btn-sm btn-primary dropdown-toggle user-btn" data-bs-toggle="dropdown" aria-label="Účet"><i class="bi bi-person-circle"></i><span class="d-none d-xl-inline ms-1" id="who"></span></button>
+            <ul class="dropdown-menu dropdown-menu-end shadow">
+              <li><a class="dropdown-item" href="#/ucet"><i class="bi bi-person-gear me-2"></i>Účet a server</a></li>
+              <li><button class="dropdown-item" onclick="window.print()"><i class="bi bi-printer me-2"></i>Tlačiť stránku</button></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><button class="dropdown-item text-danger" id="logoutBtn"><i class="bi bi-box-arrow-right me-2"></i>Odhlásiť</button></li>
+            </ul>
+          </div>
         </div>
       </div>
       <div class="progress loading-bar d-none" id="loading"><div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div></div>
     </header>
 
-    <div class="container-fluid px-3 px-lg-4 py-4" id="content"></div>
-    <footer class="px-4 pb-4 small text-body-secondary noprint">Car Tracking · údaje z vášho servera · mapa © Esri, HERE, Garmin, OpenStreetMap</footer>
+    <div class="container-fluid content-wrap" id="content"></div>
+    <footer class="px-3 px-lg-4 pb-4 small text-body-secondary noprint">Car Tracking · údaje z vášho servera · mapa © Esri, HERE, Garmin, OpenStreetMap</footer>
   </main>
+
+  <!-- Spodná navigácia (mobil) -->
+  <nav class="bottom-nav d-lg-none noprint" id="bottomNav">
+    <a href="#/prehlad" data-page="prehlad"><i class="bi bi-speedometer2"></i><span>Prehľad</span></a>
+    <a href="#/jazdy" data-page="jazdy"><i class="bi bi-signpost-split"></i><span>Jazdy</span></a>
+    <a href="#/mapa" data-page="mapa"><i class="bi bi-map"></i><span>Mapa</span></a>
+    <a href="#/kniha" data-page="kniha"><i class="bi bi-journal-text"></i><span>Kniha</span></a>
+    <a href="#" data-bs-toggle="offcanvas" data-bs-target="#sidebar" role="button"><i class="bi bi-grid"></i><span>Viac</span></a>
+  </nav>
 </div>
 
 <!-- Detail jazdy -->
 <div class="offcanvas offcanvas-end trip-offcanvas" tabindex="-1" id="tripPanel">
   <div class="offcanvas-header border-bottom">
-    <div><h5 class="offcanvas-title fw-bold" id="tripTitle">Jazda</h5><div class="small text-body-secondary" id="tripSub"></div></div>
+    <div class="min-w-0"><h5 class="offcanvas-title fw-bold text-truncate" id="tripTitle">Jazda</h5><div class="small text-body-secondary" id="tripSub"></div></div>
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Zavrieť"></button>
   </div>
   <div class="offcanvas-body" id="tripBody"></div>
@@ -125,7 +142,7 @@
 
 <!-- Univerzálne modálne okno -->
 <div class="modal fade" id="modal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
     <div class="modal-content">
       <div class="modal-header"><h5 class="modal-title fw-bold" id="modalTitle"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body" id="modalBody"></div>
@@ -133,11 +150,21 @@
   </div>
 </div>
 
-<div class="toast-container position-fixed bottom-0 end-0 p-3"><div id="toast" class="toast align-items-center text-bg-dark border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
+<div class="toast-container position-fixed end-0 p-3 toast-pos"><div id="toast" class="toast align-items-center text-bg-dark border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net@2.1.8/js/dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-bs5@2.1.8/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-responsive@3.0.3/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-responsive-bs5@3.0.3/js/responsive.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-buttons@3.1.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-buttons-bs5@3.1.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-buttons@3.1.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/datatables.net-buttons@3.1.2/js/buttons.colVis.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
