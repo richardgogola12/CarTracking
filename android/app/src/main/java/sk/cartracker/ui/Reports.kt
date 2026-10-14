@@ -264,29 +264,28 @@ Chôdza mimo pracovného času sa nezapočítava; záznam presahujúci pracovný
 
     /** Časová os dňa na tlač. */
     fun timelineHtml(seg: List<DaySegment>, day: Long, vehicles: Map<String, VehicleEntity>, s: AppSettings, name: String): String {
-        val K = DaySegment.Kind
         val rows = StringBuilder()
         seg.forEach { g ->
             val t = g.trip
             val (icon, what) = when (g.kind) {
-                K.CAR -> "🚗" to "Jazda"
-                K.WALK -> "🚶" to "Chôdza"
-                K.STAY -> "🅿️" to "Pobyt"
+                DaySegment.Kind.CAR -> "🚗" to "Jazda"
+                DaySegment.Kind.WALK -> "🚶" to "Chôdza"
+                DaySegment.Kind.STAY -> "🅿️" to "Pobyt"
             }
             val desc = if (t == null) esc(g.place ?: "na mieste")
                 else esc((t.startPlace ?: t.startAddress ?: "?") + " → " + (t.endPlace ?: t.endAddress ?: "?")) +
                     (if (t.note.isNotBlank()) "<div style='color:#666'>${esc(t.note)}</div>" else "")
             val detail = when {
                 t == null -> ""
-                g.kind == K.CAR -> "Ø ${t.avgSpeedKmh.toInt()} km/h" + (vehicles[t.vehicleUuid]?.let { " · " + esc(it.name) } ?: "") +
+                g.kind == DaySegment.Kind.CAR -> "Ø ${t.avgSpeedKmh.toInt()} km/h" + (vehicles[t.vehicleUuid]?.let { " · " + esc(it.name) } ?: "") +
                     (if (t.category == CATEGORY_BUSINESS) " · služobná" else "")
                 else -> String.format(sk, "%,d krokov", t.steps)
             }
             rows.append("<tr class='${g.kind.name.lowercase()}'><td class='c'>${formatTime(g.from)}–${formatTime(g.to)}</td><td>$icon $what</td><td>$desc</td>")
                 .append("<td class='r'>${t?.let { km(it.distanceM) } ?: ""}</td><td class='r'>${formatDuration(g.ms)}</td><td>$detail</td></tr>\n")
         }
-        val cars = seg.filter { it.kind == K.CAR }.mapNotNull { it.trip }
-        val walks = seg.filter { it.kind == K.WALK }.mapNotNull { it.trip }
+        val cars = seg.filter { it.kind == DaySegment.Kind.CAR }.mapNotNull { it.trip }
+        val walks = seg.filter { it.kind == DaySegment.Kind.WALK }.mapNotNull { it.trip }
         return """<!doctype html><html lang="sk"><head><meta charset="utf-8"><title>Časová os – ${esc(formatDay(day))}</title><style>$CSS
  tr.car td:first-child { border-left: 4px solid #2e7d32; } tr.walk td:first-child { border-left: 4px solid #1565c0; } tr.stay td { color: #555; }
  tr.stay td:first-child { border-left: 4px solid #bcaaa4; }</style></head><body>
