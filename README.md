@@ -143,6 +143,22 @@ Aplikácia sa k MySQL nepripája priamo (to by bolo nebezpečné – heslo k DB 
 - Xiaomi/Huawei/Oppo/Samsung: v systéme zapnite aj „Automatické spustenie“ a batériu „Bez obmedzení“.
 - Rozpoznanie nástupu do auta trvá zvyčajne 30 s – 2 min od rozbehnutia; body z tohto času sa doplnia do jazdy.
 
+## Externé servery (firewall)
+Okrem vášho servera (HTTPS 443). IP sú snímka z 14. 10. 2026 – za CDN sa menia, vo firewalle povoľujte **domény**. Podrobne v príručke, kapitola 33.
+
+| Doména | Kto | Účel | IPv4 (14. 10. 2026) |
+|---|---|---|---|
+| `nominatim.openstreetmap.org` | aplikácia | obec v adrese, typ cesty a limit (posiela súradnice) | 151.101.1.91, .65.91, .129.91, .193.91 (Fastly) |
+| `server.arcgisonline.com` | aplikácia, web | mapové dlaždice Esri | 143.204.204.26, .56, .60, .89 (CloudFront) |
+| `tile.openstreetmap.org` (a./b./c.) | aplikácia | „Klasická“ mapa | 151.101.x.91 (Fastly) |
+| `a./b./c.tile.opentopomap.org` | aplikácia | „Terénna“ mapa | 159.195.68.179 |
+| servery Google (Play služby) | aplikácia | geokóder (ulica), sieťová poloha, rozpoznanie aktivity | rôzne (Google) |
+| `cdnjs.cloudflare.com` | web | Bootstrap, Icons, Chart.js, Leaflet | 104.17.24.14, 104.17.25.14 (Cloudflare) |
+| `cdn.jsdelivr.net` | web | DataTables, jQuery, JSZip | 104.17.207.5, 104.17.208.5 (Cloudflare) |
+| `fonts.googleapis.com`, `fonts.gstatic.com` | web | písmo Inter | 172.253.122.95, 192.178.210.94 (Google) |
+
+Bez analytiky a reklamy (žiadny Firebase/Crashlytics).
+
 ## Štruktúra
 ```
 backend/  schema.sql, migrate_*.sql, api/index.php (REST), api/config.php, api/.htaccess, web/index.html (webový prehľad)

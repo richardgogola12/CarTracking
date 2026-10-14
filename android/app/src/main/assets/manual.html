@@ -57,6 +57,10 @@
     .print-only { display: block; }
   }
   @media (max-width: 520px) { nav.toc ol { columns: 1; } body { font-size: 14.5px; } }
+  table.net { table-layout: fixed; width: 100%; font-size: .86em; }
+  table.net td, table.net th { overflow-wrap: anywhere; word-break: break-word; }
+  table.net td.ip { white-space: nowrap; word-break: normal; overflow-wrap: normal; }
+  table.net code { white-space: normal; word-break: break-all; font-size: .92em; }
 </style>
 </head>
 <body>
@@ -103,6 +107,7 @@
     <li><a href="#problemy">Riešenie problémov</a></li>
     <li><a href="#server">Server (pre správcu)</a></li>
     <li><a href="#sukromie">Bezpečnosť a súkromie</a></li>
+    <li><a href="#siet">Externé servery a IP adresy</a></li>
   </ol>
 </nav>
 
@@ -849,12 +854,46 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <li>Súbor zálohy nie je šifrovaný – obsahuje vaše trasy, uchovávajte ho na bezpečnom mieste.</li>
   <li>Prihlasovací token je v telefóne šifrovaný kľúčom v Android Keystore; heslo sa v telefóne neukladá.</li>
   <li>Na serveri sa heslá ukladajú ako bcrypt hash a tokeny ako SHA-256 hash.</li>
-  <li>Na adresy začiatku a cieľa sa používa geokódovanie systému Android (Google); dá sa vypnúť v Nastaveniach.</li>
+  <li>Na adresy začiatku a cieľa sa posielajú súradnice začiatku a cieľa geokódovaniu systému Android (Google) a službe Nominatim (OpenStreetMap); dá sa vypnúť v Nastaveniach (Zisťovať adresy).</li>
   <li>Mapové podklady sa sťahujú od poskytovateľov máp; posielajú sa im iba súradnice zobrazených dlaždíc, nie vaše jazdy.</li>
   <li>Zdieľané vozidlo: vlastník a vodiči, s ktorými je zdieľané, vidia jazdy <b>tohto vozidla</b> (čas, trasa, účel) – nie vašu chôdzu ani jazdy inými vozidlami. Zdieľanie sa dá kedykoľvek zrušiť.</li>
-  <li>Webový prehľad komunikuje iba s vaším serverom; prihlásenie si pamätá len v prehliadači, kde ste ho zaškrtli.</li>
+  <li>Webový prehľad posiela vaše údaje (jazdy, prihlásenie) iba na váš server; knižnice, písmo a mapové dlaždice sťahuje prehliadač z verejných CDN (kapitola 33). Prihlásenie si pamätá len v prehliadači, kde ste ho zaškrtli.</li>
   <li>Na rozpoznanie typu cesty sa počas jazdy približne každých 400 m posiela aktuálna poloha službe Nominatim (OpenStreetMap). Dá sa vypnúť v Nastavenia → Štýl jazdy → Limit podľa typu cesty.</li>
 </ul>
+
+<h2 id="siet" class="newpage">33. Externé servery a IP adresy</h2>
+<p>Zoznam všetkých adries mimo vášho servera, na ktoré sa pripája aplikácia v telefóne a webový prehľad. Hodí sa na nastavenie firewallu, proxy alebo na posúdenie ochrany údajov. Okrem nich aplikácia komunikuje iba s <b>vaším serverom</b> (adresa API zadaná pri prihlásení) – vždy cez <b>HTTPS (port 443)</b>; nešifrované spojenie je zakázané.</p>
+<div class="warn"><b>IP adresy nie sú stále.</b> Väčšina služieb beží za sieťou CDN (Cloudflare, Fastly, Amazon CloudFront, Google) – IP adresy sa menia a líšia sa podľa krajiny, z ktorej sa pripájate. Uvedené adresy sú len <b>snímka z 14. 10. 2026</b> (verejné DNS). Vo firewalle preto povoľujte <b>názvy domén</b> (FQDN pravidlá), nie IP adresy. Aktuálne IP zistíte príkazom <code>nslookup doména</code>.</div>
+
+<h3>Aplikácia v telefóne</h3>
+<table class="net">
+  <colgroup><col style="width:29%"><col style="width:32%"><col style="width:19%"><col style="width:20%"></colgroup>
+  <tr><th>Doména a prevádzkovateľ</th><th>Účel · kedy · čo sa posiela</th><th>IPv4 (14. 10. 2026)</th><th>Rozsah / poznámka</th></tr>
+  <tr><td><b>váš server</b><br>(napr. <code>mojadomena.sk</code>)</td><td>Car Tracking API – synchronizácia, prihlásenie, záloha, nastavenia, zdieľanie. Posiela sa: jazdy, body trasy, vozidlá, miesta, tankovania, nastavenia.</td><td>IP vášho servera</td><td>jediné miesto s vašimi údajmi</td></tr>
+  <tr><td><code>nominatim.openstreetmap.org</code><br>OpenStreetMap Foundation</td><td>Obec v adrese (koniec jazdy, oprava adries) a typ cesty s limitom (počas jazdy každých ~400 m). Posiela sa: GPS súradnice bodu, bez mena a účtu.</td><td class="ip">151.101.1.91<br>151.101.65.91<br>151.101.129.91<br>151.101.193.91</td><td>Fastly<br>151.101.0.0/16</td></tr>
+  <tr><td><code>server.arcgisonline.com</code><br>Esri</td><td>Mapové podklady (svetlá, tmavá, podrobná, satelitná mapa), aj ukladanie offline máp. Posiela sa: číslo dlaždice (oblasť a priblíženie).</td><td class="ip">143.204.204.26<br>143.204.204.56<br>143.204.204.60<br>143.204.204.89</td><td>Amazon CloudFront<br>(<code>*.cloudfront.net</code>)</td></tr>
+  <tr><td><code>tile.openstreetmap.org</code><br><code>a./b./c.tile.openstreetmap.org</code><br>OpenStreetMap Foundation</td><td>„Klasická“ mapa – iba ak je zvolená. Posiela sa: číslo dlaždice.</td><td class="ip">151.101.1.91<br>151.101.65.91<br>151.101.129.91<br>151.101.193.91</td><td>Fastly<br>151.101.0.0/16</td></tr>
+  <tr><td><code>a.tile.opentopomap.org</code><br><code>b.tile.opentopomap.org</code><br><code>c.tile.opentopomap.org</code><br>OpenTopoMap</td><td>„Terénna“ mapa – iba ak je zvolená. Posiela sa: číslo dlaždice.</td><td class="ip">159.195.68.179</td><td>vlastný server (Nemecko)</td></tr>
+  <tr><td><b>servery Google</b><br>(Google Play služby)</td><td>Geokóder Android (ulica a číslo v adrese), poloha cez Wi-Fi a mobilnú sieť, rozpoznanie aktivity. Posiela sa: súradnice začiatku a cieľa; ďalšie podľa nastavení Google v telefóne.</td><td>rôzne</td><td>spravuje systém Android; rozsahy: <code>gstatic.com/ipranges/goog.json</code></td></tr>
+</table>
+<ul>
+  <li><b>Žiadna analytika, reklama ani hlásenie chýb tretím stranám</b> – aplikácia nemá Firebase, Crashlytics ani podobné knižnice.</li>
+  <li>Bez pripojenia ku Google a OpenStreetMap aplikácia funguje – chýbať budú len adresy, typ cesty a nové mapové dlaždice.</li>
+  <li>Úplne bez externých služieb (okrem vášho servera): vypnite <b>Zisťovať adresy</b>, <b>Limit podľa typu cesty</b> a zapnite <b>Režim offline</b> máp (s vopred uloženou oblasťou). Polohu GPS samotnú (satelity) internet nepotrebuje.</li>
+</ul>
+
+<h3>Webový prehľad v prehliadači</h3>
+<p>Údaje (jazdy, prihlásenie) idú iba na váš server. Prehliadač však sťahuje knižnice, písmo a mapy z týchto adries – nič z vašich údajov sa im neposiela, len bežná požiadavka prehliadača (IP adresa, typ prehliadača) a pri mapách číslo dlaždice:</p>
+<table class="net">
+  <colgroup><col style="width:29%"><col style="width:32%"><col style="width:19%"><col style="width:20%"></colgroup>
+  <tr><th>Doména</th><th>Čo sa sťahuje</th><th>IPv4 (14. 10. 2026)</th><th>Prevádzkovateľ / rozsah</th></tr>
+  <tr><td><code>cdnjs.cloudflare.com</code></td><td>Bootstrap, Bootstrap Icons, Chart.js, Leaflet</td><td class="ip">104.17.24.14<br>104.17.25.14</td><td>Cloudflare (104.16.0.0/13)</td></tr>
+  <tr><td><code>cdn.jsdelivr.net</code></td><td>DataTables (Responsive, Buttons), jQuery, JSZip</td><td class="ip">104.17.207.5<br>104.17.208.5</td><td>jsDelivr cez Cloudflare (104.16.0.0/13); v niektorých krajinách aj Fastly</td></tr>
+  <tr><td><code>fonts.googleapis.com</code></td><td>Písmo Inter (štýl)</td><td class="ip">172.253.122.95</td><td>Google</td></tr>
+  <tr><td><code>fonts.gstatic.com</code></td><td>Písmo Inter (súbory)</td><td class="ip">192.178.210.94</td><td>Google</td></tr>
+  <tr><td><code>server.arcgisonline.com</code></td><td>Mapové dlaždice (svetlá aj tmavá mapa)</td><td class="ip">143.204.204.26<br>143.204.204.56<br>143.204.204.60<br>143.204.204.89</td><td>Esri cez Amazon CloudFront</td></tr>
+</table>
+<div class="tip">Ak má byť web nezávislý od CDN, stiahnite súbory knižníc na svoj server (napr. do <code>web/lib/</code>) a v <code>index.html</code> prepíšte adresy <code>https://cdnjs…</code> a <code>https://cdn.jsdelivr…</code> na lokálne. Mapové dlaždice a písmo ostanú z internetu (písmo sa pri výpadku nahradí systémovým).</div>
 
 <footer>
   Car Tracking · Používateľská príručka pre verziu 2.0 · © 2026 Richard Gogola<br>
