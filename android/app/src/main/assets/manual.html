@@ -65,7 +65,7 @@
 <header class="cover">
   <h1>🚗 Car Tracking</h1>
   <p>Používateľská príručka – automatické sledovanie jázd autom a chôdze, viac vozidiel, kniha jázd a štatistiky</p>
-  <div class="ver">Verzia aplikácie 1.9 · Android 8.0 a novší</div>
+  <div class="ver">Verzia aplikácie 2.0 · Android 8.0 a novší</div>
 </header>
 
 <nav class="toc">
@@ -91,7 +91,7 @@
     <li><a href="#tankovanie">Tankovanie a skutočná spotreba</a></li>
     <li><a href="#pripomienky">Pripomienky</a></li>
     <li><a href="#widget">Widgety na ploche</a></li>
-    <li><a href="#lista">Tlačidlá v rýchlej lište</a></li>
+    <li><a href="#lista">Tlačidlá v rýchlej lište a skratky na ikone</a></li>
     <li><a href="#trasy">Časté trasy</a></li>
     <li><a href="#nahrady">Cestovné náhrady</a></li>
     <li><a href="#zdielanie">Zdieľané vozidlo</a></li>
@@ -299,6 +299,19 @@
   <li><b>Ručne v detaile</b> – ikona zlúčenia hore zlúči jazdu s nasledujúcou jazdou rovnakého typu.</li>
 </ul>
 <p>Zlučujú sa iba záznamy rovnakého typu (auto s autom, chôdza s chôdzou). Vzdialenosť, kroky a udalosti sa sčítajú, čas je od začiatku prvej po koniec poslednej, skóre je priemer podľa km a poznámky sa spoja. Ak je niektorá jazda služobná, zlúčená bude služobná. Pred zlúčením aplikácia upozorní na dlhú prestávku alebo rôzne vozidlá. Zlúčenie sa nedá vrátiť späť; na serveri sa automaticky upraví aj zmaže zlúčená jazda.</p>
+<h3>Kontrola jázd</h3>
+<p>Aplikácia sama prehľadá jazdy autom za posledných 30 dní a keď nájde niečo podozrivé, na <b>Prehľade</b> sa ukáže karta <b>„🔍 Kontrola jázd: N na kontrolu“</b> (otvoriť sa dá aj v Nastavenia → Kniha jázd a zlučovanie → Kontrola jázd).</p>
+<table>
+  <tr><th>Nález</th><th>Kedy</th><th>Oprava jedným ťuknutím</th></tr>
+  <tr><td>⏱ Zabudnutý koniec jazdy</td><td>Na konci jazdy auto stálo na jednom mieste 15 min a viac (napr. ručne spustená jazda, ktorú ste neukončili).</td><td><b>Ukončiť v čase zastavenia</b></td></tr>
+  <tr><td>⏳ Dlhé čakanie pred odjazdom</td><td>Jazda začala, ale auto sa 15 min a viac nepohlo.</td><td><b>Začať pri rozjazde</b></td></tr>
+  <tr><td>✂️ Dlhá zastávka uprostred</td><td>Uprostred jazdy 15 min a viac na jednom mieste – pravdepodobne dve jazdy.</td><td><b>Rozdeliť v mieste státia</b> (prvá časť končí pri zastavení, druhá začína pri rozjazde)</td></tr>
+  <tr><td>🔗 Jazda rozdelená na dve</td><td>Dve jazdy tým istým autom s prestávkou do 30 min a koniec ↔ začiatok do 1 km.</td><td><b>Zlúčiť do jednej</b></td></tr>
+  <tr><td>📡 Výpadok GPS</td><td>Vyše 3 min bez polohy a viac ako 1 km doplnený priamou čiarou (tunel, slabý signál).</td><td>iba informácia – <i>Zobraziť</i> trasu</td></tr>
+  <tr><td>⚠️ Nereálna rýchlosť</td><td>Maximum nad 220 km/h alebo priemer nad 160 km/h – chyba GPS.</td><td>iba informácia</td></tr>
+  <tr><td>❓ Pravdepodobne nebola jazda</td><td>Menej ako 1 km za viac ako 20 min.</td><td><b>Zmazať</b> (s potvrdením)</td></tr>
+</table>
+<p><b>Ignorovať</b> položku natrvalo skryje. Opravené jazdy sa automaticky odošlú na server. Karta na Prehľade sa dá vypnúť prepínačom <i>Upozorniť na podozrivé jazdy</i>.</p>
 
 <h2 id="mapa">10. Mapa</h2>
 <p>Trasa je vykreslená s obrysom a <b>farbou podľa rýchlosti</b>:</p>
@@ -352,7 +365,17 @@
 <p>Kniha jázd sa vedie <b>pre každé vozidlo zvlášť</b>. Pri vozidle (Nastavenia → Vozidlá) vyplňte EČV a <b>aktuálny stav tachometra</b> – od tohto okamihu aplikácia dopočítava tachometer pri každej jazde tohto vozidla. V <b>Nastavenia → Kniha jázd</b> zvoľte predvolený typ novej jazdy (súkromná / služobná).</p>
 <h3>12.2 Úprava jazdy</h3>
 <p>V detaile jazdy prepnite <b>Súkromná / Služobná</b> a doplňte <b>účel jazdy</b>. Zmena sa automaticky odošle na server.</p>
-<h3>12.3 Tlač, PDF a Excel</h3>
+<h3>12.3 Účel jazdy automaticky a z notifikácie</h3>
+<p>Po skončení jazdy príde notifikácia <b>„Jazda skončila · Služobná?“</b> so súhrnom, navrhnutým účelom a dôvodom (napr. <i>pracovný čas</i>, <i>miesto Klient</i>, <i>naučené z 5 jázd na tejto trase</i>). Tlačidlami <b>Služobná / Súkromná</b> jazdu zaradíte bez otvárania aplikácie; zvolená možnosť je označená ✓. Ak navrhnutý účel sedí, netreba robiť nič.</p>
+<p>Účel novej jazdy sa určí v tomto poradí:</p>
+<ol>
+  <li><b>Naučená trasa</b> – keď jazdu s tým istým začiatkom a cieľom (do 400 m, aj opačným smerom) zaradíte aspoň <b>2×</b> a aspoň 70 % rovnako, ďalšie jazdy na tejto trase sa zaradia samy. Učí sa z tlačidiel v notifikácii aj zo zmeny v detaile jazdy. Okružné jazdy (z domu domov) sa neučia.</li>
+  <li><b>Miesto</b> s nastaveným účelom (napr. Klient = služobná).</li>
+  <li><b>Pravidlá času</b> (voliteľné): <i>v pracovnom čase služobná</i> a <i>v deň voľna súkromná</i>. Pracovné dni a hodiny sú tie isté ako pri chôdzi.</li>
+  <li><b>Predvolený typ</b> jazdy.</li>
+</ol>
+<p>Nastavenie: <b>Nastavenia → Kniha jázd a zlučovanie → Účel jazdy automaticky</b>. Naučené trasy sa zálohujú na server spolu s nastaveniami; tlačidlom <i>Zabudnúť naučené trasy</i> ich vymažete.</p>
+<h3>12.4 Tlač, PDF a Excel</h3>
 <ol>
   <li>Otvorte <b>Štatistiky</b>, režim <b>Auto</b>, vyberte <b>vozidlo</b> (ak ich máte viac), zvoľte <b>Mesiac</b> a šípkami obdobie.</li>
   <li><b>Kniha jázd – tlač / PDF</b> otvorí systémovú tlač. Vyberte tlačiareň alebo <i>Uložiť ako PDF</i>. Výstup je na šírku A4 s tabuľkou jázd, súčtami (služobné, súkromné, palivo, náklady) a miestom na podpis.</li>
@@ -498,7 +521,7 @@
 </table>
 <p>Všetky widgety sa obnovujú spolu s hlavným – pri začiatku a konci jazdy, pri zmene parkovacieho lístka, po synchronizácii a najmenej raz za 30 minút. Ťuknutím na widget (mimo tlačidiel) sa otvorí aplikácia.</p>
 
-<h2 id="lista">21. Tlačidlá v rýchlej lište</h2>
+<h2 id="lista">21. Tlačidlá v rýchlej lište a skratky na ikone</h2>
 <p>Jazdu alebo chôdzu spustíte či ukončíte aj zo stiahnutej hornej lišty – bez odomykania aplikácie a hľadania widgetu.</p>
 <ol>
   <li><b>Android 13 a novší:</b> Nastavenia → <b>Tlačidlá v rýchlej lište</b> → <b>Pridať Jazda</b> / <b>Pridať Chôdza</b> a potvrďte.</li>
@@ -509,6 +532,16 @@
   <li>Pri overovaní, či ide o auto, ťuknutie overovanie zruší („nie je to jazda“).</li>
   <li><b>Chôdza</b> funguje rovnako a ukazuje počet krokov.</li>
 </ul>
+<h3>Skratky na ikone aplikácie</h3>
+<p><b>Podržte prst na ikone Car Tracking</b> na ploche – zobrazí sa ponuka:</p>
+<table>
+  <tr><th>Skratka</th><th>Čo urobí</th></tr>
+  <tr><td>🚗 Začať jazdu</td><td>Spustí záznam jazdy (ako ručné spustenie). Ak jazda práve beží, ukončí ju.</td></tr>
+  <tr><td>🚶 Začať chôdzu</td><td>Spustí záznam chôdze, počas chôdze ju ukončí.</td></tr>
+  <tr><td>🅿️ Kde je auto</td><td>Otvorí navigáciu pešo k miestu, kde ste naposledy zaparkovali.</td></tr>
+  <tr><td>⛽ Tankovanie</td><td>Otvorí rovno formulár nového tankovania pre aktívne vozidlo (s odhadom tachometra). Pri zapnutom odtlačku prsta sa najprv odomkne aplikácia.</td></tr>
+</table>
+<div class="tip">Skratku môžete z ponuky <b>pretiahnuť na plochu</b> – vznikne samostatná ikona, napr. „Kde je auto“.</div>
 
 <h2 id="trasy">22. Časté trasy</h2>
 <p>Štatistiky → <b>Časté trasy</b> → Otvoriť (alebo Nastavenia → Časté trasy). Aplikácia sama nájde cesty, ktoré opakujete – napríklad <i>Domov → Práca</i> a <i>Práca → Domov</i> (smer sa rozlišuje).</p>
@@ -605,11 +638,11 @@
   <tr><td>Detekcia jazdy</td><td>Automatické sledovanie, štart po reštarte, rýchlosť a čas potvrdenia, ukončenie po státí, minimálna dĺžka, GPS.</td></tr>
   <tr><td>Chôdza a kroky</td><td>Sledovanie chôdze, pracovný čas, meranie vzdialenosti (kroky / GPS), dĺžka kroku a jej kalibrácia, ciele.</td></tr>
   <tr><td>Vozidlá, miesta, tankovanie</td><td>Správa vozidiel, Bluetooth, miesta, pripomienky, tankovanie, časté trasy.</td></tr>
-  <tr><td>Kniha jázd a zlučovanie</td><td>Predvolený typ jazdy, adresy, automatické zlučovanie.</td></tr>
+  <tr><td>Kniha jázd a zlučovanie</td><td>Predvolený typ jazdy, adresy, účel jazdy automaticky (notifikácia, učenie, pravidlá), kontrola jázd, automatické zlučovanie.</td></tr>
   <tr><td>Štýl jazdy a rýchlosť</td><td>Hodnotenie štýlu, limity podľa typu cesty, tolerancia, upozornenie.</td></tr>
   <tr><td>Notifikácie a zhrnutia</td><td>Oznámenia, zvuk, vibrácie, mesačné zhrnutie.</td></tr>
   <tr><td>Mapa a offline mapy</td><td>Typ mapy, režim offline, veľkosť uložených máp, uloženie oblasti.</td></tr>
-  <tr><td>Widgety a rýchla lišta</td><td>Pridanie tlačidiel do lišty, informácie o widgetoch.</td></tr>
+  <tr><td>Widgety, lišta a skratky</td><td>Pridanie tlačidiel do lišty, skratky na ikone, informácie o widgetoch.</td></tr>
   <tr><td>Vzhľad a zabezpečenie</td><td>Téma, prihlásenie odtlačkom.</td></tr>
   <tr><td>Diagnostika a povolenia</td><td>Diagnostika detekcie, kontrola povolení.</td></tr>
   <tr><td>Pomoc</td><td>Tento návod.</td></tr>
@@ -633,6 +666,7 @@
   <tr><td colspan="3"><b>GPS</b></td></tr>
   <tr><td>Interval záznamu polohy</td><td>3 s</td><td>Kratší = presnejšia trasa, vyššia spotreba.</td></tr>
   <tr><td>Vysoká presnosť</td><td>zapnuté</td><td>Vypnutím šetríte batériu.</td></tr>
+  <tr><td>Šetriť batériu počas jazdy</td><td>zapnuté</td><td>Redšie body na diaľnici, úsporný režim pri státí (kapitola Diagnostika).</td></tr>
   <tr><td colspan="3"><b>Notifikácie a vibrácie</b></td></tr>
   <tr><td>Oznámiť zapnutie / vypnutie</td><td>zapnuté</td><td>Notifikácia pri štarte a konci jazdy.</td></tr>
   <tr><td>Zvuk notifikácie</td><td>zapnuté</td><td>Tichá alebo zvuková notifikácia.</td></tr>
@@ -663,6 +697,10 @@
   <tr><td colspan="3"><b>Kniha jázd</b></td></tr>
   <tr><td>Predvolený typ jazdy</td><td>súkromná</td><td>Typ novo zaznamenanej jazdy.</td></tr>
   <tr><td>Zisťovať adresy</td><td>zapnuté</td><td>Ulica a mesto začiatku a cieľa.</td></tr>
+  <tr><td>Pýtať sa po jazde v notifikácii</td><td>zapnuté</td><td>Tlačidlá Služobná / Súkromná po skončení jazdy.</td></tr>
+  <tr><td>Učiť sa z mojich rozhodnutí</td><td>zapnuté</td><td>Rovnaká trasa zaradená 2× rovnako → ďalšie jazdy automaticky.</td></tr>
+  <tr><td>V pracovnom čase služobná / V deň voľna súkromná</td><td>vypnuté</td><td>Pravidlá podľa pracovných dní a hodín.</td></tr>
+  <tr><td>Upozorniť na podozrivé jazdy</td><td>zapnuté</td><td>Karta Kontrola jázd na Prehľade.</td></tr>
   <tr><td colspan="3"><b>Štýl jazdy a rýchlosť</b></td></tr>
   <tr><td>Hodnotiť štýl jazdy</td><td>zapnuté</td><td>Udalosti a skóre.</td></tr>
   <tr><td>Limit podľa typu cesty</td><td>zapnuté</td><td>V obci / mimo obce / diaľnica z OpenStreetMap, limity pri vozidle.</td></tr>
@@ -688,6 +726,9 @@
 <p>Ak sa jazda nespustila, skončila priskoro alebo sa zaznamenalo niečo, čo nemalo, pomôže diagnostika: <b>Nastavenia → Diagnostika a povolenia → Otvoriť diagnostiku</b>.</p>
 <h3>Podmienky detekcie</h3>
 <p>Hore je kontrola všetkého, bez čoho automatika nefunguje – automatické sledovanie zapnuté, rozpoznávanie aktivity zaregistrované, presná poloha, poloha „Povoliť vždy“, fyzická aktivita, notifikácie, bez obmedzenia batérie a stav Bluetooth auta (ak je podmienkou). ⚠️ označuje, čo treba opraviť (väčšinou v Povoleniach).</p>
+<h3>Batéria počas sledovania</h3>
+<p>Karta ukazuje za posledných 7 dní, ako dlho bežala GPS (jazdy, chôdza aj overovanie) a o koľko percent počas toho klesla batéria, aj priemer v % za hodinu. Úseky, keď sa telefón nabíjal (napr. v aute), sa do spotreby nezarátajú.</p>
+<p><b>Šetriť batériu počas jazdy</b> (Nastavenia → Detekcia jazdy → GPS, predvolene zapnuté): po minúte nad 90 km/h sa body zaznamenávajú redšie (najviac každých 6 s – na diaľnici je trasa aj tak rovná), po 45 s státia (kolóna, semafor, čakanie) sa GPS prepne do úsporného režimu (10 s, nižšia presnosť). Pri rozjazde sa hneď vráti normálny interval. Zmeny režimu vidíte v zázname ako „GPS režim: …“.</p>
 <h3>Záznam udalostí</h3>
 <table>
   <tr><th>Kategória</th><th>Čo zaznamenáva</th></tr>
@@ -806,7 +847,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
 </ul>
 
 <footer>
-  Car Tracking · Používateľská príručka pre verziu 1.9 · © 2026 Richard Gogola<br>
+  Car Tracking · Používateľská príručka pre verziu 2.0 · © 2026 Richard Gogola<br>
   Mapové údaje © Esri, HERE, Garmin, © prispievatelia OpenStreetMap, © OpenTopoMap, snímky © Esri, Maxar.
 </footer>
 

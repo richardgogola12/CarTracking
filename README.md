@@ -25,6 +25,14 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
+## Novinky vo verzii 2.0
+- **Účel jazdy z notifikácie** – po skončení jazdy tlačidlá *Služobná / Súkromná* s navrhnutým účelom a dôvodom.
+- **Automatické zaradenie** – naučené trasy (rovnaký začiatok a cieľ zaradený 2× rovnako), miesta s účelom, voliteľne pravidlá *pracovný čas → služobná* a *deň voľna → súkromná*. Naučené trasy sa ukladajú v nastaveniach (aj na server).
+- **Úspora batérie** – adaptívny interval GPS (diaľnica redšie, státie úsporne); Diagnostika ukazuje čas GPS a pokles batérie po dňoch.
+- **Kontrola jázd** – zabudnutý koniec, čakanie pred odjazdom, dlhá zastávka uprostred, rozdelená jazda, výpadok GPS, nereálna rýchlosť; oprava jedným ťuknutím (orezanie, rozdelenie, zlúčenie, zmazanie).
+- **Skratky na ikone** – Začať jazdu, Začať chôdzu, Kde je auto, Tankovanie.
+- Webový dashboard 2.0 (Bootstrap 5) – pozri nižšie. Server ani databáza sa nemenili.
+
 ## Novinky vo verzii 1.9
 - **Diagnostika detekcie** – kontrola podmienok (povolenia, batéria, Bluetooth) a záznam udalostí: čo hlásil systém, rýchlosti GPS pri overovaní, prečo sa jazda spustila / zahodila / ukončila; zdieľanie súboru.
 - **Ručné pridanie** jazdy / chôdze a **rozdelenie jazdy** (predvolene v najdlhšom státí, prepočet km, rýchlostí, krokov a udalostí; na serveri sa nahradí).
