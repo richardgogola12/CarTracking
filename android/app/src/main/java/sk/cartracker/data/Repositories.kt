@@ -263,6 +263,31 @@ class TripRepository(
         target.id
     }
 
+    /**
+     * Znova zistí adresy začiatku a cieľa jázd za posledných [days] dní – z najpresnejších bodov trasy
+     * a s obcou z OpenStreetMap (oprava napr. „Komárno“ namiesto „Imeľ“). @return počet zmenených jázd
+     */
+    suspend fun refreshAddresses(ctx: android.content.Context, days: Int, progress: suspend (Int, Int) -> Unit): Int = withContext(Dispatchers.IO) {
+        val user = session.user() ?: return@withContext 0
+        val now = System.currentTimeMillis()
+        val list = dao.tripsBetween(user.id, now - days * 86_400_000L, now + 86_400_000L)
+        var changed = 0
+        list.forEachIndexed { i, t ->
+            progress(i, list.size)
+            val pts = dao.points(t.id)
+            val a = Geo.bestStart(pts); val b = Geo.bestEnd(pts)
+            val sLat = a?.lat ?: t.startLat; val sLng = a?.lng ?: t.startLng
+            val eLat = b?.lat ?: t.endLat; val eLng = b?.lng ?: t.endLng
+            val sa = if (sLat != null && sLng != null) Geo.address(ctx, sLat, sLng) else null
+            val ea = if (eLat != null && eLng != null) Geo.address(ctx, eLat, eLng) else null
+            val n = t.copy(startLat = sLat, startLng = sLng, endLat = eLat, endLng = eLng,
+                startAddress = sa ?: t.startAddress, endAddress = ea ?: t.endAddress)
+            if (n != t) { dao.updateTrip(n.copy(synced = false)); changed++ }
+        }
+        progress(list.size, list.size)
+        changed
+    }
+
     /** Zmena kategórie / poznámky – jazda sa znova odošle na server. */
     suspend fun updateMeta(trip: TripEntity, category: String, note: String) {
         dao.updateTrip(trip.copy(category = category, note = note.trim(), synced = false))

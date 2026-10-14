@@ -1,7 +1,6 @@
 package sk.cartracker.data
 
 import android.content.Context
-import android.location.Address
 import android.location.Geocoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -9,21 +8,57 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 object Geo {
-    /** Adresa z GPS súradníc (ulica + mesto). Vyžaduje internet; pri chybe vráti null. */
+    /**
+     * Adresa z GPS súradníc „ulica číslo, obec“. Vyžaduje internet; pri chybe vráti null.
+     *  - obec z OpenStreetMap (hranice obcí na Slovensku sú presné – dedina nebude nahradená okresným mestom),
+     *  - ulica a číslo z Google geokódera v telefóne (ak ich nemá, z OpenStreetMap),
+     *  - bez OpenStreetMap: obec z Google, ak je blízko bodu; inak aspoň „okres …“ – nikdy nie okres vydávaný za obec.
+     */
     suspend fun address(ctx: Context, lat: Double, lng: Double): String? = withContext(Dispatchers.IO) {
-        if (!Geocoder.isPresent()) return@withContext null
-        runCatching {
+        val osm = runCatching { osm(lat, lng) }.getOrNull()
+        val list = if (Geocoder.isPresent()) runCatching {
             @Suppress("DEPRECATION")
-            Geocoder(ctx, Locale("sk", "SK")).getFromLocation(lat, lng, 1)?.firstOrNull()?.let(::format)
-        }.getOrNull()
+            Geocoder(ctx, Locale("sk", "SK")).getFromLocation(lat, lng, 5)
+        }.getOrNull().orEmpty() else emptyList()
+        val first = list.firstOrNull()
+        val street = first?.let { listOfNotNull(it.thoroughfare, it.subThoroughfare).joinToString(" ").ifBlank { null } } ?: osm?.first
+        val place = osm?.second ?: run {
+            val town = list.firstOrNull { !it.locality.isNullOrBlank() }
+            town?.takeIf { it === first || !it.hasLatitude() || dist(lat, lng, it.latitude, it.longitude) < 6000f }?.locality
+                ?: first?.subAdminArea?.let { if (it.lowercase().startsWith("okres")) it else "okres $it" }
+        }
+        listOfNotNull(street, place).joinToString(", ").ifBlank { first?.getAddressLine(0) }
     }
 
-    private fun format(a: Address): String? {
-        val street = listOfNotNull(a.thoroughfare, a.subThoroughfare).joinToString(" ").ifBlank { null }
-        val city = a.locality ?: a.subAdminArea ?: a.adminArea
-        val parts = listOfNotNull(street, city)
-        return if (parts.isNotEmpty()) parts.joinToString(", ") else a.getAddressLine(0)
+    private val osmCache = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, Pair<String?, String?>>(64, 0.75f, true) {
+        override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Pair<String?, String?>>?) = size > 500
+    })
+
+    /** (ulica, obec) z OpenStreetMap; výsledky sa pamätajú po štvorcoch ~100 m. */
+    private suspend fun osm(lat: Double, lng: Double): Pair<String?, String?>? {
+        val key = String.format(Locale.US, "%.3f,%.3f", lat, lng)
+        osmCache[key]?.let { return it }
+        return osmFetch(lat, lng)?.also { if (it.second != null) osmCache[key] = it }
     }
+
+    private suspend fun osmFetch(lat: Double, lng: Double): Pair<String?, String?>? {
+        val o = RoadInfoProvider.reverse(lat, lng, 18) ?: return null
+        val a = o.optJSONObject("address") ?: return null
+        fun f(k: String) = a.optString(k).takeIf { it.isNotBlank() }
+        val place = f("village") ?: f("town") ?: f("city") ?: f("municipality") ?: f("hamlet") ?: f("suburb")
+        val road = f("road")?.let { r -> f("house_number")?.let { "$r $it" } ?: r }
+        return road to place
+    }
+
+    private fun dist(a: Double, b: Double, c: Double, d: Double): Float {
+        val r = FloatArray(1); android.location.Location.distanceBetween(a, b, c, d, r); return r[0]
+    }
+
+    /** Bod vhodný na zistenie adresy: najpresnejší z prvých (resp. posledných) bodov trasy. */
+    fun bestStart(pts: List<sk.cartracker.data.local.PointEntity>) = pickBest(pts.take(15))
+    fun bestEnd(pts: List<sk.cartracker.data.local.PointEntity>) = pickBest(pts.takeLast(15).reversed())
+    private fun pickBest(pts: List<sk.cartracker.data.local.PointEntity>) =
+        pts.firstOrNull { (it.accuracyM ?: 99f) <= 25f } ?: pts.minByOrNull { it.accuracyM ?: 99f }
 }
 
 object DrivingScore {

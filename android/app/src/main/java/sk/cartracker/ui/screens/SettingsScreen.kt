@@ -310,6 +310,21 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                     }
                 }
                 SwitchRow("Zisťovať adresy začiatku a cieľa", "Ulica a mesto v zozname jázd a v knihe jázd (potrebuje internet)", s.detectAddresses) { on -> update { it.copy(detectAddresses = on) } }
+                var addrBusy by remember { mutableStateOf<String?>(null) }
+                Text(addrBusy ?: "Opraviť adresy jázd (posledných 90 dní)",
+                    Modifier.fillMaxWidth().clickable(enabled = addrBusy == null) {
+                        addrBusy = "Zisťujem adresy…"
+                        scope.launch {
+                            val n = runCatching {
+                                c.trips.refreshAddresses(ctx, 90) { i, total -> addrBusy = "Zisťujem adresy… $i / $total" }
+                            }
+                            addrBusy = null
+                            message = n.fold({ "Adresy prepočítané ✅\nZmenených jázd: $it\n\nObec sa teraz zisťuje z OpenStreetMap a adresa z najpresnejšieho bodu na začiatku a konci jazdy." },
+                                { "Nepodarilo sa: ${it.message}" })
+                            if (s.autoSync) sk.cartracker.sync.SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
+                        }
+                    }.padding(horizontal = 16.dp, vertical = 12.dp),
+                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             }
 
             Sub("Účel jazdy automaticky") {

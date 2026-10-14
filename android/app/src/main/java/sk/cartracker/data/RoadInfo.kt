@@ -55,6 +55,11 @@ object RoadInfoProvider {
         }
     }
 
+    /** Nominatim reverse (zdieľaný limit 1 požiadavka/s s rozpoznávaním typu cesty). */
+    suspend fun reverse(lat: Double, lng: Double, zoom: Int): JSONObject? = withContext(Dispatchers.IO) {
+        lock.withLock { runCatching { get(String.format(Locale.US, "%s&lat=%.6f&lon=%.6f&zoom=%d&addressdetails=1", BASE, lat, lng, zoom)) }.getOrNull() }
+    }
+
     private suspend fun get(url: String): JSONObject? {
         val wait = 1100 - (System.currentTimeMillis() - lastRequestAt)
         if (wait > 0) delay(wait)

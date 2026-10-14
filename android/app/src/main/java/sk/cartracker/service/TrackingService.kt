@@ -418,6 +418,12 @@ class TrackingService : LifecycleService() {
 
     private suspend fun onLocation(loc: Location) {
         if (state == DriveState.IDLE) return
+        // Systém niekedy ako prvý pošle starú uloženú polohu (napr. z miesta posledného parkovania) – tú ignorujeme
+        val ageMs = (android.os.SystemClock.elapsedRealtimeNanos() - loc.elapsedRealtimeNanos) / 1_000_000
+        if (ageMs > 30_000) {
+            DiagLog.log(this, DiagLog.GPS, "Stará poloha (pred ${ageMs / 1000} s, ±${loc.accuracy.toInt()} m) – ignorovaná")
+            return
+        }
         val speed = speedOf(loc, prevFix)
         prevFix = loc
         lastSpeed = speed
@@ -621,9 +627,13 @@ class TrackingService : LifecycleService() {
     private suspend fun finishTrip(endedAt: Long, then: (suspend () -> Unit)? = null) {
         stopLocation()
         stopSteps()
-        val t = trip ?: run { if (then != null) then() else shutdown(); return }
+        val t0 = trip ?: run { if (then != null) then() else shutdown(); return }
         trip = null
-        val last = dao.lastPoint(t.id)
+        // Začiatok a koniec z najpresnejších bodov (prvý bod býva nepresný) – podľa nich adresa, miesta a zlučovanie
+        val pts = dao.points(t0.id)
+        val bestStart = Geo.bestStart(pts)
+        val last = Geo.bestEnd(pts) ?: dao.lastPoint(t0.id)
+        val t = if (bestStart != null) t0.copy(startLat = bestStart.lat, startLng = bestStart.lng) else t0
         // auto: oprava podľa tachometra (kalibrácia z tankovaní), chôdza: kroky alebo GPS
         val dist = if (t.isWalk) walkDistance() else distance * settings.odoFactor(t.vehicleUuid)
         if (t.isWalk) calibrateStride(steps, distance)
@@ -641,7 +651,7 @@ class TrackingService : LifecycleService() {
             dao.deleteTrip(t.id)
             summary = if (t.isWalk) null else "Jazda bola kratšia ako $minDist m – neuložená"
         } else {
-            val startAddr = if (settings.detectAddresses && t.startLat != null) Geo.address(this, t.startLat, t.startLng!!) else null
+            val startAddr = if (settings.detectAddresses && t.startLat != null) Geo.address(this, t.startLat!!, t.startLng!!) else null
             val endAddr = if (settings.detectAddresses && last != null) Geo.address(this, last.lat, last.lng) else null
             var saved = if (t.isWalk) {
                 t.copy(
