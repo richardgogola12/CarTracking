@@ -51,28 +51,40 @@ import kotlin.math.roundToInt
 
 /** Ručné pridanie zabudnutej jazdy / chôdze (bez trasy). */
 @Composable
-fun AddTripDialog(onDismiss: () -> Unit, onAdded: (Long) -> Unit) {
+fun AddTripDialog(onDismiss: () -> Unit, onAdded: (Long) -> Unit) = TripFormDialog(null, onDismiss, onAdded)
+
+/** Úprava existujúcej jazdy / chôdze: čas, km, odkiaľ / kam, vozidlo, typ, účel, kroky. Trasa GPS ostáva. */
+@Composable
+fun EditTripDialog(trip: TripEntity, onDismiss: () -> Unit, onSaved: () -> Unit) = TripFormDialog(trip, onDismiss) { onSaved() }
+
+private fun kmText(m: Double) = if (m <= 0) "" else String.format(java.util.Locale("sk"), "%.2f", m / 1000).trimEnd('0').trimEnd(',')
+
+@Composable
+private fun TripFormDialog(edit: TripEntity?, onDismiss: () -> Unit, onDone: (Long) -> Unit) {
     val ctx = LocalContext.current
     val c = ctx.container
     val scope = rememberCoroutineScope()
-    var type by remember { mutableStateOf(TYPE_CAR) }
+    var type by remember { mutableStateOf(edit?.type ?: TYPE_CAR) }
     var vehicles by remember { mutableStateOf<List<VehicleEntity>>(emptyList()) }
-    var vehicle by remember { mutableStateOf<String?>(null) }
+    var vehicle by remember { mutableStateOf(edit?.vehicleUuid) }
     var places by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(Unit) {
-        vehicles = c.vehicles.all().filter { !it.archived }
-        vehicle = c.vehicles.active()?.uuid
+        vehicles = c.vehicles.all().filter { !it.archived || it.uuid == edit?.vehicleUuid }
+        if (edit == null || vehicle == null) vehicle = c.vehicles.active()?.uuid
         places = c.places.list().map { it.name }
     }
     val now = System.currentTimeMillis()
-    var start by remember { mutableLongStateOf(now - 3_600_000L) }
-    var end by remember { mutableLongStateOf(now - 3_000_000L) }
-    var from by remember { mutableStateOf("") }
-    var to by remember { mutableStateOf("") }
-    var km by remember { mutableStateOf("") }
-    var steps by remember { mutableStateOf("") }
-    var business by remember { mutableStateOf(false) }
-    var note by remember { mutableStateOf("") }
+    var start by remember { mutableLongStateOf(edit?.startedAt ?: (now - 3_600_000L)) }
+    var end by remember { mutableLongStateOf(edit?.endedAt ?: edit?.startedAt ?: (now - 3_000_000L)) }
+    val fromInit = edit?.let { it.startPlace ?: it.startAddress }.orEmpty()
+    val toInit = edit?.let { it.endPlace ?: it.endAddress }.orEmpty()
+    var from by remember { mutableStateOf(fromInit) }
+    var to by remember { mutableStateOf(toInit) }
+    val kmInit = edit?.let { kmText(it.distanceM) }.orEmpty()
+    var km by remember { mutableStateOf(kmInit) }
+    var steps by remember { mutableStateOf(edit?.steps?.takeIf { it > 0 }?.toString().orEmpty()) }
+    var business by remember { mutableStateOf(edit?.category == CATEGORY_BUSINESS) }
+    var note by remember { mutableStateOf(edit?.note.orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
 
     fun pickTime(ts: Long, onPick: (Long) -> Unit) {
@@ -84,7 +96,7 @@ fun AddTripDialog(onDismiss: () -> Unit, onAdded: (Long) -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pridať záznam ručne") },
+        title = { Text(if (edit == null) "Pridať záznam ručne" else "Upraviť záznam") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -98,13 +110,15 @@ fun AddTripDialog(onDismiss: () -> Unit, onAdded: (Long) -> Unit) {
                     OutlinedButton(onClick = {
                         pickDate(ctx, start) { d ->
                             val dc = Calendar.getInstance().apply { timeInMillis = d }
-                            fun move(ts: Long) = Calendar.getInstance().apply { timeInMillis = ts; set(dc.get(Calendar.YEAR), dc.get(Calendar.MONTH), dc.get(Calendar.DAY_OF_MONTH)) }.timeInMillis
-                            start = move(start); end = move(end)
+                            val ns = Calendar.getInstance().apply { timeInMillis = start; set(dc.get(Calendar.YEAR), dc.get(Calendar.MONTH), dc.get(Calendar.DAY_OF_MONTH)) }.timeInMillis
+                            end += ns - start; start = ns
                         }
                     }) { Text(formatDate(start)) }
                     OutlinedButton(onClick = { pickTime(start) { start = it } }) { Text(formatTime(start)) }
-                    OutlinedButton(onClick = { pickTime(end) { end = it } }) { Text(formatTime(end)) }
+                    OutlinedButton(onClick = { pickTime(end) { e -> end = if (e <= start && e + 86_400_000L - start < 86_400_000L) e + 86_400_000L else e } }) { Text(formatTime(end)) }
                 }
+                Text("Trvanie: " + if (end > start) formatDuration(end - start) else "–", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(from, { from = it }, label = { Text("Odkiaľ") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(to, { to = it }, label = { Text("Kam") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (places.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -119,7 +133,8 @@ fun AddTripDialog(onDismiss: () -> Unit, onAdded: (Long) -> Unit) {
                     FilterChip(business, { business = true }, { Text("Služobná") })
                 }
                 OutlinedTextField(note, { note = it }, label = { Text("Účel / poznámka") }, modifier = Modifier.fillMaxWidth())
-                Text("Ručný záznam nemá trasu na mape; v knihe jázd, štatistikách a náhradách sa počíta normálne.",
+                Text(if (edit == null) "Ručný záznam nemá trasu na mape; v knihe jázd, štatistikách a náhradách sa počíta normálne."
+                    else "Trasa GPS ostane, ako bola. Zmenené km a časy sa použijú v knihe jázd, štatistikách aj náhradách; zmena sa odošle na server.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
@@ -131,10 +146,35 @@ fun AddTripDialog(onDismiss: () -> Unit, onAdded: (Long) -> Unit) {
                     k == null || k <= 0 -> "Zadajte vzdialenosť v km"
                     end <= start -> "Koniec musí byť po začiatku"
                     end > System.currentTimeMillis() + 60_000 -> "Záznam nemôže byť v budúcnosti"
+                    k > 3000 -> "Vzdialenosť je príliš veľká"
                     else -> null
                 }
                 if (error != null) return@TextButton
-                scope.launch {
+                if (edit != null) scope.launch {
+                    val s = c.settings.current()
+                    val walk = type == TYPE_WALK
+                    val dist = if (km.trim() == kmInit) edit.distanceM else k!! * 1000   // nezmenené km ostanú presné
+                    val h = (end - start) / 3_600_000.0
+                    val cat = if (!walk && business) CATEGORY_BUSINESS else CATEGORY_PRIVATE
+                    val updated = edit.copy(
+                        type = type, startedAt = start, endedAt = end, distanceM = dist,
+                        avgSpeedKmh = if (h > 0) dist / 1000 / h else 0.0,
+                        steps = if (walk) (steps.toIntOrNull() ?: edit.steps.takeIf { edit.isWalk } ?: ((dist * 100) / s.strideCm.coerceAtLeast(1)).roundToInt()) else 0,
+                        vehicleUuid = if (walk) null else vehicle, category = cat, note = note.trim(),
+                        // zmenený text „odkiaľ / kam“ prepíše adresu aj názov miesta
+                        startAddress = if (from.trim() != fromInit) from.trim().ifBlank { null } else edit.startAddress,
+                        startPlace = if (from.trim() != fromInit) null else edit.startPlace,
+                        endAddress = if (to.trim() != toInit) to.trim().ifBlank { null } else edit.endAddress,
+                        endPlace = if (to.trim() != toInit) null else edit.endPlace,
+                        score = if (walk) null else edit.score, maxSpeedKmh = if (walk) 0.0 else edit.maxSpeedKmh,
+                        synced = false,
+                    )
+                    c.trips.updateTripRaw(updated)
+                    if (!walk && cat != edit.category) c.settings.update { sk.cartracker.data.TripClassifier.learn(it, edit, cat) }
+                    if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
+                    Toast.makeText(ctx, "Záznam upravený", Toast.LENGTH_SHORT).show()
+                    onDone(edit.id)
+                } else scope.launch {
                     val s = c.settings.current()
                     val walk = type == TYPE_WALK
                     val st = steps.toIntOrNull() ?: if (walk) ((k!! * 100_000) / s.strideCm.coerceAtLeast(1)).roundToInt() else 0
@@ -148,7 +188,7 @@ fun AddTripDialog(onDismiss: () -> Unit, onAdded: (Long) -> Unit) {
                     Toast.makeText(ctx, "Záznam pridaný", Toast.LENGTH_SHORT).show()
                     onAdded(id)
                 }
-            }) { Text("Pridať") }
+            }) { Text(if (edit == null) "Pridať" else "Uložiť") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušiť") } },
     )

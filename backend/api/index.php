@@ -202,7 +202,8 @@ if ($method === 'POST' && $path === '/trips/sync') {
                             category, note, start_address, end_address, score, hard_brakes, hard_accels, speeding_sec,
                             type, steps, vehicle_uuid, start_place, end_place)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE ended_at = VALUES(ended_at), distance_m = VALUES(distance_m),
+         ON DUPLICATE KEY UPDATE started_at = VALUES(started_at), ended_at = VALUES(ended_at), distance_m = VALUES(distance_m),
+             start_lat = VALUES(start_lat), start_lng = VALUES(start_lng), trigger_source = VALUES(trigger_source),
              max_speed_kmh = VALUES(max_speed_kmh), avg_speed_kmh = VALUES(avg_speed_kmh),
              end_lat = VALUES(end_lat), end_lng = VALUES(end_lng),
              category = VALUES(category), note = VALUES(note),

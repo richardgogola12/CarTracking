@@ -80,6 +80,11 @@ check "jazda s názvami miest" 200 "$(req "${AUTH[@]}" -X POST "$API/trips/sync"
 check "detail s miestami" 200 "$(req "${AUTH[@]}" "$API/trips/$CAR")"
 python3 -c 'import sys,json;t=json.loads(sys.argv[1])["trip"];assert t["start_place"]=="Domov" and t["end_place"]=="Práca", t' "$LAST" || fail "názvy miest nesedia"
 
+# Úprava jazdy v aplikácii (čas začiatku, súradnice, km, adresa) sa musí na serveri prepísať
+check "upravená jazda" 200 "$(req "${AUTH[@]}" -X POST "$API/trips/sync" -d "{\"trips\":[{\"uuid\":\"$CAR\",\"started_at\":1700000060000,\"ended_at\":1700001200000,\"distance_m\":10500,\"start_lat\":48.15,\"start_lng\":17.15,\"trigger_source\":\"auto\",\"type\":\"car\",\"start_address\":\"Nová 2, Imeľ\",\"start_place\":null,\"end_place\":\"Práca\",\"points\":[]}]}")"
+check "detail upravenej jazdy" 200 "$(req "${AUTH[@]}" "$API/trips/$CAR")"
+python3 -c 'import sys,json;t=json.loads(sys.argv[1])["trip"];assert int(t["started_at"])==1700000060000 and abs(float(t["start_lat"])-48.15)<1e-6 and float(t["distance_m"])==10500 and t["start_address"]=="Nová 2, Imeľ" and t["start_place"] is None, t' "$LAST" || fail "úprava jazdy sa na serveri neuložila"
+
 # Filtre zoznamu jázd (webový prehľad)
 check "jazdy podľa obdobia a typu" 200 "$(req "${AUTH[@]}" "$API/trips?from=1699999999000&to=1700000500000&type=car&limit=1000")"
 python3 -c 'import sys,json;t=json.loads(sys.argv[1])["trips"];assert len(t)==1 and t[0]["uuid"]=="'"$CAR"'", t' "$LAST" || fail "filter jázd nesedí"

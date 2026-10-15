@@ -44,6 +44,8 @@ import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -357,6 +359,8 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
     var newPlace by remember { mutableStateOf<sk.cartracker.data.local.PlaceEntity?>(null) }
     var mergeNext by remember { mutableStateOf<TripEntity?>(null) }
     var splitOpen by remember { mutableStateOf(false) }
+    var editOpen by remember { mutableStateOf(false) }
+    var moreMenu by remember { mutableStateOf(false) }
     LaunchedEffect(tripId, reload) { points = c.trips.points(tripId) }
     LaunchedEffect(trip?.startedAt, vehicle) { trip?.let { odometer = c.trips.odometerAt(it.startedAt, vehicle) } }
 
@@ -369,17 +373,7 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
             title = { Text(trip?.let { formatDateTime(it.startedAt) } ?: "Jazda") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Späť") } },
             actions = {
-                IconButton(onClick = {
-                    val t = trip ?: return@IconButton
-                    val text = buildString {
-                        appendLine("Jazda ${formatDateTime(t.startedAt)}")
-                        t.startAddress?.let { appendLine("Z: $it") }
-                        t.endAddress?.let { appendLine("Do: $it") }
-                        appendLine("${formatDistance(t.distanceM)}, ${formatDuration((t.endedAt ?: t.startedAt) - t.startedAt)}, Ø ${t.avgSpeedKmh.toInt()} km/h")
-                        points.lastOrNull()?.let { append("https://www.openstreetmap.org/?mlat=${it.lat}&mlon=${it.lng}#map=15/${it.lat}/${it.lng}") }
-                    }
-                    ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Zdieľať jazdu"))
-                }) { Icon(Icons.Filled.Share, "Zdieľať") }
+                IconButton(onClick = { editOpen = true }) { Icon(Icons.Filled.Edit, "Upraviť jazdu") }
                 IconButton(onClick = {
                     val t = trip ?: return@IconButton
                     scope.launch {
@@ -388,12 +382,30 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                     }
                 }) { Icon(Icons.AutoMirrored.Filled.CallMerge, "Zlúčiť s nasledujúcou") }
                 IconButton(onClick = { splitOpen = true }) { Icon(Icons.Filled.ContentCut, "Rozdeliť jazdu") }
-                IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Zmazať") }
+                androidx.compose.foundation.layout.Box {
+                IconButton(onClick = { moreMenu = true }) { Icon(Icons.Filled.MoreVert, "Ďalšie") }
+                DropdownMenu(moreMenu, { moreMenu = false }) {
+                DropdownMenuItem(text = { Text("Zdieľať") }, leadingIcon = { Icon(Icons.Filled.Share, null) }, onClick = {
+                    moreMenu = false
+                    val t = trip ?: return@DropdownMenuItem
+                    val text = buildString {
+                        appendLine("Jazda ${formatDateTime(t.startedAt)}")
+                        t.startAddress?.let { appendLine("Z: $it") }
+                        t.endAddress?.let { appendLine("Do: $it") }
+                        appendLine("${formatDistance(t.distanceM)}, ${formatDuration((t.endedAt ?: t.startedAt) - t.startedAt)}, Ø ${t.avgSpeedKmh.toInt()} km/h")
+                        points.lastOrNull()?.let { append("https://www.openstreetmap.org/?mlat=${it.lat}&mlon=${it.lng}#map=15/${it.lat}/${it.lng}") }
+                    }
+                    ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Zdieľať jazdu"))
+                })
+                DropdownMenuItem(text = { Text("Zmazať") }, leadingIcon = { Icon(Icons.Filled.Delete, null) }, onClick = { moreMenu = false; confirmDelete = true })
+                }
+                }
             },
         )
     }) { pad ->
         val t = trip ?: return@Scaffold
         if (splitOpen) SplitTripDialog(t, points, onDismiss = { splitOpen = false }) { splitOpen = false; reload++ }
+        if (editOpen) EditTripDialog(t, onDismiss = { editOpen = false }) { editOpen = false; reload++ }
         if (fullscreen) {
             RouteMap(routes, Modifier.padding(pad).fillMaxSize(), colorBySpeed = !t.isWalk, showEvents = !t.isWalk,
                 fullscreen = true, onToggleFullscreen = { fullscreen = false })
