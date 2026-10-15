@@ -214,6 +214,17 @@
 </ul>
 <div class="note">Autobus, vlak či taxík telefón tiež vníma ako „vozidlo“. Ak to nechcete, použite <a href="#bluetooth">Bluetooth auta</a> s voľbou <i>Sledovať iba keď je pripojené auto</i>.</div>
 
+<h3>Ako sa počítajú kilometre</h3>
+<ul>
+  <li>Km sú súčet úsekov medzi <b>presnými bodmi GPS</b> (presnosť do 35 m) – zhruba každé 3 sekundy.</li>
+  <li><b>Státie</b> (semafor, kolóna, parkovisko): keď GPS hlási rýchlosť pod 3 km/h, „túlanie“ polohy na mieste sa nepripočíta.</li>
+  <li><b>Skoky GPS</b> (odraz signálu od budov) sa vynechajú – úsek, ktorý nezodpovedá rýchlosti auta, sa nepočíta. Zapíše sa do Diagnostiky.</li>
+  <li><b>Šum polohy</b> na rovnom úseku sa obmedzí podľa rýchlosti z GPS (úsek nemôže byť dlhší, než auto pri danej rýchlosti prešlo). Maximálna rýchlosť sa berie iba z rýchlosti, ktorú meria GPS.</li>
+  <li><b>Začiatok jazdy:</b> telefón rozpozná jazdu až po chvíli. Ak prvý bod jazdy leží do 3 km od miesta, kde to isté auto naposledy zaparkovalo, úsek od parkovania sa doplní (a adresa začiatku je miesto parkovania).</li>
+  <li><b>Tunel, výpadok signálu:</b> úsek sa doplní priamkou – pri zákrutách môže chýbať pár metrov.</li>
+  <li>Zvyšnú odchýlku od tachometra (býva 1–3 %, tachometre zvyčajne ukazujú viac) opraví <b>kalibrácia podľa tachometra</b> v Tankovaní. Ručne zadané jazdy sa pri nej neprepočítavajú.</li>
+</ul>
+
 <h2 id="prehlad">6. Obrazovka Prehľad</h2>
 <p>Hlavné menu dole má štyri záložky – <b>Prehľad, Jazdy, Štatistiky, Nastavenia</b>. Prepínate ich ťuknutím alebo <b>potiahnutím prstom doľava / doprava</b> kdekoľvek na obrazovke (na mape a v grafoch sa ťahom posúva mapa / graf, nie záložka).</p>
 <ul>
