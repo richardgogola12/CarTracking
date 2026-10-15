@@ -142,7 +142,8 @@ class TripRepository(
     /** Prepočíta km všetkých jázd vozidla koeficientom (pri oprave podľa tachometra aj spätne). */
     suspend fun rescaleVehicleTrips(vehicleUuid: String, ratio: Double): Int = withContext(Dispatchers.IO) {
         val user = session.user() ?: return@withContext 0
-        val list = dao.allTrips(user.id).filter { !it.isWalk && it.vehicleUuid == vehicleUuid && it.finished }
+        // ručne zadané jazdy (bez trasy) majú km od používateľa – tie sa neprepočítavajú
+        val list = dao.allTrips(user.id).filter { !it.isWalk && it.vehicleUuid == vehicleUuid && it.finished && dao.pointCount(it.id) > 0 }
         db.withTransaction {
             list.forEach { t ->
                 val d = t.distanceM * ratio

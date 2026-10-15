@@ -247,6 +247,7 @@ interface TripDao {
     @Insert suspend fun insertPoints(p: List<PointEntity>)
     @Query("SELECT * FROM points WHERE tripId = :tripId ORDER BY ts") suspend fun points(tripId: Long): List<PointEntity>
     @Query("SELECT * FROM points WHERE tripId = :tripId ORDER BY ts DESC LIMIT 1") suspend fun lastPoint(tripId: Long): PointEntity?
+    @Query("SELECT COUNT(*) FROM points WHERE tripId = :tripId") suspend fun pointCount(tripId: Long): Int
     @Query("SELECT * FROM points WHERE tripId = :tripId AND synced = 0 ORDER BY ts LIMIT :limit")
     suspend fun unsyncedPoints(tripId: Long, limit: Int): List<PointEntity>
     @Query("UPDATE points SET synced = 1 WHERE id IN (:ids)") suspend fun markPointsSynced(ids: List<Long>)

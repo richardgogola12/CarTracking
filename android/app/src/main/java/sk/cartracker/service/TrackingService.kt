@@ -59,6 +59,7 @@ import sk.cartracker.ui.formatDuration
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.max
+import kotlin.math.min
 
 enum class DriveState { IDLE, CANDIDATE, DRIVING, WALKING }
 
@@ -461,12 +462,12 @@ class TrackingService : LifecycleService() {
         if (loc.accuracy <= (if (t.isWalk) 25f else 35f)) {
             val prev = lastGood
             if (prev == null) lastGood = loc
-            else {
+            else if (t.isWalk) {
                 val d = prev.distanceTo(loc)
-                val jitter = if (t.isWalk) max(8f, loc.accuracy) else 5f
-                if (!(d < jitter && speed < 5.0)) { distance += d; lastGood = loc } // ignoruj GPS "tancovanie" na mieste
-            }
-            if (!t.isWalk && speed < 300) maxSpeed = max(maxSpeed, speed)
+                if (!(d < max(8f, loc.accuracy) && speed < 5.0)) { distance += d; lastGood = loc } // ignoruj GPS "tancovanie" na mieste
+            } else carStep(prev, loc, speed)?.let { d -> distance += d; lastGood = loc }
+            // max. rýchlosť iba z Dopplerovej rýchlosti GPS (z rozdielu polôh by skok GPS dal nezmysel)
+            if (!t.isWalk && hasDoppler(loc) && speed < 300) maxSpeed = max(maxSpeed, speed)
         }
 
         var event: String? = null
@@ -508,6 +509,27 @@ class TrackingService : LifecycleService() {
         trip = updated
         if (pointCount % 10 == 1) dao.updateTrip(updated) // priebežne – pre obnovu po páde
         publishLive(loc)
+    }
+
+    private fun hasDoppler(loc: Location) = loc.hasSpeed() && (!loc.hasSpeedAccuracy() || loc.speedAccuracyMetersPerSecond < 4f)
+
+    /**
+     * Úsek trasy auta medzi dvoma presnými bodmi (m), alebo null = bod sa nepočíta (kotva ostáva):
+     *  1. státie – GPS hlási < 3 km/h a posun je v rámci presnosti (semafor, kolóna: poloha „tancuje“),
+     *  2. skok GPS – posun nezodpovedá rýchlosti (odraz od budov),
+     *  3. „cik-cak“ šumu – úsek najviac o 10 % + 3 m dlhší než dráha podľa rýchlosti GPS.
+     * Overené simuláciou: v meste so semaformi pôvodný výpočet pripočítal ~+20 %, nový ~+4 %; na diaľnici oba ±0,3 %.
+     */
+    private fun carStep(prev: Location, loc: Location, speed: Double): Double? {
+        val d = prev.distanceTo(loc).toDouble()
+        val dt = ((loc.time - prev.time) / 1000.0).coerceAtLeast(1.0)
+        if (!hasDoppler(loc)) return if (d < 5 && speed < 5) null else d   // bez rýchlosti z GPS: pôvodné pravidlo
+        if (speed < 3 && d < max(25.0, 2.0 * max(loc.accuracy, prev.accuracy))) return null
+        if (d > 50 && dt < 30 && d / dt * 3.6 > max(speed * 2 + 30, 40.0)) {
+            DiagLog.log(this, DiagLog.GPS, "Skok GPS ${d.toInt()} m za ${dt.toInt()} s pri ${speed.toInt()} km/h – ignorovaný")
+            return null
+        }
+        return if (dt <= 15 && speed >= 3) min(d, speed / 3.6 * dt * 1.1 + 3) else d
     }
 
     private fun currentDistance(): Double = if (isWalk) walkDistance() else distance
@@ -633,9 +655,28 @@ class TrackingService : LifecycleService() {
         val pts = dao.points(t0.id)
         val bestStart = Geo.bestStart(pts)
         val last = Geo.bestEnd(pts) ?: dao.lastPoint(t0.id)
-        val t = if (bestStart != null) t0.copy(startLat = bestStart.lat, startLng = bestStart.lng) else t0
+        var t = if (bestStart != null) t0.copy(startLat = bestStart.lat, startLng = bestStart.lng) else t0
+        // Začiatok jazdy: systém rozpozná jazdu autom až po chvíli → prvé metre chýbajú. Auto stálo tam,
+        // kde skončila jeho posledná jazda – ak je to do 3 km od prvého bodu, úsek sa doplní (priamka).
+        var startFill = 0.0
+        var parkedAddr: String? = null
+        if (!t.isWalk) {
+            val prev = dao.previousTrip(userId, TYPE_CAR, t0.startedAt)
+            val first = pts.firstOrNull { (it.accuracyM ?: 99f) <= 35f }
+            if (prev != null && first != null && prev.endLat != null && prev.endLng != null &&
+                prev.vehicleUuid == t.vehicleUuid && (prev.endedAt ?: 0) <= t0.startedAt) {
+                val r = FloatArray(1)
+                Location.distanceBetween(prev.endLat, prev.endLng, first.lat, first.lng, r)
+                if (r[0] in 30f..3000f) {
+                    startFill = r[0].toDouble()
+                    parkedAddr = prev.endAddress
+                    t = t.copy(startLat = prev.endLat, startLng = prev.endLng)
+                    DiagLog.log(this, DiagLog.DRIVE, "Začiatok jazdy doplnený od miesta parkovania: +${r[0].toInt()} m")
+                }
+            }
+        }
         // auto: oprava podľa tachometra (kalibrácia z tankovaní), chôdza: kroky alebo GPS
-        val dist = if (t.isWalk) walkDistance() else distance * settings.odoFactor(t.vehicleUuid)
+        val dist = if (t.isWalk) walkDistance() else (distance + startFill) * settings.odoFactor(t.vehicleUuid)
         if (t.isWalk) calibrateStride(steps, distance)
         val end = max(endedAt, if (t.isWalk) endedAt else (last?.ts ?: endedAt)).coerceAtLeast(t.startedAt)
         val hours = (end - t.startedAt) / 3_600_000.0
@@ -651,7 +692,7 @@ class TrackingService : LifecycleService() {
             dao.deleteTrip(t.id)
             summary = if (t.isWalk) null else "Jazda bola kratšia ako $minDist m – neuložená"
         } else {
-            val startAddr = if (settings.detectAddresses && t.startLat != null) Geo.address(this, t.startLat!!, t.startLng!!) else null
+            val startAddr = if (!settings.detectAddresses) null else parkedAddr ?: t.startLat?.let { la -> t.startLng?.let { lo -> Geo.address(this, la, lo) } }
             val endAddr = if (settings.detectAddresses && last != null) Geo.address(this, last.lat, last.lng) else null
             var saved = if (t.isWalk) {
                 t.copy(
