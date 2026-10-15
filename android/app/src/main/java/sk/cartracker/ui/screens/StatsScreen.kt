@@ -67,6 +67,9 @@ import sk.cartracker.data.local.TripEntity
 import sk.cartracker.ui.Reports
 import sk.cartracker.ui.formatDate
 import sk.cartracker.ui.formatDistance
+import sk.cartracker.ui.formatDay
+import sk.cartracker.ui.formatTime
+import androidx.compose.foundation.clickable
 import sk.cartracker.ui.formatDuration
 import sk.cartracker.ui.formatMoney
 import sk.cartracker.ui.formatMonth
@@ -75,7 +78,21 @@ import sk.cartracker.ui.map.RouteMap
 import java.util.Calendar
 import java.util.Locale
 
-private enum class Period(val label: String) { WEEK("Týždeň"), MONTH("Mesiac"), YEAR("Rok") }
+private enum class Period(val label: String) { DAY("Deň"), WEEK("Týždeň"), MONTH("Mesiac"), YEAR("Rok") }
+
+/** Posun obdobia (0 = aktuálne), ktoré obsahuje deň [ts] – pre výber dátumu ťuknutím na názov obdobia. */
+private fun offsetFor(period: Period, ts: Long): Int {
+    fun noon(t: Long) = Calendar.getInstance().apply { timeInMillis = t; set(Calendar.HOUR_OF_DAY, 12); set(Calendar.MINUTE, 0) }
+    fun monday(t: Long) = noon(t).apply { firstDayOfWeek = Calendar.MONDAY; set(Calendar.DAY_OF_WEEK, Calendar.MONDAY) }.timeInMillis
+    val now = System.currentTimeMillis()
+    val a = Calendar.getInstance(); val b = Calendar.getInstance().apply { timeInMillis = ts }
+    return when (period) {
+        Period.DAY -> Math.round((noon(ts).timeInMillis - noon(now).timeInMillis) / 86_400_000.0).toInt()
+        Period.WEEK -> Math.round((monday(ts) - monday(now)) / (7 * 86_400_000.0)).toInt()
+        Period.MONTH -> (b.get(Calendar.YEAR) - a.get(Calendar.YEAR)) * 12 + b.get(Calendar.MONTH) - a.get(Calendar.MONTH)
+        Period.YEAR -> b.get(Calendar.YEAR) - a.get(Calendar.YEAR)
+    }.coerceAtMost(0)
+}
 
 private data class Range(val from: Long, val to: Long, val title: String, val buckets: List<Pair<String, LongRange>>)
 
@@ -85,6 +102,16 @@ private fun range(period: Period, offset: Int): Range {
     }
     val buckets = mutableListOf<Pair<String, LongRange>>()
     return when (period) {
+        Period.DAY -> {
+            cal.add(Calendar.DAY_OF_MONTH, offset)
+            val from = cal.timeInMillis
+            repeat(24) { h ->
+                val s = cal.timeInMillis; cal.add(Calendar.HOUR_OF_DAY, 1)
+                buckets += (if (h % 6 == 0) "$h:00" else "") to (s until cal.timeInMillis)
+            }
+            val title = when (offset) { 0 -> "Dnes · "; -1 -> "Včera · "; else -> "" } + formatDay(from)
+            Range(from, cal.timeInMillis, title, buckets)
+        }
         Period.WEEK -> {
             cal.firstDayOfWeek = Calendar.MONDAY
             cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
@@ -188,7 +215,9 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { offset-- }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Predchádzajúce") }
-            Text(r.title, Modifier.weight(1f), textAlign = TextAlign.Center, fontWeight = FontWeight.SemiBold)
+            // ťuknutím na názov obdobia sa vyberie dátum
+            Text(r.title, Modifier.weight(1f).clickable { pickDate(ctx, minOf(r.from, System.currentTimeMillis())) { d -> offset = offsetFor(period, d) } },
+                textAlign = TextAlign.Center, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
             IconButton(onClick = { offset++ }, enabled = offset < 0) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Nasledujúce") }
         }
 
@@ -291,6 +320,29 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
                         }
                     }
                 }
+            }
+        }
+
+        // Deň: zoznam záznamov a časová os
+        if (period == Period.DAY) SectionCard(if (walkMode) "Chôdza v tento deň" else "Jazdy v tento deň") {
+            Column(Modifier.padding(horizontal = 4.dp)) {
+                if (trips.isEmpty()) Text("Žiadne záznamy", Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                trips.forEach { t ->
+                    Row(Modifier.fillMaxWidth().clickable { onNavigate("trip/${t.id}") }.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${formatTime(t.startedAt)}–${t.endedAt?.let { formatTime(it) } ?: ""}", fontWeight = FontWeight.SemiBold)
+                            Text("${t.startPlace ?: t.startAddress ?: "?"} → ${t.endPlace ?: t.endAddress ?: "?"}",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(formatDistance(t.distanceM), fontWeight = FontWeight.Bold)
+                            Text(if (t.isWalk) "${t.steps} krokov" else if (t.category == sk.cartracker.data.local.CATEGORY_BUSINESS) "služobná" else "súkromná",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                OutlinedButton(onClick = { onNavigate("timeline?d=${r.from}") }, modifier = Modifier.fillMaxWidth().padding(8.dp)) { Text("🕒 Časová os dňa") }
             }
         }
 

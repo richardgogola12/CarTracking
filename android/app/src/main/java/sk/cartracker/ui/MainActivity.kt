@@ -156,7 +156,10 @@ private fun AppNavigation(start: String) {
         composable("help") { HelpScreen(onBack = { nav.popBackStack() }) }
         composable("offline") { sk.cartracker.ui.screens.OfflineMapScreen(onBack = { nav.popBackStack() }) }
         composable("diagnostics") { sk.cartracker.ui.screens.DiagnosticsScreen(onBack = { nav.popBackStack() }) }
-        composable("timeline") { sk.cartracker.ui.screens.TimelineScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
+        composable("timeline?d={d}", arguments = listOf(navArgument("d") { type = NavType.LongType; defaultValue = 0L })) {
+            sk.cartracker.ui.screens.TimelineScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") },
+                initialDay = it.arguments?.getLong("d")?.takeIf { d -> d > 0 })
+        }
         composable("tripcheck") { sk.cartracker.ui.screens.TripCheckScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
         composable("routes") { sk.cartracker.ui.screens.RoutesScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
         composable("trip/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {

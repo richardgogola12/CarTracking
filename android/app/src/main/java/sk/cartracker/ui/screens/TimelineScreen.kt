@@ -90,12 +90,12 @@ private val STAY_COLOR = Color(0xFF8D6E63)
 /** Časová os dňa – jazdy, chôdza a pobyty za sebou, s tlačou a exportom. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimelineScreen(onBack: () -> Unit, onOpenTrip: (Long) -> Unit) {
+fun TimelineScreen(onBack: () -> Unit, onOpenTrip: (Long) -> Unit, initialDay: Long? = null) {
     val ctx = LocalContext.current
     val activity = ctx.findActivity()
     val c = ctx.container
     val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
-    var day by rememberSaveable { mutableLongStateOf(dayStart(System.currentTimeMillis())) }
+    var day by rememberSaveable { mutableLongStateOf(dayStart(initialDay ?: System.currentTimeMillis())) }
     var trips by remember { mutableStateOf<List<TripEntity>>(emptyList()) }
     var vehicles by remember { mutableStateOf<Map<String, VehicleEntity>>(emptyMap()) }
     val all by remember { c.trips.trips() }.collectAsStateWithLifecycle(emptyList())
