@@ -186,7 +186,7 @@ private fun TripFormDialog(edit: TripEntity?, onDismiss: () -> Unit, onDone: (Lo
                     ))
                     if (s.autoSync) SyncWorker.enqueueNow(ctx, s.syncWifiOnly)
                     Toast.makeText(ctx, "Záznam pridaný", Toast.LENGTH_SHORT).show()
-                    onAdded(id)
+                    onDone(id)
                 }
             }) { Text(if (edit == null) "Pridať" else "Uložiť") }
         },
