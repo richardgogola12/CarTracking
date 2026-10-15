@@ -6,6 +6,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import org.osmdroid.config.Configuration
 import sk.cartracker.data.AuthRepository
 import sk.cartracker.data.ItemsSync
@@ -59,6 +62,13 @@ class CarTrackerApp : Application() {
         }
         sk.cartracker.sync.ReminderWorker.schedule(this)
         sk.cartracker.widget.CarWidget.updateAll(this)
+
+        // Widgety sa obnovia pri každej zmene jázd (úprava, zmazanie, zlúčenie, synchronizácia…) a po polnoci
+        appScope.launch {
+            container.db.tripDao().finishedSignature().distinctUntilChanged().drop(1).debounce(1500)
+                .collect { sk.cartracker.widget.CarWidget.updateAll(this@CarTrackerApp) }
+        }
+        sk.cartracker.widget.MidnightRefresh.schedule(this)
 
         // Diagnostika zapnutá / vypnutá podľa nastavení
         appScope.launch { container.settings.flow.collect { sk.cartracker.data.DiagLog.enabled = it.diagnostics } }

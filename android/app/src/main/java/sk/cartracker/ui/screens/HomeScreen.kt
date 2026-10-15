@@ -347,24 +347,29 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
         OutlinedButton(onClick = { onNavigate("timeline") }, modifier = Modifier.fillMaxWidth()) { Text("🕒 Časová os dnešného dňa") }
 
         // ---- Štatistiky ----
-        val startOfDay = remember(trips) { Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0) }.timeInMillis }
+        val startOfDay = remember(trips, resumeTick) { Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0) }.timeInMillis }
         val startOfWeek = startOfDay - ((Calendar.getInstance().get(Calendar.DAY_OF_WEEK) + 5) % 7) * 86_400_000L
         val today = trips.filter { it.startedAt >= startOfDay }
         val week = trips.filter { it.startedAt >= startOfWeek }
+        // rovnako ako widget: dnešné súčty vrátane práve prebiehajúcej jazdy / chôdze
+        val lv = live
+        val liveCarM = if (state == DriveState.DRIVING && lv != null) lv.distanceM else 0.0
+        val liveWalkM = if (state == DriveState.WALKING && lv != null) lv.distanceM else 0.0
+        val liveSteps = if (state == DriveState.WALKING && lv != null) lv.steps else 0
         SectionCard("Prehľad") {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("🚗 Auto", style = MaterialTheme.typography.labelLarge)
                 Row(Modifier.fillMaxWidth()) {
-                    StatBox("Dnes", formatDistance(today.filter { !it.isWalk }.sumOf { it.distanceM }), Modifier.weight(1f))
-                    StatBox("Tento týždeň", formatDistance(week.filter { !it.isWalk }.sumOf { it.distanceM }), Modifier.weight(1f))
+                    StatBox("Dnes", formatDistance(today.filter { !it.isWalk }.sumOf { it.distanceM } + liveCarM), Modifier.weight(1f))
+                    StatBox("Tento týždeň", formatDistance(week.filter { !it.isWalk }.sumOf { it.distanceM } + liveCarM), Modifier.weight(1f))
                     StatBox("Jázd spolu", trips.count { !it.isWalk }.toString(), Modifier.weight(1f))
                 }
                 if (s.walkTracking || trips.any { it.isWalk }) {
                     Text("🚶 Chôdza", style = MaterialTheme.typography.labelLarge)
                     Row(Modifier.fillMaxWidth()) {
-                        StatBox("Kroky dnes", today.filter { it.isWalk }.sumOf { it.steps }.toString(), Modifier.weight(1f))
-                        StatBox("Dnes", formatDistance(today.filter { it.isWalk }.sumOf { it.distanceM }), Modifier.weight(1f))
-                        StatBox("Tento týždeň", formatDistance(week.filter { it.isWalk }.sumOf { it.distanceM }), Modifier.weight(1f))
+                        StatBox("Kroky dnes", String.format(java.util.Locale("sk"), "%,d", today.filter { it.isWalk }.sumOf { it.steps } + liveSteps), Modifier.weight(1f))
+                        StatBox("Dnes", formatDistance(today.filter { it.isWalk }.sumOf { it.distanceM } + liveWalkM), Modifier.weight(1f))
+                        StatBox("Tento týždeň", formatDistance(week.filter { it.isWalk }.sumOf { it.distanceM } + liveWalkM), Modifier.weight(1f))
                     }
                 }
             }

@@ -108,6 +108,9 @@
         <receiver
             android:name=".service.CategoryActionReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".widget.MidnightRefreshReceiver"
+            android:exported="false" />
 
         <!-- Tlačidlá v rýchlej lište -->
         <service

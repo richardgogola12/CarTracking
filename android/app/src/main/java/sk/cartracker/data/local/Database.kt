@@ -248,6 +248,9 @@ interface TripDao {
     @Query("SELECT * FROM points WHERE tripId = :tripId ORDER BY ts") suspend fun points(tripId: Long): List<PointEntity>
     @Query("SELECT * FROM points WHERE tripId = :tripId ORDER BY ts DESC LIMIT 1") suspend fun lastPoint(tripId: Long): PointEntity?
     @Query("SELECT COUNT(*) FROM points WHERE tripId = :tripId") suspend fun pointCount(tripId: Long): Int
+    /** Zmena dokončených jázd (pridanie, úprava, zmazanie, zlúčenie, synchronizácia) – na obnovu widgetov. */
+    @Query("SELECT COUNT(*) || ':' || IFNULL(SUM(steps), 0) || ':' || IFNULL(SUM(distanceM), 0) || ':' || IFNULL(SUM(startedAt % 100000), 0) || ':' || IFNULL(SUM(category = 'business'), 0) FROM trips WHERE finished = 1")
+    fun finishedSignature(): kotlinx.coroutines.flow.Flow<String>
     @Query("SELECT * FROM points WHERE tripId = :tripId AND synced = 0 ORDER BY ts LIMIT :limit")
     suspend fun unsyncedPoints(tripId: Long, limit: Int): List<PointEntity>
     @Query("UPDATE points SET synced = 1 WHERE id IN (:ids)") suspend fun markPointsSynced(ids: List<Long>)
