@@ -93,7 +93,7 @@ $rows
  <div class="box"><div>Náklady (odhad)</div><b>${String.format(sk, "%.2f", trips.sumOf { it.cost(vehicle, s) })} €</b></div>
 </div>
 <div class="sign"><span>Dátum</span><span>Podpis vodiča</span></div>
-<div class="foot">Vygenerované aplikáciou Car Tracking ${esc(formatDateTime(System.currentTimeMillis()))}. Vzdialenosti sú merané GPS,
+<div class="foot">Vygenerované aplikáciou Trasník ${esc(formatDateTime(System.currentTimeMillis()))}. Vzdialenosti sú merané GPS,
 náklady na palivo sú odhad podľa nastavenej spotreby a ceny. Typ: S = služobná, P = súkromná.</div>
 </body></html>"""
     }
@@ -183,7 +183,7 @@ náklady na palivo sú odhad podľa nastavenej spotreby a ceny. Typ: S = služob
  <div class="box"><div>Na vyplatenie</div><b>${money(rows.sumOf { it.total })} €</b></div>
 </div>
 <div class="sign"><span>Podpis zamestnanca</span><span>Schválil (zamestnávateľ)</span></div>
-<div class="foot">Vygenerované aplikáciou Car Tracking ${esc(formatDateTime(System.currentTimeMillis()))}. Vzdialenosti sú merané GPS.
+<div class="foot">Vygenerované aplikáciou Trasník ${esc(formatDateTime(System.currentTimeMillis()))}. Vzdialenosti sú merané GPS.
 Náhrada za PHL = km × spotreba / 100 × cena PHL podľa údajov vozidla. Sadzbu základnej náhrady a spôsob výpočtu overte podľa platných predpisov a pokynov zamestnávateľa.</div>
 </body></html>"""
     }
@@ -223,7 +223,7 @@ Náhrada za PHL = km × spotreba / 100 × cena PHL podľa údajov vozidla. Sadzb
 <tbody>$body</tbody>
 <tfoot><tr><td></td><td colspan="7">Spolu ${trips.size} jázd</td><td class='r'>${km(trips.sumOf { it.distanceM })}</td><td class='r'>${money(v.cost(trips.sumOf { it.distanceM }))}</td></tr></tfoot></table>
 <div class="sum">${byDriver.joinToString("")}</div>
-<div class="foot">Vygenerované aplikáciou Car Tracking ${esc(formatDateTime(System.currentTimeMillis()))} zo servera. Typ: S = služobná, P = súkromná.</div>
+<div class="foot">Vygenerované aplikáciou Trasník ${esc(formatDateTime(System.currentTimeMillis()))} zo servera. Typ: S = služobná, P = súkromná.</div>
 </body></html>"""
     }
 
@@ -247,7 +247,7 @@ Náhrada za PHL = km × spotreba / 100 × cena PHL podľa údajov vozidla. Sadzb
  <div class="box"><div>Priemer krokov / deň</div><b>${if (days.isNotEmpty()) String.format(sk, "%,d", steps / days.size) else "0"}</b></div>
  <div class="box"><div>Priemer km / deň</div><b>${if (days.isNotEmpty()) String.format(sk, "%.2f", days.sumOf { it.distanceM } / 1000 / days.size) else "0"}</b></div>
 </div>
-<div class="foot">Vygenerované aplikáciou Car Tracking ${esc(formatDateTime(System.currentTimeMillis()))}. Kroky z krokomera telefónu, vzdialenosť = kroky × dĺžka kroku alebo GPS.
+<div class="foot">Vygenerované aplikáciou Trasník ${esc(formatDateTime(System.currentTimeMillis()))}. Kroky z krokomera telefónu, vzdialenosť = kroky × dĺžka kroku alebo GPS.
 Chôdza mimo pracovného času sa nezapočítava; záznam presahujúci pracovný čas sa započíta pomerne.</div>
 </body></html>"""
     }
@@ -299,7 +299,7 @@ Chôdza mimo pracovného času sa nezapočítava; záznam presahujúci pracovný
  <div class="box"><div>Pešo</div><b>${km(walks.sumOf { it.distanceM })} km · ${String.format(sk, "%,d", walks.sumOf { it.steps })} krokov</b></div>
  <div class="box"><div>Náklady na palivo</div><b>${money(cars.sumOf { it.cost(vehicles[it.vehicleUuid], s) })} €</b></div>
 </div>
-<div class="foot">Vygenerované aplikáciou Car Tracking ${esc(formatDateTime(System.currentTimeMillis()))}.</div>
+<div class="foot">Vygenerované aplikáciou Trasník ${esc(formatDateTime(System.currentTimeMillis()))}.</div>
 </body></html>"""
     }
 

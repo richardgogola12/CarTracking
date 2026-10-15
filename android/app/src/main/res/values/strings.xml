@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Car Tracking</string>
+    <string name="app_name">Trasník</string>
     <string name="widget_quick_desc">Rýchle tlačidlá Jazda / Chôdza so stavom</string>
     <string name="widget_steps_desc">Dnešné kroky k dennému cieľu, séria dní a týždeň</string>
     <string name="widget_parking_desc">Kde stojí auto, ako dlho a parkovací lístok</string>

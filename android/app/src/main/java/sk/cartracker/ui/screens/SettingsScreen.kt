@@ -439,12 +439,12 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
             }
 
             Sub("Skratky na ikone aplikácie") {
-                Text("Podržte prst na ikone Car Tracking na ploche: Začať jazdu, Začať chôdzu, Kde je auto (navigácia) a Tankovanie. " +
+                Text("Podržte prst na ikone Trasníka na ploche: Začať jazdu, Začať chôdzu, Kde je auto (navigácia) a Tankovanie. " +
                     "Skratku môžete pretiahnuť aj na plochu ako samostatnú ikonu. Druhé ťuknutie na Začať jazdu / chôdzu záznam ukončí.",
                     Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall)
             }
             Sub("Widgety na ploche") {
-                Text("Podržte prst na ploche → Widgety → Car Tracking. K dispozícii je hlavný widget a menšie: tlačidlá, kroky, parkovanie a mesiac.",
+                Text("Podržte prst na ploche → Widgety → Trasník. K dispozícii je hlavný widget a menšie: tlačidlá, kroky, parkovanie a mesiac.",
                     Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -501,7 +501,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
             }
         }
 
-        Text("Car Tracking ${sk.cartracker.BuildConfig.VERSION_NAME}", Modifier.fillMaxWidth().padding(8.dp), style = MaterialTheme.typography.bodySmall,
+        Text("Trasník ${sk.cartracker.BuildConfig.VERSION_NAME}", Modifier.fillMaxWidth().padding(8.dp), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline)
     }
 

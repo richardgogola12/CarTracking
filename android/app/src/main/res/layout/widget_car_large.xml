@@ -14,7 +14,7 @@
             android:src="@drawable/widget_dot" />
         <TextView android:id="@+id/w_status" android:layout_width="0dp" android:layout_height="wrap_content"
             android:layout_marginStart="8dp" android:layout_weight="1" android:ellipsize="end" android:maxLines="1"
-            android:text="Car Tracking" android:textColor="#FFFFFFFF" android:textSize="15sp" android:textStyle="bold" />
+            android:text="Trasník" android:textColor="#FFFFFFFF" android:textSize="15sp" android:textStyle="bold" />
         <TextView android:id="@+id/w_updated" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:textColor="#80FFFFFF" android:textSize="10sp" />
     </LinearLayout>

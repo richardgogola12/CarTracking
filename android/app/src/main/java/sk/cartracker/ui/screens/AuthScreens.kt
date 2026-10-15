@@ -40,6 +40,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import sk.cartracker.data.AppSettings
 import sk.cartracker.data.remote.ApiProvider
@@ -49,8 +51,15 @@ import sk.cartracker.security.BiometricAuth
 
 @Composable
 private fun AuthHeader(subtitle: String) {
-    Icon(Icons.Filled.DirectionsCar, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
-    Text("Car Tracking", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    // ikona aplikácie (pozadie + popredie ako na ploche)
+    androidx.compose.foundation.layout.Box(Modifier.size(84.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))) {
+        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(sk.cartracker.R.drawable.ic_launcher_bg), null, Modifier.matchParentSize())
+        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(sk.cartracker.R.drawable.ic_launcher_fg), null,
+            Modifier.matchParentSize().graphicsLayer(scaleX = 1.35f, scaleY = 1.35f))
+    }
+    Spacer(Modifier.height(8.dp))
+    Text("Trasník", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    Text("jazdy · chôdza · kniha jázd", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
     Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Spacer(Modifier.height(24.dp))
 }

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /*
- * Car Tracking REST API (PHP 8.1+, PDO MySQL)
+ * Trasník REST API (PHP 8.1+, PDO MySQL)
  *
  *  POST   /register        {name,email,password,device_name?}  -> {token,user}
  *  POST   /login           {email,password,device_name?}       -> {token,user}

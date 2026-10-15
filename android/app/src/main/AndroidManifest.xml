@@ -150,7 +150,7 @@
         <receiver
             android:name=".widget.CarWidget"
             android:exported="false"
-            android:label="Car Tracking">
+            android:label="Trasník">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -163,7 +163,7 @@
         <receiver
             android:name=".widget.QuickWidget"
             android:exported="false"
-            android:label="Car Tracking – tlačidlá">
+            android:label="Trasník – tlačidlá">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -174,7 +174,7 @@
         <receiver
             android:name=".widget.StepsWidget"
             android:exported="false"
-            android:label="Car Tracking – kroky">
+            android:label="Trasník – kroky">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -185,7 +185,7 @@
         <receiver
             android:name=".widget.ParkingWidget"
             android:exported="false"
-            android:label="Car Tracking – parkovanie">
+            android:label="Trasník – parkovanie">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -196,7 +196,7 @@
         <receiver
             android:name=".widget.MonthWidget"
             android:exported="false"
-            android:label="Car Tracking – mesiac">
+            android:label="Trasník – mesiac">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

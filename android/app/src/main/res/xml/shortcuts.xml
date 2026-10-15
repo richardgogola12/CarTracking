@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Skratky na ikone aplikácie (podržte ikonu Car Tracking na ploche) -->
+<!-- Skratky na ikone aplikácie (podržte ikonu Trasník na ploche) -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut android:shortcutId="drive" android:enabled="true" android:icon="@drawable/sc_drive"
         android:shortcutShortLabel="@string/sc_drive" android:shortcutLongLabel="@string/sc_drive_long">

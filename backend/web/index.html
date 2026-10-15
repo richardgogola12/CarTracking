@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
-<title>Car Tracking – prehľad</title>
+<title>Trasník – prehľad</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
@@ -26,8 +28,8 @@
   <div class="login-card card border-0 shadow-lg">
     <div class="card-body p-4 p-md-5">
       <div class="d-flex align-items-center gap-3 mb-4">
-        <div class="brand-logo"><i class="bi bi-car-front-fill"></i></div>
-        <div><h1 class="h4 mb-0 fw-bold">Car Tracking</h1><div class="text-body-secondary small">Jazdy, chôdza a kniha jázd na počítači</div></div>
+        <img class="brand-logo" src="icon.svg" alt="">
+        <div><h1 class="h4 mb-0 fw-bold">Trasník</h1><div class="text-body-secondary small">Jazdy, chôdza a kniha jázd na počítači</div></div>
       </div>
       <form id="loginForm" class="vstack gap-3">
         <div class="form-floating"><input id="em" type="email" class="form-control" placeholder="e-mail" autocomplete="username" required><label for="em">E-mail</label></div>
@@ -52,8 +54,8 @@
     <div class="sidebar-inner">
       <div class="d-flex align-items-center gap-2 px-3 py-4">
         <a class="d-flex align-items-center gap-2 text-decoration-none" href="#/prehlad">
-          <div class="brand-logo sm"><i class="bi bi-car-front-fill"></i></div>
-          <span class="fs-5 fw-bold text-white">Car Tracking</span>
+          <img class="brand-logo sm" src="icon.svg" alt="">
+          <span class="fs-5 fw-bold text-white">Trasník</span>
         </a>
         <button type="button" class="btn-close btn-close-white ms-auto d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Zavrieť"></button>
       </div>
@@ -118,7 +120,7 @@
     </header>
 
     <div class="container-fluid content-wrap" id="content"></div>
-    <footer class="px-3 px-lg-4 pb-4 small text-body-secondary noprint">Car Tracking · údaje z vášho servera · mapa © Esri, HERE, Garmin, OpenStreetMap</footer>
+    <footer class="px-3 px-lg-4 pb-4 small text-body-secondary noprint">Trasník · údaje z vášho servera · mapa © Esri, HERE, Garmin, OpenStreetMap</footer>
   </main>
 
   <!-- Spodná navigácia (mobil) -->

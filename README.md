@@ -1,4 +1,10 @@
-# Car Tracking – automatické sledovanie jázd autom (Android + PHP/MySQL)
+# Trasník – jazdy · chôdza · kniha jázd (Android + PHP/MySQL)
+
+<img src="backend/web/icon.svg" width="96" alt="Ikona Trasník">
+
+Aplikácia sa od verzie 2.0 volá **Trasník** (predtým „Car Tracking“). Interné názvy ostávajú kvôli kompatibilite: balík `sk.cartracker`, repozitár `CarTracking`, cesta na serveri `…/cartracking/api/`, tabuľky `CarTracking_*` a formát záloh – aktualizácia sa nainštaluje cez starú verziu bez straty údajov.
+
+**Ikona:** `android/app/src/main/res/drawable/ic_launcher_bg.xml` (pozadie), `ic_launcher_fg.xml` (trasa a cieľ), `ic_launcher_mono.xml` (tematická ikona Android 13+); web: `backend/web/icon.svg`, `icon-180.png`.
 
 ## Čo aplikácia robí
 - **Login / registrácia** e-mailom a heslom, **prihlásenie odtlačkom prsta** (kľúč v Android Keystore, odomkne ho iba odtlačok).

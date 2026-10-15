@@ -73,7 +73,7 @@ object Notifications {
             DriveState.CANDIDATE -> "Overujem, či ide o jazdu autom…"
             DriveState.DRIVING -> "Režim jazdy je zapnutý" + (live?.vehicleName?.let { " · $it" } ?: "")
             DriveState.WALKING -> "🚶 Chôdza sa zaznamenáva"
-            DriveState.IDLE -> "Car Tracking"
+            DriveState.IDLE -> "Trasník"
         }
         val text = when {
             state == DriveState.DRIVING && live != null -> buildString {

@@ -1,4 +1,4 @@
-/* Car Tracking – webový prehľad. Bootstrap 5.3 + DataTables 2 (Responsive, Buttons) + Chart.js 4 + Leaflet 1.9 */
+/* Trasník – webový prehľad. Bootstrap 5.3 + DataTables 2 (Responsive, Buttons) + Chart.js 4 + Leaflet 1.9 */
 "use strict";
 
 // =====================================================================

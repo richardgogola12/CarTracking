@@ -1,4 +1,4 @@
-/* Car Tracking – webový prehľad (Bootstrap 5.3 + DataTables 2) */
+/* Trasník – webový prehľad (Bootstrap 5.3 + DataTables 2) */
 :root, [data-bs-theme="light"] {
   --bs-body-font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --bs-primary: #2563eb; --bs-primary-rgb: 37, 99, 235;
@@ -41,6 +41,7 @@ a { color: var(--bs-primary); }
 .login-card { width: 100%; max-width: 440px; border-radius: 22px; background: var(--ct-card); }
 .brand-logo { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: #fff; font-size: 24px;
   background: linear-gradient(135deg, #2563eb, #16a34a); box-shadow: 0 8px 20px -8px rgba(37,99,235,.6); flex-shrink: 0; }
+img.brand-logo { object-fit: cover; padding: 0; background: none; }
 .brand-logo.sm { width: 36px; height: 36px; border-radius: 11px; font-size: 18px; }
 
 /* ---------- rozloženie ---------- */

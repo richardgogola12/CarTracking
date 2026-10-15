@@ -84,7 +84,7 @@ object Backup {
         var nTrips = 0; var nPoints = 0; var nVeh = 0; var nPlaces = 0; var nRef = 0; var nRem = 0; var skipped = 0
 
         val input = ctx.contentResolver.openInputStream(uri) ?: error("Súbor sa nedá otvoriť")
-        val stream = runCatching { GZIPInputStream(input) }.getOrElse { error("Toto nie je záloha Car Tracking") }
+        val stream = runCatching { GZIPInputStream(input) }.getOrElse { error("Toto nie je záloha aplikácie Trasník") }
         JsonReader(InputStreamReader(stream, Charsets.UTF_8)).use { r ->
             r.beginObject()
             var formatOk = false
@@ -146,7 +146,7 @@ object Backup {
                 }
             }
             r.endObject()
-            if (!formatOk) error("Toto nie je záloha Car Tracking")
+            if (!formatOk) error("Toto nie je záloha aplikácie Trasník")
         }
         Result(nTrips, nPoints, nVeh, nPlaces, nRef, nRem, skipped)
     }

@@ -38,7 +38,7 @@ fun HelpScreen(onBack: () -> Unit) {
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Späť") } },
             actions = {
                 IconButton(enabled = activity != null, onClick = {
-                    activity?.let { Reports.printHtml(it, "Car Tracking – návod", url = MANUAL_URL) }
+                    activity?.let { Reports.printHtml(it, "Trasník – návod", url = MANUAL_URL) }
                 }) { Icon(Icons.Filled.Print, "Vytlačiť / uložiť PDF") }
             },
         )

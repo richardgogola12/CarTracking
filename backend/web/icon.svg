@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1D4ED8"/><stop offset="0.55" stop-color="#2563EB"/><stop offset="1" stop-color="#16A34A"/>
+    </linearGradient>
+  </defs>
+  <rect width="108" height="108" rx="24" fill="url(#g)"/>
+  <g transform="translate(54 54) scale(1.08) translate(-54 -54)">
+  <!-- trasa -->
+  <path d="M33,75 C51,75 39,56 55,54.5 C65.5,53.5 68,51 68,46" fill="none" stroke="#FFFFFF" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- štart -->
+  <circle cx="33" cy="75" r="7" fill="#FFFFFF"/>
+  <circle cx="33" cy="75" r="3" fill="#1D4ED8"/>
+  <!-- cieľ: špendlík -->
+  <path d="M68,53 C68,53 56.5,41.5 56.5,33.5 A11.5,11.5 0 1 1 79.5,33.5 C79.5,41.5 68,53 68,53 Z" fill="#FFFFFF"/>
+  <circle cx="68" cy="33.5" r="4.6" fill="#16A34A"/>
+  </g>
+</svg>

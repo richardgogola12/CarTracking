@@ -237,7 +237,7 @@ class CarWidget : AppWidgetProvider() {
             v.setTextViewText(R.id.w_updated, formatTime(System.currentTimeMillis()))
 
             if (!d.loggedIn) {
-                v.setTextViewText(R.id.w_status, "Car Tracking")
+                v.setTextViewText(R.id.w_status, "Trasník")
                 v.setTextViewText(R.id.w_vehicle, "Prihláste sa v aplikácii")
                 v.setOnClickPendingIntent(R.id.w_btn_drive, openApp(ctx))
                 v.setOnClickPendingIntent(R.id.w_btn_walk, openApp(ctx))

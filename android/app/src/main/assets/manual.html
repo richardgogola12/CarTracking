@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Car Tracking – Používateľská príručka</title>
+<title>Trasník – Používateľská príručka</title>
 <style>
   :root { --blue:#1565c0; --blue-d:#0d47a1; --ink:#1b1f24; --muted:#5b6470; --line:#dfe5ee; --soft:#f3f7fc; --ok:#2e7d32; --warn:#ef6c00; --bad:#c62828; }
   @page { size: A4; margin: 16mm 15mm 18mm; }
@@ -67,8 +67,26 @@
 <div class="page">
 
 <header class="cover">
-  <h1>🚗 Car Tracking</h1>
-  <p>Používateľská príručka – automatické sledovanie jázd autom a chôdze, viac vozidiel, kniha jázd a štatistiky</p>
+  <h1><svg width="76" height="76" style="vertical-align:middle;margin-right:14px;border-radius:18px;box-shadow:0 6px 18px rgba(0,0,0,.25)" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <defs>
+    <linearGradient id="cov" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1D4ED8"/><stop offset="0.55" stop-color="#2563EB"/><stop offset="1" stop-color="#16A34A"/>
+    </linearGradient>
+  </defs>
+  <rect width="108" height="108" rx="24" fill="url(#cov)"/>
+  <g transform="translate(54 54) scale(1.08) translate(-54 -54)">
+  <!-- trasa -->
+  <path d="M33,75 C51,75 39,56 55,54.5 C65.5,53.5 68,51 68,46" fill="none" stroke="#FFFFFF" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- štart -->
+  <circle cx="33" cy="75" r="7" fill="#FFFFFF"/>
+  <circle cx="33" cy="75" r="3" fill="#1D4ED8"/>
+  <!-- cieľ: špendlík -->
+  <path d="M68,53 C68,53 56.5,41.5 56.5,33.5 A11.5,11.5 0 1 1 79.5,33.5 C79.5,41.5 68,53 68,53 Z" fill="#FFFFFF"/>
+  <circle cx="68" cy="33.5" r="4.6" fill="#16A34A"/>
+  </g>
+</svg>
+Trasník</h1>
+  <p><b>jazdy · chôdza · kniha jázd</b><br>Používateľská príručka – automatické sledovanie jázd autom a chôdze, viac vozidiel, kniha jázd a štatistiky</p>
   <div class="ver">Verzia aplikácie 2.0 · Android 8.0 a novší</div>
 </header>
 
@@ -112,7 +130,8 @@
 </nav>
 
 <h2 id="uvod">1. Čo aplikácia robí</h2>
-<p>Car Tracking sám rozpozná, že sedíte v aute alebo idete pešo, a zaznamená trasu – bez toho, aby ste aplikáciu otvárali. Jazdy autom a chôdza sa vedú oddelene; bicykel sa nezaznamenáva.</p>
+<div class="tip"><b>Nový názov: Trasník</b> (od verzie 2.0, predtým „Car Tracking“). Ikona – kľukatá trasa od štartu k špendlíku cieľa na modro-zelenom pozadí – je rovnaká v telefóne, vo widgetoch aj na webe. Zmenil sa iba názov a vzhľad: údaje, prihlásenie, server (<code>…/cartracking/api/</code>), databáza aj zálohy ostávajú, aktualizácia sa nainštaluje cez starú verziu. V Androide 13 a novšom ikona podporuje aj <b>tematické ikony</b> (jednofarebná podľa farieb tapety).</div>
+<p>Trasník sám rozpozná, že sedíte v aute alebo idete pešo, a zaznamená trasu – bez toho, aby ste aplikáciu otvárali. Jazdy autom a chôdza sa vedú oddelene; bicykel sa nezaznamenáva.</p>
 <ul>
   <li><b>Automatický záznam jázd</b> – spustí sa a ukončí sám, aj keď je aplikácia zatvorená alebo sa telefón reštartoval.</li>
   <li><b>Viac vozidiel</b> – každé s vlastnou spotrebou, cenou paliva, tachometrom a Bluetooth; prepnutie jedným ťuknutím, aj počas jazdy.</li>
@@ -516,7 +535,7 @@
 </ul>
 
 <h2 id="widget">20. Widgety na ploche</h2>
-<p>Podržte prst na prázdnom mieste plochy → <b>Miniaplikácie / Widgety</b> → <b>Car Tracking</b> a pretiahnite ho na plochu. Ťuknutím na widget sa otvorí aplikácia.</p>
+<p>Podržte prst na prázdnom mieste plochy → <b>Miniaplikácie / Widgety</b> → <b>Trasník</b> a pretiahnite ho na plochu. Ťuknutím na widget sa otvorí aplikácia.</p>
 <p><b>Farba podľa stavu</b>: tmavá = čakám na jazdu, oranžová = overujem, či ide o auto, zelená = jazda, modrá = chôdza. Hore je stav, aktívne vozidlo (EČV) a čas poslednej aktualizácie.</p>
 <ul>
   <li><b>Počas jazdy</b> – veľká aktuálna rýchlosť, dopravná značka s limitom pre daný typ cesty (pri prekročení limitu značka sčervenie), trvanie jazdy (beží každú sekundu), prejdené km a náklady na palivo.</li>
@@ -538,13 +557,13 @@
 </ul>
 <p>Veľkosť widgetu sa dá meniť podržaním a ťahaním okrajov; obsah sa prispôsobí. Počas jazdy sa údaje obnovujú približne každých 20 sekúnd, trvanie beží priebežne.</p>
 <h3>Ďalšie widgety</h3>
-<p>V zozname widgetov nájdete okrem hlavného ešte štyri menšie – na plochu ich pridáte rovnako (podržať prst na ploche → Widgety → Car Tracking):</p>
+<p>V zozname widgetov nájdete okrem hlavného ešte štyri menšie – na plochu ich pridáte rovnako (podržať prst na ploche → Widgety → Trasník):</p>
 <table>
   <tr><th>Widget</th><th>Veľkosť</th><th>Čo ukazuje</th></tr>
-  <tr><td><b>Car Tracking – tlačidlá</b></td><td>3 × 1</td><td>Stav (farba ako hlavný widget) a dve tlačidlá: <b>🚗 Jazda</b> a <b>🚶 Chôdza</b>; počas záznamu <b>⏹ Ukončiť</b> a rýchlosť / km alebo kroky; pri overovaní <b>✓ Je to jazda</b> / <b>✕ Nie je</b>.</td></tr>
-  <tr><td><b>Car Tracking – kroky</b></td><td>3 × 2</td><td>Krúžok dnešných krokov k dennému cieľu, dnešné km pešo, koľko krokov chýba do cieľa, <b>🔥 séria</b> dní so splneným cieľom a rekord, graf krokov za 7 dní.</td></tr>
-  <tr><td><b>Car Tracking – parkovanie</b></td><td>4 × 2</td><td>Adresa zaparkovaného auta a ako dlho tam stojí, <b>parkovací lístok</b> s odpočtom zostávajúceho času (beží každú sekundu), tlačidlá <b>🧭 Nájsť auto</b> (navigácia pešo) a <b>🎫 Lístok</b> (otvorí aplikáciu na nastavenie).</td></tr>
-  <tr><td><b>Car Tracking – mesiac</b></td><td>4 × 2</td><td>Tento mesiac: km autom, počet jázd, náklady, služobné km, kroky, km pešo, <b>porovnanie km s minulým mesiacom</b> (za rovnaký počet dní) a graf km po dňoch.</td></tr>
+  <tr><td><b>Trasník – tlačidlá</b></td><td>3 × 1</td><td>Stav (farba ako hlavný widget) a dve tlačidlá: <b>🚗 Jazda</b> a <b>🚶 Chôdza</b>; počas záznamu <b>⏹ Ukončiť</b> a rýchlosť / km alebo kroky; pri overovaní <b>✓ Je to jazda</b> / <b>✕ Nie je</b>.</td></tr>
+  <tr><td><b>Trasník – kroky</b></td><td>3 × 2</td><td>Krúžok dnešných krokov k dennému cieľu, dnešné km pešo, koľko krokov chýba do cieľa, <b>🔥 séria</b> dní so splneným cieľom a rekord, graf krokov za 7 dní.</td></tr>
+  <tr><td><b>Trasník – parkovanie</b></td><td>4 × 2</td><td>Adresa zaparkovaného auta a ako dlho tam stojí, <b>parkovací lístok</b> s odpočtom zostávajúceho času (beží každú sekundu), tlačidlá <b>🧭 Nájsť auto</b> (navigácia pešo) a <b>🎫 Lístok</b> (otvorí aplikáciu na nastavenie).</td></tr>
+  <tr><td><b>Trasník – mesiac</b></td><td>4 × 2</td><td>Tento mesiac: km autom, počet jázd, náklady, služobné km, kroky, km pešo, <b>porovnanie km s minulým mesiacom</b> (za rovnaký počet dní) a graf km po dňoch.</td></tr>
 </table>
 <p>Všetky widgety sa obnovujú spolu s hlavným – počas jazdy a chôdze, pri každej zmene záznamov (nová, upravená, zmazaná, zlúčená či rozdelená jazda, synchronizácia, obnova zo servera), pri zmene parkovacieho lístka, tesne po polnoci a najmenej raz za 30 minút. Ťuknutím na widget (mimo tlačidiel) sa otvorí aplikácia.</p>
 <p><b>Dnešné kroky a km</b> počítajú widgety aj Prehľad v aplikácii rovnako: dokončené záznamy dňa + práve prebiehajúca chôdza alebo jazda. Do krokov sa počítajú len zaznamenané chôdze – krátke presuny pod minimálnu vzdialenosť chôdze (Nastavenia → Chôdza) sa neukladajú, preto môže byť číslo nižšie ako v krokomere telefónu (Google Fit, Samsung Health).</p>
@@ -561,7 +580,7 @@
   <li><b>Chôdza</b> funguje rovnako a ukazuje počet krokov.</li>
 </ul>
 <h3>Skratky na ikone aplikácie</h3>
-<p><b>Podržte prst na ikone Car Tracking</b> na ploche – zobrazí sa ponuka:</p>
+<p><b>Podržte prst na ikone Trasníka</b> na ploche – zobrazí sa ponuka:</p>
 <table>
   <tr><th>Skratka</th><th>Čo urobí</th></tr>
   <tr><td>🚗 Začať jazdu</td><td>Spustí záznam jazdy (ako ručné spustenie). Ak jazda práve beží, ukončí ju.</td></tr>
@@ -892,7 +911,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
 <table class="net">
   <colgroup><col style="width:29%"><col style="width:32%"><col style="width:19%"><col style="width:20%"></colgroup>
   <tr><th>Doména a prevádzkovateľ</th><th>Účel · kedy · čo sa posiela</th><th>IPv4 (14. 10. 2026)</th><th>Rozsah / poznámka</th></tr>
-  <tr><td><b>váš server</b><br>(napr. <code>mojadomena.sk</code>)</td><td>Car Tracking API – synchronizácia, prihlásenie, záloha, nastavenia, zdieľanie. Posiela sa: jazdy, body trasy, vozidlá, miesta, tankovania, nastavenia.</td><td>IP vášho servera</td><td>jediné miesto s vašimi údajmi</td></tr>
+  <tr><td><b>váš server</b><br>(napr. <code>mojadomena.sk</code>)</td><td>API Trasníka – synchronizácia, prihlásenie, záloha, nastavenia, zdieľanie. Posiela sa: jazdy, body trasy, vozidlá, miesta, tankovania, nastavenia.</td><td>IP vášho servera</td><td>jediné miesto s vašimi údajmi</td></tr>
   <tr><td><code>nominatim.openstreetmap.org</code><br>OpenStreetMap Foundation</td><td>Obec v adrese (koniec jazdy, oprava adries) a typ cesty s limitom (počas jazdy každých ~400 m). Posiela sa: GPS súradnice bodu, bez mena a účtu.</td><td class="ip">151.101.1.91<br>151.101.65.91<br>151.101.129.91<br>151.101.193.91</td><td>Fastly<br>151.101.0.0/16</td></tr>
   <tr><td><code>server.arcgisonline.com</code><br>Esri</td><td>Mapové podklady (svetlá, tmavá, podrobná, satelitná mapa), aj ukladanie offline máp. Posiela sa: číslo dlaždice (oblasť a priblíženie).</td><td class="ip">143.204.204.26<br>143.204.204.56<br>143.204.204.60<br>143.204.204.89</td><td>Amazon CloudFront<br>(<code>*.cloudfront.net</code>)</td></tr>
   <tr><td><code>tile.openstreetmap.org</code><br><code>a./b./c.tile.openstreetmap.org</code><br>OpenStreetMap Foundation</td><td>„Klasická“ mapa – iba ak je zvolená. Posiela sa: číslo dlaždice.</td><td class="ip">151.101.1.91<br>151.101.65.91<br>151.101.129.91<br>151.101.193.91</td><td>Fastly<br>151.101.0.0/16</td></tr>
@@ -919,7 +938,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
 <div class="tip">Ak má byť web nezávislý od CDN, stiahnite súbory knižníc na svoj server (napr. do <code>web/lib/</code>) a v <code>index.html</code> prepíšte adresy <code>https://cdnjs…</code> a <code>https://cdn.jsdelivr…</code> na lokálne. Mapové dlaždice a písmo ostanú z internetu (písmo sa pri výpadku nahradí systémovým).</div>
 
 <footer>
-  Car Tracking · Používateľská príručka pre verziu 2.0 · © 2026 Richard Gogola<br>
+  Trasník · Používateľská príručka pre verziu 2.0 · © 2026 Richard Gogola<br>
   Mapové údaje © Esri, HERE, Garmin, © prispievatelia OpenStreetMap, © OpenTopoMap, snímky © Esri, Maxar.
 </footer>
 
