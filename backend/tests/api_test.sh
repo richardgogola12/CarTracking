@@ -141,6 +141,30 @@ check "BT adresa vozidla" 200 "$(req "${AUTH[@]}" -X POST "$API/vehicles/sync" -
 check "vozidlo s BT adresou" 200 "$(req "${AUTH[@]}" "$API/vehicles")"
 python3 -c 'import sys,json;v=json.loads(sys.argv[1])["vehicles"][0];assert v["bt_address"]=="AA:BB:CC:DD:EE:FF", v' "$LAST" || fail "BT adresa nesedí"
 
+# Udalosť bodu sa dá opraviť (zrušené prekročenie po oprave limitu)
+check "bod s prekročením" 200 "$(req "${AUTH[@]}" -X POST "$API/trips/sync" -d "{\"trips\":[{\"uuid\":\"$CAR\",\"started_at\":1700000000000,\"ended_at\":1700000600000,\"distance_m\":8200,\"trigger_source\":\"auto\",\"type\":\"car\",\"points\":[{\"ts\":1700000009000,\"lat\":48.1,\"lng\":17.1,\"speed_kmh\":70,\"event\":\"speeding\"}]}]}")"
+check "zrušenie udalosti" 200 "$(req "${AUTH[@]}" -X POST "$API/trips/sync" -d "{\"trips\":[{\"uuid\":\"$CAR\",\"started_at\":1700000000000,\"ended_at\":1700000600000,\"distance_m\":8200,\"trigger_source\":\"auto\",\"type\":\"car\",\"speeding_sec\":0,\"points\":[{\"ts\":1700000009000,\"lat\":48.1,\"lng\":17.1,\"speed_kmh\":70}]}]}")"
+check "detail po zrušení" 200 "$(req "${AUTH[@]}" "$API/trips/$CAR")"
+python3 -c 'import sys,json;p=[x for x in json.loads(sys.argv[1])["points"] if int(x["ts"])==1700000009000];assert len(p)==1 and p[0]["event"] is None, p' "$LAST" || fail "udalosť bodu sa nezrušila"
+
+# Výdavky na auto (položky kind = expense)
+EXP=eeeeeeee-0000-1111-2222-333333333333
+check "výdavok" 200 "$(req "${AUTH[@]}" -X POST "$API/items/sync" -d "{\"items\":[{\"kind\":\"expense\",\"uuid\":\"$EXP\",\"updated_at\":5,\"deleted\":false,\"data\":{\"type\":\"insurance\",\"amount\":320.5}}]}")"
+echo "$LAST" | grep -q "$EXP" || fail "výdavok nebol prijatý"
+check "zoznam výdavkov" 200 "$(req "${AUTH[@]}" "$API/items?kind=expense")"
+python3 -c 'import sys,json;i=json.loads(sys.argv[1])["items"];assert len(i)==1 and i[0]["data"]["amount"]==320.5, i' "$LAST" || fail "výdavok nesedí"
+
+# Bezpečnostné hlavičky
+H=$(curl -s -D - -o /dev/null "${AUTH[@]}" "$API/me")
+echo "$H" | grep -qi '^x-content-type-options: nosniff' || fail "chýba X-Content-Type-Options"
+echo "$H" | grep -qi '^cache-control: no-store' || fail "chýba Cache-Control"
+echo "OK  bezpečnostné hlavičky"
+
+# Obmedzenie pokusov o prihlásenie: 10 zlých hesiel → 429 (aj so správnym heslom), iný účet funguje
+for i in $(seq 1 10); do check "zlé heslo $i" 401 "$(req -X POST "$API/login" -d "{\"email\":\"$EMAIL\",\"password\":\"zle$i\"}")"; done
+check "zablokované po 10 pokusoch" 429 "$(req -X POST "$API/login" -d "{\"email\":\"$EMAIL\",\"password\":\"heslo1234\"}")"
+check "iný účet sa prihlási" 200 "$(req -X POST "$API/login" -d "{\"email\":\"$EMAIL2\",\"password\":\"heslo1234\"}")"
+
 check "odhlásenie" 200 "$(req "${AUTH[@]}" -X POST "$API/logout")"
 check "token po odhlásení" 401 "$(req "${AUTH[@]}" "$API/me")"
 echo "::notice::Všetky testy API prešli ✅"

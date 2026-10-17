@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS CarTracking_vehicle_shares (
 CREATE TABLE IF NOT EXISTS CarTracking_items (
     id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id    INT UNSIGNED NOT NULL,
-    kind       VARCHAR(20)  NOT NULL COMMENT 'place | refuel | reminder',
+    kind       VARCHAR(20)  NOT NULL COMMENT 'place | refuel | reminder | expense',
     uuid       CHAR(36)     NOT NULL UNIQUE,
     data       JSON         NOT NULL,
     updated_at BIGINT       NOT NULL DEFAULT 0 COMMENT 'epoch ms',
@@ -123,4 +123,15 @@ CREATE TABLE IF NOT EXISTS CarTracking_trip_points (
     event      VARCHAR(10)  NULL COMMENT 'brake | accel | speeding',
     UNIQUE KEY uq_point (trip_id, ts),
     CONSTRAINT CarTracking_fk_points_trip FOREIGN KEY (trip_id) REFERENCES CarTracking_trips(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Ochrana pred hádaním hesiel (v8)
+CREATE TABLE IF NOT EXISTS CarTracking_login_attempts (
+    id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    kind       VARCHAR(10)  NOT NULL COMMENT 'fail | register',
+    email      VARCHAR(190) NOT NULL DEFAULT '',
+    ip         VARCHAR(45)  NOT NULL DEFAULT '',
+    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_attempts_email (email, created_at),
+    INDEX idx_attempts_ip (ip, created_at)
 ) ENGINE=InnoDB;

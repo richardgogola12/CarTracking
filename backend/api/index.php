@@ -33,6 +33,12 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+// bezpečnostné hlavičky – odpovede API sa neukladajú do cache a nedajú sa vložiť do cudzej stránky
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
+header('Cache-Control: no-store');
+header_remove('X-Powered-By');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 $config = require __DIR__ . '/config.php';
@@ -91,16 +97,61 @@ function bearer(): ?string {
     return preg_match('/Bearer\s+([a-f0-9]{64})/i', $h, $m) ? strtolower($m[1]) : null;
 }
 
+/** IP adresa klienta (pre obmedzenie pokusov o prihlásenie). */
+function clientIp(): string { return substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45); }
+
+/**
+ * Ochrana pred hádaním hesiel: najviac 10 neúspešných prihlásení na e-mail a 30 z jednej IP adresy za 15 minút,
+ * registrácia najviac 10 účtov z IP za hodinu. Ak tabuľka CarTracking_login_attempts chýba (stará databáza bez migrácie v8),
+ * obmedzenie sa preskočí.
+ */
+function tooManyAttempts(PDO $pdo, string $kind, string $email): bool {
+    try {
+        if ($kind === 'register') {
+            $st = $pdo->prepare("SELECT COUNT(*) FROM CarTracking_login_attempts WHERE kind = 'register' AND ip = ? AND created_at > NOW() - INTERVAL 1 HOUR");
+            $st->execute([clientIp()]);
+            return (int)$st->fetchColumn() >= 10;
+        }
+        $st = $pdo->prepare("SELECT SUM(email = ?), SUM(ip = ?) FROM CarTracking_login_attempts
+                             WHERE kind = 'fail' AND created_at > NOW() - INTERVAL 15 MINUTE AND (email = ? OR ip = ?)");
+        $st->execute([$email, clientIp(), $email, clientIp()]);
+        [$byEmail, $byIp] = array_map('intval', $st->fetch(PDO::FETCH_NUM));
+        return $byEmail >= 10 || $byIp >= 30;
+    } catch (Throwable $e) { return false; }
+}
+
+function recordAttempt(PDO $pdo, string $kind, string $email): void {
+    try {
+        $pdo->prepare('INSERT INTO CarTracking_login_attempts (kind, email, ip) VALUES (?, ?, ?)')->execute([$kind, mb_substr($email, 0, 190), clientIp()]);
+        if (random_int(1, 50) === 1) {   // upratovanie: staré pokusy a vypršané tokeny
+            $pdo->exec('DELETE FROM CarTracking_login_attempts WHERE created_at < NOW() - INTERVAL 1 DAY');
+            $pdo->exec('DELETE FROM CarTracking_api_tokens WHERE expires_at < NOW()');
+        }
+    } catch (Throwable $e) { /* bez tabuľky sa nič nezaznamená */ }
+}
+
+function clearFailures(PDO $pdo, string $email): void {
+    try { $pdo->prepare("DELETE FROM CarTracking_login_attempts WHERE kind = 'fail' AND email = ?")->execute([$email]); } catch (Throwable $e) {}
+}
+
 function requireUser(PDO $pdo): array {
     $token = bearer();
     if (!$token) fail(401, 'Chýba prihlasovací token');
-    $stmt = $pdo->prepare('SELECT u.id, u.name, u.email, t.id AS token_id
+    $stmt = $pdo->prepare('SELECT u.id, u.name, u.email, t.id AS token_id, DATEDIFF(t.expires_at, NOW()) AS days_left
                            FROM CarTracking_api_tokens t JOIN CarTracking_users u ON u.id = t.user_id
                            WHERE t.token_hash = ? AND t.expires_at > NOW()');
     $stmt->execute([hash('sha256', $token)]);
     $user = $stmt->fetch();
     if (!$user) fail(401, 'Token je neplatný alebo vypršal');
-    $pdo->prepare('UPDATE CarTracking_api_tokens SET last_used_at = NOW() WHERE id = ?')->execute([$user['token_id']]);
+    // token sa používaním predlžuje (používaný telefón sa neodhlási); nepoužívaný vyprší po token_days dňoch
+    global $config;
+    $days = (int)($config['token_days'] ?? 90);
+    if ((int)$user['days_left'] < intdiv($days, 2)) {
+        $pdo->prepare('UPDATE CarTracking_api_tokens SET last_used_at = NOW(), expires_at = DATE_ADD(NOW(), INTERVAL ? DAY) WHERE id = ?')
+            ->execute([$days, $user['token_id']]);
+    } else {
+        $pdo->prepare('UPDATE CarTracking_api_tokens SET last_used_at = NOW() WHERE id = ?')->execute([$user['token_id']]);
+    }
     return $user;
 }
 
@@ -145,6 +196,9 @@ if ($method === 'POST' && $path === '/register') {
     if ($name === '' || mb_strlen($name) > 100) fail(422, 'Zadajte meno');
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) fail(422, 'Neplatný e-mail');
     if (strlen($pass) < 8) fail(422, 'Heslo musí mať aspoň 8 znakov');
+    if (strlen($pass) > 200) fail(422, 'Heslo je príliš dlhé');
+    if (tooManyAttempts($pdo, 'register', $email)) fail(429, 'Príliš veľa registrácií z tejto siete. Skúste to neskôr.');
+    recordAttempt($pdo, 'register', $email);
 
     $exists = $pdo->prepare('SELECT 1 FROM CarTracking_users WHERE email = ?');
     $exists->execute([$email]);
@@ -162,10 +216,16 @@ if ($method === 'POST' && $path === '/login') {
     $b = body();
     $email = strtolower(trim((string)($b['email'] ?? '')));
     $pass  = (string)($b['password'] ?? '');
+    if ($email === '' || strlen($pass) > 200) fail(401, 'Nesprávny e-mail alebo heslo');
+    if (tooManyAttempts($pdo, 'fail', $email)) fail(429, 'Príliš veľa neúspešných pokusov. Skúste to znova o 15 minút.');
     $stmt = $pdo->prepare('SELECT * FROM CarTracking_users WHERE email = ?');
     $stmt->execute([$email]);
     $user = $stmt->fetch();
-    if (!$user || !password_verify($pass, $user['password_hash'])) fail(401, 'Nesprávny e-mail alebo heslo');
+    if (!$user || !password_verify($pass, $user['password_hash'])) {
+        recordAttempt($pdo, 'fail', $email);
+        fail(401, 'Nesprávny e-mail alebo heslo');
+    }
+    clearFailures($pdo, $email);
     if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
         $pdo->prepare('UPDATE CarTracking_users SET password_hash = ? WHERE id = ?')
             ->execute([password_hash($pass, PASSWORD_DEFAULT), $user['id']]);
@@ -383,7 +443,7 @@ if ($method === 'POST' && $path === '/items/sync') {
     foreach ($items as $it) {
         $uuid = (string)($it['uuid'] ?? '');
         $kind = (string)($it['kind'] ?? '');
-        if (!preg_match('/^[0-9a-f-]{36}$/i', $uuid) || !in_array($kind, ['place', 'refuel', 'reminder'], true)) continue;
+        if (!preg_match('/^[0-9a-f-]{36}$/i', $uuid) || !in_array($kind, ['place', 'refuel', 'reminder', 'expense'], true)) continue;
         $data = json_encode($it['data'] ?? new stdClass(), JSON_UNESCAPED_UNICODE);
         if ($data === false || strlen($data) > 20000) continue;
         $ts = max(0, (int)($it['updated_at'] ?? 0));

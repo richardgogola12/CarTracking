@@ -40,13 +40,13 @@ jobs:
       - name: Log PHP servera
         if: failure()
         run: tail -50 php.log | while IFS= read -r l; do echo "::error::$l"; done
-      - name: Test migrácií (starší stav → v3)
+      - name: Test migrácií (starší stav → v8)
         run: |
           set -o pipefail
           M="mysql -h127.0.0.1 -uroot -proot --default-character-set=utf8mb4"
           $M -e "DROP DATABASE car_tracking"
           git show c958f61~1:backend/schema.sql > /tmp/old.sql
-          for f in /tmp/old.sql backend/migrate_v2.sql backend/migrate_v3.sql backend/migrate_v4.sql backend/migrate_v5.sql backend/migrate_v6.sql backend/migrate_v7.sql; do
+          for f in /tmp/old.sql backend/migrate_v2.sql backend/migrate_v3.sql backend/migrate_v4.sql backend/migrate_v5.sql backend/migrate_v6.sql backend/migrate_v7.sql backend/migrate_v8.sql; do
             $M < "$f" 2>&1 | tee m.log || { while IFS= read -r l; do echo "::error::$f: $l"; done < m.log; exit 1; }
           done
-          echo "::notice::Migrácie v2 až v7 prešli"
+          echo "::notice::Migrácie v2 až v8 prešli"
