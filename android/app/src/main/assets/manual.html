@@ -708,7 +708,8 @@ Trasník</h1>
   <tr><td>Vozidlá, miesta, tankovanie</td><td>Správa vozidiel, Bluetooth, miesta, pripomienky, tankovanie, časté trasy.</td></tr>
   <tr><td>Kniha jázd a zlučovanie</td><td>Predvolený typ jazdy, adresy, účel jazdy automaticky (notifikácia, učenie, pravidlá), kontrola jázd, automatické zlučovanie.</td></tr>
   <tr><td>Štýl jazdy a rýchlosť</td><td>Hodnotenie štýlu, limity podľa typu cesty, tolerancia, upozornenie.</td></tr>
-  <tr><td>Notifikácie a zhrnutia</td><td>Oznámenia, zvuk, vibrácie, mesačné zhrnutie.</td></tr>
+  <tr><td>Zvuky</td><td>Zvuky udalostí, hlasitosť, prehrávanie aj v tichom režime.</td></tr>
+  <tr><td>Notifikácie a zhrnutia</td><td>Oznámenia, vibrácie, mesačné zhrnutie.</td></tr>
   <tr><td>Mapa a offline mapy</td><td>Typ mapy, režim offline, veľkosť uložených máp, uloženie oblasti.</td></tr>
   <tr><td>Widgety, lišta a skratky</td><td>Pridanie tlačidiel do lišty, skratky na ikone, informácie o widgetoch.</td></tr>
   <tr><td>Vzhľad a zabezpečenie</td><td>Téma, prihlásenie odtlačkom.</td></tr>
@@ -716,6 +717,25 @@ Trasník</h1>
   <tr><td>Pomoc</td><td>Tento návod.</td></tr>
 </table>
 <div class="tip"><b>Všetky nastavenia</b> – aj nové (kalibrácia tachometra a kroku, diagnostika, offline mapy, ciele…) – sa automaticky ukladajú na server a po prihlásení na novom telefóne sa obnovia (okrem adresy servera a odtlačku prsta).</div>
+<h3>Zvuky</h3>
+<p><b>Nastavenia → Zvuky</b> – ku každej udalosti si zvolíte vlastný zvuk:</p>
+<table>
+  <tr><th>Udalosť</th><th>Predvolený zvuk</th></tr>
+  <tr><td>Jazda autom – začiatok</td><td>Stúpajúci akord</td></tr>
+  <tr><td>Jazda autom – koniec</td><td>Klesajúci akord</td></tr>
+  <tr><td>Chôdza – začiatok / koniec</td><td>bez zvuku</td></tr>
+  <tr><td>Prekročenie rýchlosti</td><td>Varovanie (len pri zapnutom upozornení, najviac raz za minútu)</td></tr>
+  <tr><td>Parkovací lístok končí</td><td>Ding-dong</td></tr>
+</table>
+<ul>
+  <li><b>Na výber je 28 zvukov</b> vytvorených priamo v aplikácii: Zvonček, Ding-dong, Krátke pípnutie, Dvojité pípnutie, Trojité pípnutie, Stúpajúci akord, Klesajúci akord, Fanfára, Molový akord, Xylofón, Marimba, Sonar, Alarm, Siréna, Klaksón, Laser, Bublinky, Kvapka, Minca (8-bit), Power-up (8-bit), Harfa, Píšťalka, Gong, Tik-tak, Úspech, Varovanie, Sklenený tón, Retro hra. Ďalej <b>Systémový zvuk upozornenia</b>, <b>Bez zvuku</b> a <b>Vlastný zvuk z telefónu…</b> (vyzváňania, upozornenia, budíky aj vlastné súbory v telefóne).</li>
+  <li>Ťuknutím na udalosť sa otvorí zoznam – ťuknutím na zvuk sa prehrá ukážka, <b>Použiť</b> ho uloží. Tlačidlo ▶ pri udalosti prehrá aktuálny zvuk.</li>
+  <li><b>Prehrať aj v tichom režime</b> (predvolene zapnuté): zvuk ide cez kanál <b>budíka</b>, preto znie aj keď je telefón stlmený alebo na vibráciách. Ak je hlasitosť budíka na nule, na čas zvuku sa zvýši na polovicu a potom sa vráti. Pri vypnutí sa zvuk riadi bežnou hlasitosťou upozornení (v tichom režime nezaznie).</li>
+  <li>Režim <b>Nerušiť</b>: zvuk zaznie, ak má Nerušiť povolené budíky (predvolené nastavenie Androidu).</li>
+  <li><b>Hlasitosť</b> 0–100 % je vzhľadom na hlasitosť budíka (resp. upozornení). Zvuky majú vyrovnanú hlasitosť – žiadny nie je výrazne hlasnejší než ostatné.</li>
+  <li>Výber zvukov sa ukladá aj na server; vlastný zvuk z telefónu sa na inom telefóne nahradí systémovým zvukom.</li>
+</ul>
+
 <h3>Posuvníky a vlastné hodnoty</h3>
 <ul>
   <li>Všetky posuvníky sú <b>plynulé a začínajú od 0</b> – hodnotu nastavíte po jednotkách.</li>
@@ -737,7 +757,9 @@ Trasník</h1>
   <tr><td>Šetriť batériu počas jazdy</td><td>zapnuté</td><td>Redšie body na diaľnici, úsporný režim pri státí (kapitola Diagnostika).</td></tr>
   <tr><td colspan="3"><b>Notifikácie a vibrácie</b></td></tr>
   <tr><td>Oznámiť zapnutie / vypnutie</td><td>zapnuté</td><td>Notifikácia pri štarte a konci jazdy.</td></tr>
-  <tr><td>Zvuk notifikácie</td><td>zapnuté</td><td>Tichá alebo zvuková notifikácia.</td></tr>
+  <tr><td>Zvuky zapnuté</td><td>zapnuté</td><td>Zvuky udalostí (kapitola Zvuky nižšie).</td></tr>
+  <tr><td>Prehrať aj v tichom režime</td><td>zapnuté</td><td>Cez kanál budíka – znie aj pri stlmenom telefóne.</td></tr>
+  <tr><td>Hlasitosť</td><td>80 %</td><td>Hlasitosť zvukov aplikácie.</td></tr>
   <tr><td>Vibrovať / typ vibrácie</td><td>zapnuté / dvojitá</td><td>Krátka, dlhá alebo dvojitá; tlačidlo Vyskúšať.</td></tr>
   <tr><td>Rýchlosť v trvalej notifikácii</td><td>zapnuté</td><td>Aktuálna rýchlosť počas jazdy.</td></tr>
   <tr><td colspan="3"><b>Vozidlá</b></td></tr>

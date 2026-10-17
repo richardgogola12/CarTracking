@@ -32,6 +32,8 @@ Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nasta
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
 ## Novinky vo verzii 2.0
+- **Zvuky** – 28 syntetizovaných zvukov (`res/raw/sounds.json`, `service/Sounds.kt`) + systémový / vlastný z telefónu; zvlášť pre začiatok a koniec jazdy autom, chôdze, prekročenie rýchlosti a parkovací lístok; hlasitosť; prehrávanie aj v tichom režime (kanál budíka).
+- **Rýchlostné limity** – voľba jednotný / podľa typu cesty / podľa skutočných značiek z mapy (Overpass, priradenie cesty pri každom bode GPS), **Moje limity** – opravy z detailu jazdy.
 - **Účel jazdy z notifikácie** – po skončení jazdy tlačidlá *Služobná / Súkromná* s navrhnutým účelom a dôvodom.
 - **Automatické zaradenie** – naučené trasy (rovnaký začiatok a cieľ zaradený 2× rovnako), miesta s účelom, voliteľne pravidlá *pracovný čas → služobná* a *deň voľna → súkromná*. Naučené trasy sa ukladajú v nastaveniach (aj na server).
 - **Úspora batérie** – adaptívny interval GPS (diaľnica redšie, státie úsporne); Diagnostika ukazuje čas GPS a pokles batérie po dňoch.
