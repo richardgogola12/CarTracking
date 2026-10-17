@@ -486,6 +486,7 @@ fun TripDetailScreen(tripId: Long, onBack: () -> Unit) {
                     }
                 }
                 // Kniha jázd
+                if (!t.isWalk) SpeedingCard(points)
                 if (!t.isWalk) TripLogbookCard(t, odometer) { category, note ->
                     scope.launch {
                         c.trips.updateMeta(t, category, note)

@@ -122,6 +122,8 @@ data class AppSettings(
     // Úspora batérie a kontrola jázd
     val adaptiveGps: Boolean = true,
     val tripCheck: Boolean = true,
+    /** Moje limity – opravy používateľa: "lat,lng,limit[,smer];…" */
+    val customLimits: String = "",
 ) {
     val workDaySet: Set<Int> get() = workDays.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
 
@@ -229,6 +231,7 @@ class SettingsRepository(private val context: Context) {
         val LEARNED = stringPreferencesKey("learned_routes")
         val ADAPTIVE_GPS = booleanPreferencesKey("adaptive_gps")
         val TRIP_CHECK = booleanPreferencesKey("trip_check")
+        val CUSTOM_LIMITS = stringPreferencesKey("custom_limits")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data
@@ -318,6 +321,7 @@ class SettingsRepository(private val context: Context) {
             learnedRoutes = p[K.LEARNED] ?: d.learnedRoutes,
             adaptiveGps = p[K.ADAPTIVE_GPS] ?: d.adaptiveGps,
             tripCheck = p[K.TRIP_CHECK] ?: d.tripCheck,
+            customLimits = p[K.CUSTOM_LIMITS] ?: d.customLimits,
         )
     }
 
@@ -394,5 +398,6 @@ class SettingsRepository(private val context: Context) {
         p[K.LEARNED] = s.learnedRoutes
         p[K.ADAPTIVE_GPS] = s.adaptiveGps
         p[K.TRIP_CHECK] = s.tripCheck
+        p[K.CUSTOM_LIMITS] = s.customLimits
     }
 }

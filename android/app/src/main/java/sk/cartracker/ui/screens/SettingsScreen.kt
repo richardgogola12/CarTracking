@@ -363,20 +363,54 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
         }
 
         // ---------- Štýl jazdy a rýchlosť ----------
-        Group("Štýl jazdy a rýchlosť", Icons.Filled.Speed, (if (s.drivingEvents) "hodnotenie zapnuté" else "hodnotenie vypnuté") + " · " + (if (s.roadLimits) "limit podľa typu cesty" else "limit ${s.speedAlertKmh} km/h")) {
+        val limitMode = when { !s.roadLimits -> 0; !s.useRoadSigns -> 1; else -> 2 }
+        val customCount = remember(s.customLimits) { sk.cartracker.data.SpeedLimits.parseCustom(s.customLimits).size }
+        Group("Štýl jazdy a rýchlosť", Icons.Filled.Speed, (if (s.drivingEvents) "hodnotenie zapnuté" else "hodnotenie vypnuté") + " · " +
+            listOf("jednotný limit ${s.speedAlertKmh} km/h", "limit podľa typu cesty", "limity zo značiek v mape")[limitMode] +
+            (if (customCount > 0) " · moje limity: $customCount" else "")) {
             Sub("Štýl jazdy a rýchlosť") {
                 SwitchRow("Hodnotiť štýl jazdy", "Prudké brzdenie a zrýchlenie, skóre 0–100 pre každú jazdu", s.drivingEvents) { on -> update { it.copy(drivingEvents = on) } }
-                SwitchRow("Limit podľa typu cesty", "V obci / mimo obce / diaľnica – rozpozná sa z OpenStreetMap, limity sa nastavujú pri vozidle",
-                    s.roadLimits) { on -> update { it.copy(roadLimits = on) } }
-                if (s.roadLimits) {
-                    SwitchRow("Použiť dopravné značky z mapy", "Ak má cesta v mape zadaný limit (napr. 70 v obci), platí ten",
-                        s.useRoadSigns) { on -> update { it.copy(useRoadSigns = on) } }
-                } else {
-                    SliderRow("Jednotný rýchlostný limit", s.speedAlertKmh, 50..200, 10, "km/h") { v -> update { it.copy(speedAlertKmh = v) } }
+                Text("Ako určovať rýchlostný limit", Modifier.padding(horizontal = 16.dp, vertical = 6.dp), fontWeight = FontWeight.SemiBold)
+                listOf(
+                    Triple(0, "Jednotný limit", "Jedna hranica všade (napr. 130 km/h)."),
+                    Triple(1, "Podľa typu cesty", "Obec 50 / mimo obce 90 / diaľnica 130 (limity sa dajú zmeniť pri vozidle). Značky sa neberú do úvahy."),
+                    Triple(2, "Podľa skutočných značiek z mapy", "Limit cesty, po ktorej idete, z OpenStreetMap – zóny 30, úseky so 70 v obci, limity v jednom smere. Kde mapa limit nemá, platí typ cesty."),
+                ).forEach { (k, title, sub) ->
+                    Row(Modifier.fillMaxWidth().selectable(limitMode == k) {
+                        update { it.copy(roadLimits = k > 0, useRoadSigns = k == 2) }
+                    }.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.Top) {
+                        RadioButton(limitMode == k, onClick = { update { it.copy(roadLimits = k > 0, useRoadSigns = k == 2) } })
+                        Column(Modifier.padding(top = 12.dp)) {
+                            Text(title)
+                            Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
+                if (limitMode == 0) SliderRow("Jednotný rýchlostný limit", s.speedAlertKmh, 50..200, 10, "km/h") { v -> update { it.copy(speedAlertKmh = v) } }
                 SliderRow("Tolerancia", s.speedToleranceKmh, 0..20, 1, "km/h",
                     "O koľko môže GPS rýchlosť prekročiť limit, kým sa to počíta ako prekročenie.") { v -> update { it.copy(speedToleranceKmh = v) } }
                 SwitchRow("Upozorniť vibráciou pri prekročení", "Najviac raz za minútu", s.speedAlert) { on -> update { it.copy(speedAlert = on) } }
+            }
+            if (limitMode > 0) Sub("Moje limity") {
+                Text("Kde mapa limit nepozná alebo ho má zle, opravte ho v detaile jazdy pri prekročení rýchlosti (Opraviť limit). " +
+                    "Oprava platí do 200 m od miesta a v danom smere jazdy, má prednosť pred mapou a ukladá sa aj na server.",
+                    Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val list = remember(s.customLimits) { sk.cartracker.data.SpeedLimits.parseCustom(s.customLimits) }
+                if (list.isEmpty()) Text("Zatiaľ žiadne opravy.", Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                list.forEachIndexed { i, cl ->
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${cl.limit} km/h", fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 10.dp))
+                        Text(String.format(java.util.Locale.US, "%.5f, %.5f", cl.lat, cl.lng) + (cl.bearing?.let { " · smer $it°" } ?: ""),
+                            Modifier.weight(1f).clickable {
+                                runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("geo:${cl.lat},${cl.lng}?q=${cl.lat},${cl.lng}(Limit ${cl.limit})"))) }
+                            }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        TextButton(onClick = { update { it.copy(customLimits = sk.cartracker.data.SpeedLimits.formatCustom(list.filterIndexed { j, _ -> j != i })) } }) { Text("Zmazať") }
+                    }
+                }
+                if (list.isNotEmpty()) Text("Zmazať všetky", Modifier.fillMaxWidth().clickable { update { it.copy(customLimits = "") } }.padding(16.dp),
+                    color = MaterialTheme.colorScheme.error)
             }
         }
 

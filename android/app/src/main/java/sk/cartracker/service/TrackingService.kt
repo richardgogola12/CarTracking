@@ -183,6 +183,10 @@ class TrackingService : LifecycleService() {
     private var roadLookupAt = 0L
     private var roadLookupLoc: Location? = null
     private var roadLookupRunning = false
+    // Skutočný limit z mapy (OSM) pre cestu pod autom a vlastné opravy používateľa
+    private var mapSign: Int? = null
+    private var customSign: Int? = null
+    private var customCache: Pair<String, List<sk.cartracker.data.SpeedLimits.Custom>> = "" to emptyList()
 
     // Štýl jazdy
     private var hardBrakes = 0
@@ -478,6 +482,7 @@ class TrackingService : LifecycleService() {
             if (speed >= settings.minDriveSpeedKmh) exitSignalAt = null
             adaptGps(speed, now)
             maybeLookupRoad(loc)
+            updateSignLimit(loc, speed)
             event = detectEvent(loc, speed)
         }
 
@@ -561,13 +566,36 @@ class TrackingService : LifecycleService() {
         }
     }
 
+    /** Limit zo značky pre aktuálny bod: vlastná oprava, inak cesta z mapy (OSM) v smere jazdy. */
+    private fun updateSignLimit(loc: Location, speed: Double) {
+        if (!settings.roadLimits || loc.accuracy > 30f) return
+        val bearing = if (loc.hasBearing() && speed > 10) loc.bearing else null
+        if (customCache.first != settings.customLimits) customCache = settings.customLimits to sk.cartracker.data.SpeedLimits.parseCustom(settings.customLimits)
+        customSign = sk.cartracker.data.SpeedLimits.custom(customCache.second, loc.latitude, loc.longitude, bearing)
+        if (settings.useRoadSigns) {
+            sk.cartracker.data.SpeedLimits.prefetch(loc.latitude, loc.longitude, bearing)
+            val m = sk.cartracker.data.SpeedLimits.match(loc.latitude, loc.longitude, bearing)
+            val prev = mapSign
+            mapSign = m?.limit
+            if (m != null && mapSign != prev && mapSign != null)
+                DiagLog.log(this, DiagLog.GPS, "Limit z mapy: $mapSign km/h" + (m.way.tags["name"] ?: m.way.tags["ref"])?.let { " · $it" }.orEmpty())
+        } else mapSign = null
+    }
+
     private fun currentZone(): RoadZone? = TrackingState.zoneOverride.value ?: roadInfo?.zone
 
     /** Aktuálny limit; null = typ cesty zatiaľ neznámy (bez internetu) → prekročenie sa nehodnotí. */
     private fun currentLimit(): Int? {
         if (!settings.roadLimits) return settings.speedAlertKmh
-        val zone = currentZone() ?: return null
-        val sign = if (TrackingState.zoneOverride.value != null) null else roadInfo?.signLimit
+        customSign?.let { return it }                       // moje limity majú prednosť
+        val manual = TrackingState.zoneOverride.value != null
+        val sign = if (manual) null else (mapSign ?: roadInfo?.signLimit)
+        val zone = currentZone() ?: when {                  // typ cesty ešte neznámy, ale značka z mapy áno
+            sign == null -> return null
+            sign <= 50 -> RoadZone.URBAN
+            sign <= 90 -> RoadZone.RURAL
+            else -> RoadZone.HIGHWAY
+        }
         return speedLimitFor(zone, sign, vehicle, settings)
     }
 
