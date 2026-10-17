@@ -57,6 +57,7 @@ import sk.cartracker.security.BiometricAuth
 import sk.cartracker.service.Notifications
 import sk.cartracker.sync.SyncWorker
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.LocalGasStation
