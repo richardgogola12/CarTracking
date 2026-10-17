@@ -28,26 +28,26 @@ jobs:
         with:
           gradle-version: 8.11.1
 
-      - name: Build APK
+      - name: Unit tests + build APK
         run: |
           set -o pipefail
-          gradle assembleRelease --no-daemon 2>&1 | tee build.log
+          gradle testReleaseUnitTest assembleRelease --no-daemon 2>&1 | tee build.log
 
       # Chyby kompilácie ako anotácie (viditeľné v prehľade buildu)
       - name: Report errors
         if: failure()
         run: |
-          grep -E "^e: |error:|What went wrong|AAPT|Execution failed" -A2 build.log | head -80 | while IFS= read -r line; do
+          grep -E "^e: |error:|What went wrong|AAPT|Execution failed|FAILED|AssertionError|expected:" -A2 build.log | head -80 | while IFS= read -r line; do
             echo "::error::${line//%/%25}"
           done
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/CarTracking-${{ github.run_number }}.apk
+        run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Trasnik-${{ github.run_number }}.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CarTracking-apk
-          path: android/app/build/outputs/apk/release/CarTracking-${{ github.run_number }}.apk
+          name: Trasnik-apk
+          path: android/app/build/outputs/apk/release/Trasnik-${{ github.run_number }}.apk
 
       # Release = APK stiahnuteľné priamo do telefónu (bez prihlásenia a rozbaľovania zip)
       - name: Publish release
@@ -55,6 +55,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: Car Tracking build ${{ github.run_number }}
+          name: Trasník build ${{ github.run_number }}
           body: Automaticky zostavené APK (podpísané pevným kľúčom – inštaluje sa ako aktualizácia) z commitu ${{ github.sha }}.
-          files: android/app/build/outputs/apk/release/CarTracking-${{ github.run_number }}.apk
+          files: android/app/build/outputs/apk/release/Trasnik-${{ github.run_number }}.apk

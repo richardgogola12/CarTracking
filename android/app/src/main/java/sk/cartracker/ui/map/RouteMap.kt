@@ -139,7 +139,7 @@ fun RouteMap(
     // Podklad
     LaunchedEffect(s.mapStyle, appDark, s.offlineMaps) {
         map.setUseDataConnection(!s.offlineMaps)   // offline: iba uložené dlaždice
-        map.setTileSource(MapTiles.source(s.mapStyle, appDark))
+        MapTiles.apply(map, s.mapStyle, appDark)
         map.invalidate()
     }
 
@@ -161,7 +161,7 @@ fun RouteMap(
             Box {
                 MapButton(Icons.Filled.Layers, "Typ mapy") { layersOpen = true }
                 DropdownMenu(expanded = layersOpen, onDismissRequest = { layersOpen = false }) {
-                    MapStyle.entries.forEach { st ->
+                    MapStyle.entries.filter { it.shown }.forEach { st ->
                         DropdownMenuItem(
                             text = { Text(st.label) },
                             leadingIcon = { if (s.mapStyle == st) Icon(Icons.Filled.Check, null) else Spacer(Modifier.size(24.dp)) },

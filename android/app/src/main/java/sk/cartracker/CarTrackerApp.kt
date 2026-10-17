@@ -47,6 +47,7 @@ class CarTrackerApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         Notifications.createChannels(this)
+        sk.cartracker.data.SpeedLimits.cacheDir = java.io.File(cacheDir, "speedlimits")
         sk.cartracker.service.ParkingTimer.createChannel(this)
         Configuration.getInstance().userAgentValue = packageName
         // Mapové dlaždice sa ukladajú do vyrovnávacej pamäte – aj na offline použitie

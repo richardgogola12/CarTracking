@@ -208,10 +208,10 @@ function makeMap(id) {
   if (typeof L === "undefined" || !$(id)) return null;
   const m = L.map(id, { zoomControl: true, attributionControl: true }).setView([48.67, 19.7], 7);
   const dark = document.documentElement.dataset.bsTheme === "dark";
-  const base = dark ? "Canvas/World_Dark_Gray_Base" : "World_Street_Map";
-  L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/${base}/MapServer/tile/{z}/{y}/{x}`,
-    { maxZoom: 19, maxNativeZoom: dark ? 16 : 18, attribution: "© Esri, HERE, Garmin, OpenStreetMap" }).addTo(m);
-  if (dark) L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 16 }).addTo(m);
+  // OpenStreetMap (bez kľúča); tmavá mapa = prefarbené dlaždice (CSS filter v app.css)
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+      className: dark ? "tiles-dark" : "" }).addTo(m);
   maps[id] = m;
   setTimeout(() => m.invalidateSize(), 60);
   return m;

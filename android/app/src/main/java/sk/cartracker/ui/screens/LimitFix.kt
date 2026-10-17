@@ -33,16 +33,8 @@ import sk.cartracker.data.local.DriveEvent
 import sk.cartracker.data.local.PointEntity
 import sk.cartracker.ui.formatTime
 
-/** Smer jazdy v bode – z GPS, inak z polohy susedných bodov. */
-private fun bearingAt(points: List<PointEntity>, p: PointEntity): Int? {
-    p.bearing?.let { return it.toInt() }
-    val i = points.indexOf(p)
-    val a = points.getOrNull(i - 2) ?: points.getOrNull(i - 1) ?: return null
-    val b = points.getOrNull(i + 2) ?: points.getOrNull(i + 1) ?: return null
-    val r = FloatArray(2)
-    android.location.Location.distanceBetween(a.lat, a.lng, b.lat, b.lng, r)
-    return ((r[1] + 360) % 360).toInt()
-}
+private fun bearingAt(points: List<PointEntity>, p: PointEntity): Int? =
+    sk.cartracker.data.SpeedingFix.bearingAt(points, points.indexOf(p))?.toInt()
 
 /**
  * Prekročenia rýchlosti v jazde s možnosťou opraviť limit („Moje limity“) – napr. zóna 30 alebo úsek so 70 v obci,
@@ -85,7 +77,7 @@ private fun LimitFixDialog(p: PointEntity, bearing: Int?, onClose: () -> Unit) {
                     listOf(20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 130).forEach { v -> FilterChip(limit == v, { limit = v }, { Text("$v") }) }
                 }
                 Text("Platí do 200 m od miesta" + (if (bearing != null) " a iba v tomto smere jazdy." else ".") +
-                    " Zoznam opráv nájdete v Nastavenia → Štýl jazdy a rýchlosť → Moje limity.",
+                    " Prekročenia v tomto úseku sa v doterajších jazdách (120 dní) prepočítajú. Zoznam opráv nájdete v Nastavenia → Štýl jazdy a rýchlosť → Moje limity.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
@@ -102,7 +94,9 @@ private fun LimitFixDialog(p: PointEntity, bearing: Int?, onClose: () -> Unit) {
                         }
                         s.copy(customLimits = SpeedLimits.formatCustom((rest + SpeedLimits.Custom(p.lat, p.lng, v, bearing)).takeLast(300)))
                     }
-                    Toast.makeText(ctx, "Limit $v km/h uložený pre toto miesto", Toast.LENGTH_SHORT).show()
+                    val n = sk.cartracker.data.SpeedingFix.recompute(ctx)
+                    Toast.makeText(ctx, "Limit $v km/h uložený pre toto miesto" +
+                        (if (n > 0) " · prepočítané jazdy: $n" else ""), Toast.LENGTH_LONG).show()
                     onClose()
                 }
             }) { Text("Uložiť") }

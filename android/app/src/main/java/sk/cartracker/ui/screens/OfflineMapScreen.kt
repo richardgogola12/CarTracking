@@ -98,7 +98,7 @@ fun OfflineMapScreen(onBack: () -> Unit) {
             controller.setCenter(if (p != null) GeoPoint(p.lat, p.lng) else GeoPoint(48.15, 17.11))
         }
     }
-    LaunchedEffect(s.mapStyle, dark) { map.setTileSource(MapTiles.source(s.mapStyle, dark)); map.setUseDataConnection(true) }
+    LaunchedEffect(s.mapStyle, dark) { MapTiles.apply(map, s.mapStyle, dark); map.setUseDataConnection(true) }
     LaunchedEffect(Unit) { currentLocation(ctx)?.let { (lat, lng) -> map.controller.setCenter(GeoPoint(lat, lng)) } }
     DisposableEffect(Unit) { map.onResume(); onDispose { map.onPause(); map.onDetach() } }
 
@@ -131,8 +131,9 @@ fun OfflineMapScreen(onBack: () -> Unit) {
                 Text("Posuňte a priblížte mapu na oblasť, ktorú chcete mať bez internetu (napr. mesto alebo trasa do práce). " +
                     "Uloží sa od aktuálneho priblíženia po zvolenú podrobnosť.", style = MaterialTheme.typography.bodySmall)
                 Text("Podklad: ${MapTiles.label(s.mapStyle, dark)}", fontWeight = FontWeight.SemiBold)
-                if (!canDownload) Text("Tento podklad (OpenStreetMap / OpenTopoMap) nedovoľuje hromadné sťahovanie. " +
-                    "V Nastavenia → Mapa zvoľte Podrobnú, Svetlú, Tmavú alebo Satelit.", color = MaterialTheme.colorScheme.error,
+                if (!canDownload) Text("Pravidlá OpenStreetMap a OpenTopoMap nepovoľujú hromadné sťahovanie celých oblastí, preto je tlačidlo vypnuté. " +
+                    "Mapy sa však ukladajú automaticky pri prezeraní: oblasť, ktorú si raz pozriete (napr. trasu do práce pri rôznych priblíženiach), " +
+                    "bude 30 dní dostupná aj bez internetu a v režime offline.", color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall)
                 Text("Podrobnosť (max. priblíženie)", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

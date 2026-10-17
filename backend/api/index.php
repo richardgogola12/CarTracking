@@ -215,8 +215,9 @@ if ($method === 'POST' && $path === '/trips/sync') {
              start_place = VALUES(start_place), end_place = VALUES(end_place)');
     $findTrip = $pdo->prepare('SELECT id, user_id FROM CarTracking_trips WHERE uuid = ?');
     $insPoint = $pdo->prepare(
-        'INSERT IGNORE INTO CarTracking_trip_points (trip_id, ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m, event)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        'INSERT INTO CarTracking_trip_points (trip_id, ts, lat, lng, speed_kmh, accuracy_m, bearing, altitude_m, event)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE event = VALUES(event)');   // opravený limit môže zrušiť udalosť „speeding“
 
     $synced = [];
     $pdo->beginTransaction();

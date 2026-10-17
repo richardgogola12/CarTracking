@@ -238,3 +238,6 @@ table.dataTable td.dtr-control { width: 22px; padding-right: 0 !important; }
   table.dataTable thead th { color: #000 !important; }
   .route { max-width: none; } .route .from, .route .to { white-space: normal; }
 }
+
+/* tmavá mapa OpenStreetMap – obrátené farby, voda ostane modrá */
+.leaflet-tile-pane .tiles-dark { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); }

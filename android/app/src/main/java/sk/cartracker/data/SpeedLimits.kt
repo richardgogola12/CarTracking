@@ -1,13 +1,14 @@
 package sk.cartracker.data
 
-import android.location.Location
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -21,6 +22,7 @@ import kotlin.math.sqrt
  * Cesty v okolí sa stiahnu po štvorcoch ~1 × 0,7 km (aj s tvarom), a pri každom bode GPS sa lokálne nájde cesta,
  * po ktorej auto ide (vzdialenosť do 25 m a súhlasný smer). Limit sa číta z tagov maxspeed (aj :forward/:backward
  * podľa smeru jazdy), slovenských kódov (SK:urban = 50 …) a zón (zone:maxspeed = SK:30).
+ * Stiahnuté štvorce sa ukladajú na disk (30 dní) – opakované trasy fungujú aj bez internetu.
  * Bez internetu alebo bez údajov vráti null – použije sa limit podľa typu cesty.
  */
 object SpeedLimits {
@@ -51,32 +53,85 @@ object SpeedLimits {
         }
     }
 
+    /** Priečinok s uloženými štvorcami (nastaví aplikácia pri štarte). Štvorec platí 30 dní. */
+    @Volatile var cacheDir: File? = null
+    private const val DISK_TTL_MS = 30L * 86_400_000
+
     private fun load(k: String, lat: Double, lng: Double) {
         if (tiles.containsKey(k) || !loading.add(k)) return
         if (System.currentTimeMillis() - (failedAt[k] ?: 0) < 60_000) { loading.remove(k); return }
         scope.launch {
             try {
+                // 1. z disku (bez internetu, rýchlo)
+                val f = cacheDir?.let { File(it, "$k.json") }
+                if (f != null && f.exists() && System.currentTimeMillis() - f.lastModified() < DISK_TTL_MS) {
+                    val ways = runCatching { parseWays(JSONObject(f.readText())) }.getOrNull()
+                    if (ways != null) { put(k, ways); return@launch }
+                }
+                // 2. z Overpass API
                 val s = floor(lat / TILE) * TILE; val w = floor(lng / TILE) * TILE
                 val bbox = String.format(Locale.US, "%.5f,%.5f,%.5f,%.5f", s - 0.0005, w - 0.0005, s + TILE + 0.0005, w + TILE + 0.0005)
                 val q = "[out:json][timeout:20];way[\"highway\"~\"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link)$\"]($bbox);out tags geom;"
-                val json = fetch(q) ?: run { failedAt[k] = System.currentTimeMillis(); return@launch }
-                val els = json.optJSONArray("elements") ?: return@launch
-                val ways = ArrayList<Way>(els.length())
-                for (i in 0 until els.length()) {
-                    val e = els.getJSONObject(i)
-                    val g = e.optJSONArray("geometry") ?: continue
-                    val tj = e.optJSONObject("tags") ?: continue
-                    val tags = HashMap<String, String>()
-                    tj.keys().forEach { t -> if (t.startsWith("maxspeed") || t.startsWith("zone:") || t in KEEP) tags[t] = tj.optString(t) }
-                    ways += Way(e.optLong("id"), tags, DoubleArray(g.length()) { g.getJSONObject(it).optDouble("lat") }, DoubleArray(g.length()) { g.getJSONObject(it).optDouble("lon") })
+                val json = fetch(q) ?: run {
+                    // bez internetu aj starší uložený štvorec je lepší ako nič
+                    if (f != null && f.exists()) runCatching { parseWays(JSONObject(f.readText())) }.getOrNull()?.let { put(k, it); return@launch }
+                    failedAt[k] = System.currentTimeMillis(); return@launch
                 }
-                if (tiles.size > 60) tiles.keys.take(20).forEach { tiles.remove(it) }
-                tiles[k] = ways
+                val ways = parseWays(json)
+                put(k, ways)
+                if (f != null) runCatching {
+                    f.parentFile?.mkdirs()
+                    f.writeText(toJson(ways).toString())
+                    trimDisk(f.parentFile)
+                }
             } catch (_: Exception) {
                 failedAt[k] = System.currentTimeMillis()
             } finally { loading.remove(k) }
         }
     }
+
+    private fun put(k: String, ways: List<Way>) {
+        if (tiles.size > 60) tiles.keys.take(20).forEach { tiles.remove(it) }
+        tiles[k] = ways
+    }
+
+    /** Najviac ~1500 štvorcov na disku (rádovo desiatky MB); najstaršie sa zmažú. */
+    private fun trimDisk(dir: File?) {
+        val files = dir?.listFiles()?.takeIf { it.size > 1500 } ?: return
+        files.sortedBy { it.lastModified() }.take(files.size - 1200).forEach { it.delete() }
+    }
+
+    /** Odpoveď Overpass (aj vlastný uložený formát – je rovnaký) → cesty s potrebnými tagmi. */
+    fun parseWays(json: JSONObject): List<Way> {
+        val els = json.optJSONArray("elements") ?: return emptyList()
+        val ways = ArrayList<Way>(els.length())
+        for (i in 0 until els.length()) {
+            val e = els.getJSONObject(i)
+            val g = e.optJSONArray("geometry") ?: continue
+            val tj = e.optJSONObject("tags") ?: continue
+            val tags = HashMap<String, String>()
+            tj.keys().forEach { t -> if (t.startsWith("maxspeed") || t.startsWith("zone:") || t in KEEP) tags[t] = tj.optString(t) }
+            ways += Way(e.optLong("id"), tags, DoubleArray(g.length()) { g.getJSONObject(it).optDouble("lat") }, DoubleArray(g.length()) { g.getJSONObject(it).optDouble("lon") })
+        }
+        return ways
+    }
+
+    fun toJson(ways: List<Way>): JSONObject {
+        val els = JSONArray()
+        for (w in ways) {
+            val g = JSONArray()
+            for (i in w.lat.indices) g.put(JSONObject().put("lat", Math.round(w.lat[i] * 1e6) / 1e6).put("lon", Math.round(w.lng[i] * 1e6) / 1e6))
+            els.put(JSONObject().put("id", w.id).put("tags", JSONObject(w.tags as Map<*, *>)).put("geometry", g))
+        }
+        return JSONObject().put("elements", els)
+    }
+
+    internal fun putForTest(lat: Double, lng: Double, ways: List<Way>) { tiles[key(lat, lng)] = ways }
+
+    /** Zmaže uložené štvorce (napr. po oprave mapy v OSM). */
+    fun clearDisk() { cacheDir?.listFiles()?.forEach { it.delete() }; tiles.clear() }
+    fun diskCount() = cacheDir?.listFiles()?.size ?: 0
+
     private val KEEP = setOf("highway", "oneway", "junction", "name", "ref", "source:maxspeed")
 
     private fun fetch(q: String): JSONObject? {
@@ -137,7 +192,7 @@ object SpeedLimits {
         return parse(dir) ?: parse(tags["maxspeed"]) ?: parse(tags["zone:maxspeed"]) ?: parse(tags["maxspeed:type"])
     }
 
-    private fun parse(v: String?): Int? {
+    fun parse(v: String?): Int? {
         val s = v?.trim()?.lowercase() ?: return null
         if (s.isEmpty() || s == "none" || s == "signals" || s == "variable") return null
         s.takeWhile { it.isDigit() }.toIntOrNull()?.let { n -> return if (s.contains("mph")) (n * 1.609).toInt() else n.takeIf { it in 5..150 } }
@@ -169,10 +224,8 @@ object SpeedLimits {
 
     /** Vlastný limit platí do 200 m od bodu a v rovnakom smere jazdy (±45°), ak bol smer zadaný. */
     fun custom(list: List<Custom>, lat: Double, lng: Double, bearing: Float?): Int? {
-        val r = FloatArray(1)
         return list.filter { c ->
-            Location.distanceBetween(lat, lng, c.lat, c.lng, r)
-            r[0] <= 200f && (c.bearing == null || bearing == null || angle(bearing.toDouble(), c.bearing.toDouble()) <= 45)
-        }.minByOrNull { c -> Location.distanceBetween(lat, lng, c.lat, c.lng, r); r[0] }?.limit
+            GeoMath.distanceM(lat, lng, c.lat, c.lng) <= 200.0 && (c.bearing == null || bearing == null || angle(bearing.toDouble(), c.bearing.toDouble()) <= 45)
+        }.minByOrNull { c -> GeoMath.distanceM(lat, lng, c.lat, c.lng) }?.limit
     }
 }

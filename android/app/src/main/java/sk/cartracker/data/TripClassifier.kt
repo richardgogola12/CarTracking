@@ -1,6 +1,5 @@
 package sk.cartracker.data
 
-import android.location.Location
 import sk.cartracker.data.local.CATEGORY_BUSINESS
 import sk.cartracker.data.local.CATEGORY_PRIVATE
 import sk.cartracker.data.local.PlaceEntity
@@ -36,9 +35,7 @@ object TripClassifier {
     }
 
     private fun near(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Boolean {
-        val d = FloatArray(1)
-        Location.distanceBetween(lat1, lng1, lat2, lng2, d)
-        return d[0] <= MATCH_M
+        return GeoMath.distanceM(lat1, lng1, lat2, lng2) <= MATCH_M
     }
 
     private fun Route.matches(t: TripEntity): Boolean {

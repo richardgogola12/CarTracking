@@ -8,70 +8,59 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import org.osmdroid.tileprovider.tilesource.ITileSource
-import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.tileprovider.tilesource.XYTileSource
-import org.osmdroid.util.MapTileIndex
 import sk.cartracker.data.MapStyle
 
 /**
- * Mapové podklady – všetky fungujú BEZ API kľúča (overené).
- * CARTO od roku 2025/26 vyžaduje kľúč, preto sa nepoužíva.
+ * Mapové podklady – iba OpenStreetMap (svetlá, tmavá = prefarbená) a OpenTopoMap, bez API kľúča a zadarmo.
+ * Esri bolo odstránené (podmienky používania). OpenStreetMap a OpenTopoMap nepovoľujú hromadné sťahovanie oblastí –
+ * offline sa používajú dlaždice uložené pri bežnom prezeraní.
  */
 object MapTiles {
-    private const val ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/"
-
-    /** Esri dlaždice majú poradie z/y/x. */
-    private class Esri(name: String, path: String, maxZoom: Int, copyright: String) : OnlineTileSourceBase(
-        name, 0, maxZoom, 256, "", arrayOf(ESRI + path + "/MapServer/tile/"), copyright,
-    ) {
-        override fun getTileURLString(index: Long): String =
-            baseUrl + "${MapTileIndex.getZoom(index)}/${MapTileIndex.getY(index)}/${MapTileIndex.getX(index)}"
-    }
-
-    private val ESRI_STREETS = Esri("EsriWorldStreet", "World_Street_Map", 18, "Mapa © Esri, HERE, Garmin, OpenStreetMap")
-    private val ESRI_LIGHT = Esri("EsriLightGray", "Canvas/World_Light_Gray_Base", 16, "Mapa © Esri, HERE, Garmin, OpenStreetMap")
-    private val ESRI_LIGHT_LABELS = Esri("EsriLightGrayRef", "Canvas/World_Light_Gray_Reference", 16, "")
-    private val ESRI_DARK = Esri("EsriDarkGray", "Canvas/World_Dark_Gray_Base", 16, "Mapa © Esri, HERE, Garmin, OpenStreetMap")
-    private val ESRI_DARK_LABELS = Esri("EsriDarkGrayRef", "Canvas/World_Dark_Gray_Reference", 16, "")
-    private val ESRI_IMAGERY = Esri("EsriWorldImagery", "World_Imagery", 18, "Snímky © Esri, Maxar, Earthstar Geographics")
     private val TOPO = XYTileSource(
         "OpenTopoMap", 0, 17, 256, ".png",
         arrayOf("https://a.tile.opentopomap.org/", "https://b.tile.opentopomap.org/", "https://c.tile.opentopomap.org/"),
         "© OpenStreetMap © OpenTopoMap (CC-BY-SA)",
     )
 
-    private fun resolve(style: MapStyle, dark: Boolean): MapStyle =
-        if (style == MapStyle.AUTO) (if (dark) MapStyle.DARK else MapStyle.DETAILED) else style
-
-    fun source(style: MapStyle, dark: Boolean): ITileSource = when (resolve(style, dark)) {
-        MapStyle.LIGHT -> ESRI_LIGHT
-        MapStyle.DARK -> ESRI_DARK
-        MapStyle.STREETS -> TileSourceFactory.MAPNIK
-        MapStyle.TOPO -> TOPO
-        MapStyle.SATELLITE -> ESRI_IMAGERY
-        else -> ESRI_STREETS
+    /** Tmavá mapa: farby OpenStreetMap obrátené a otočené o 180° (voda ostane modrá), mierne stlmené. */
+    val DARK_FILTER: android.graphics.ColorMatrixColorFilter by lazy {
+        val k = 0.85f; val o = 255f * k
+        android.graphics.ColorMatrixColorFilter(floatArrayOf(
+            0.574f * k, -1.430f * k, -0.144f * k, 0f, o,
+            -0.426f * k, -0.430f * k, -0.144f * k, 0f, o,
+            -0.426f * k, -1.430f * k, 0.856f * k, 0f, o,
+            0f, 0f, 0f, 1f, 0f,
+        ))
     }
 
-    /** Šedé podklady majú popisky (ulice, mestá) v samostatnej priehľadnej vrstve. */
-    fun labels(style: MapStyle, dark: Boolean): ITileSource? = when (resolve(style, dark)) {
-        MapStyle.LIGHT -> ESRI_LIGHT_LABELS
-        MapStyle.DARK -> ESRI_DARK_LABELS
-        else -> null
+    private fun resolve(style: MapStyle, dark: Boolean): MapStyle = when (style) {
+        MapStyle.AUTO -> if (dark) MapStyle.DARK else MapStyle.LIGHT
+        MapStyle.STREETS, MapStyle.DETAILED, MapStyle.SATELLITE -> MapStyle.LIGHT
+        else -> style
     }
 
-    /** Dá sa podklad uložiť na offline použitie? (OpenStreetMap a OpenTopoMap hromadné sťahovanie zakazujú.) */
-    fun canDownload(style: MapStyle, dark: Boolean) = resolve(style, dark).let { it != MapStyle.STREETS && it != MapStyle.TOPO }
+    fun source(style: MapStyle, dark: Boolean): ITileSource =
+        if (resolve(style, dark) == MapStyle.TOPO) TOPO else TileSourceFactory.MAPNIK
 
-    /** Názov podkladu pre používateľa. */
-    fun label(style: MapStyle, dark: Boolean) = when (resolve(style, dark)) {
-        MapStyle.LIGHT -> "Svetlá (Esri)"; MapStyle.DARK -> "Tmavá (Esri)"; MapStyle.STREETS -> "Klasická (OpenStreetMap)"
-        MapStyle.TOPO -> "Turistická (OpenTopoMap)"; MapStyle.SATELLITE -> "Satelit (Esri)"; else -> "Podrobná (Esri)"
-    }
+    /** Samostatná vrstva popiskov sa už nepoužíva. */
+    fun labels(style: MapStyle, dark: Boolean): ITileSource? = null
+
+    /** Hromadné sťahovanie oblastí: OpenStreetMap ani OpenTopoMap ho nepovoľujú. */
+    fun canDownload(style: MapStyle, dark: Boolean) = false
+
+    fun label(style: MapStyle, dark: Boolean) = resolve(style, dark).label
 
     fun maxZoom(style: MapStyle, dark: Boolean) = source(style, dark).maximumZoomLevel
 
-    fun isDarkBase(style: MapStyle, dark: Boolean) = resolve(style, dark).let { it == MapStyle.DARK || it == MapStyle.SATELLITE }
+    fun isDarkBase(style: MapStyle, dark: Boolean) = resolve(style, dark) == MapStyle.DARK
+
+    /** Nastaví podklad aj tmavý filter. */
+    fun apply(map: org.osmdroid.views.MapView, style: MapStyle, dark: Boolean) {
+        map.setTileSource(source(style, dark))
+        map.overlayManager.tilesOverlay.setColorFilter(if (isDarkBase(style, dark)) DARK_FILTER else null)
+    }
 }
 
 /** Farba trasy podľa rýchlosti: zelená → žltá → oranžová → červená → fialová. */

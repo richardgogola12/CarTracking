@@ -282,7 +282,7 @@ fun MapPicker(start: GeoPoint?, onDismiss: () -> Unit, onPick: (GeoPoint) -> Uni
         }
     }
     DisposableEffect(Unit) {
-        map.setTileSource(MapTiles.source(sk.cartracker.data.MapStyle.DETAILED, false))
+        map.setTileSource(MapTiles.source(sk.cartracker.data.MapStyle.LIGHT, false))
         map.onResume()
         onDispose { map.onPause(); map.onDetach() }
     }

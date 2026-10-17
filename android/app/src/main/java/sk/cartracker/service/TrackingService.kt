@@ -527,14 +527,10 @@ class TrackingService : LifecycleService() {
      */
     private fun carStep(prev: Location, loc: Location, speed: Double): Double? {
         val d = prev.distanceTo(loc).toDouble()
-        val dt = ((loc.time - prev.time) / 1000.0).coerceAtLeast(1.0)
-        if (!hasDoppler(loc)) return if (d < 5 && speed < 5) null else d   // bez rýchlosti z GPS: pôvodné pravidlo
-        if (speed < 3 && d < max(25.0, 2.0 * max(loc.accuracy, prev.accuracy))) return null
-        if (d > 50 && dt < 30 && d / dt * 3.6 > max(speed * 2 + 30, 40.0)) {
-            DiagLog.log(this, DiagLog.GPS, "Skok GPS ${d.toInt()} m za ${dt.toInt()} s pri ${speed.toInt()} km/h – ignorovaný")
-            return null
-        }
-        return if (dt <= 15 && speed >= 3) min(d, speed / 3.6 * dt * 1.1 + 3) else d
+        val dt = (loc.time - prev.time) / 1000.0
+        val r = sk.cartracker.data.DistanceFilter.carStep(d, dt, speed, hasDoppler(loc), prev.accuracy, loc.accuracy)
+        if (r.jump) DiagLog.log(this, DiagLog.GPS, "Skok GPS ${d.toInt()} m za ${dt.toInt()} s pri ${speed.toInt()} km/h – ignorovaný")
+        return r.meters
     }
 
     private fun currentDistance(): Double = if (isWalk) walkDistance() else distance

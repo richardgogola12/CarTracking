@@ -16,7 +16,7 @@ android {
         // Číslo buildu z GitHub Actions → každá nová verzia má vyššie číslo a dá sa nainštalovať ako aktualizácia
         val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionCode = 100 + build
-        versionName = "1.1.$build"
+        versionName = "2.0.$build"
     }
 
     // Pevný podpisový kľúč – rovnaký pre všetky buildy, inak Android aktualizáciu odmietne
@@ -46,6 +46,7 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
     lint { checkReleaseBuilds = false; abortOnError = false }
+    testOptions { unitTests.isReturnDefaultValues = true }
 }
 
 dependencies {
@@ -86,4 +87,8 @@ dependencies {
 
     // Mapa trasy (OpenStreetMap – nepotrebuje API kľúč)
     implementation("org.osmdroid:osmdroid-android:6.1.20")
+
+    // Testy výpočtov (km, limity, účel jazdy) – bežia pri každom builde na GitHube
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

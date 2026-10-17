@@ -22,9 +22,11 @@ const val DEFAULT_SERVER_URL = "https://"
 
 enum class VibrationPattern(val label: String) { SHORT("Krátka"), LONG("Dlhá"), DOUBLE("Dvojitá") }
 enum class ThemeMode(val label: String) { SYSTEM("Podľa systému"), LIGHT("Svetlý"), DARK("Tmavý") }
-enum class MapStyle(val label: String) {
-    AUTO("Podľa témy aplikácie"), LIGHT("Svetlá (Esri)"), DARK("Tmavá (Esri)"), STREETS("Klasická (OpenStreetMap)"),
-    DETAILED("Podrobná (Esri)"), TOPO("Terénna (OpenTopoMap)"), SATELLITE("Satelitná (Esri)")
+/** Mapové podklady – iba OpenStreetMap a OpenTopoMap (Esri bolo odstránené). STREETS/DETAILED/SATELLITE ostávajú
+ *  len kvôli starším uloženým nastaveniam a zobrazia sa ako svetlá mapa. */
+enum class MapStyle(val label: String, val shown: Boolean = true) {
+    AUTO("Podľa témy aplikácie"), LIGHT("OpenStreetMap – svetlá"), DARK("OpenStreetMap – tmavá"),
+    STREETS("OpenStreetMap", false), DETAILED("OpenStreetMap", false), TOPO("Turistická (OpenTopoMap)"), SATELLITE("OpenStreetMap", false)
 }
 
 data class AppSettings(

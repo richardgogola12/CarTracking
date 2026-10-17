@@ -452,7 +452,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
         // ---------- Mapa a offline mapy ----------
         Group("Mapa a offline mapy", Icons.Filled.Map, s.mapStyle.label + (if (s.offlineMaps) " · režim offline" else "")) {
             Sub("Mapa") {
-                MapStyle.entries.forEach { m ->
+                MapStyle.entries.filter { it.shown }.forEach { m ->
                     Row(Modifier.fillMaxWidth().selectable(s.mapStyle == m) { update { it.copy(mapStyle = m) } }
                         .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(s.mapStyle == m, onClick = { update { it.copy(mapStyle = m) } })
@@ -462,7 +462,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 SwitchRow("Režim offline", "Mapy iba z uložených dlaždíc – bez internetu", s.offlineMaps) { on -> update { it.copy(offlineMaps = on) } }
                 SliderRow("Miesto pre uložené mapy", s.mapCacheMb, 100..4000, 1, "MB",
                     "Po zmene sa prejaví pri ďalšom spustení aplikácie.") { v -> update { it.copy(mapCacheMb = v) } }
-                Text("Offline mapy – uložiť oblasť", Modifier.fillMaxWidth().clickable { onNavigate("offline") }.padding(16.dp),
+                Text("Offline mapy – uložené dlaždice", Modifier.fillMaxWidth().clickable { onNavigate("offline") }.padding(16.dp),
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             }
         }
