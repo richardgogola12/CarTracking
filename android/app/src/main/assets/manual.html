@@ -385,8 +385,20 @@ Trasník</h1>
   <tr><td>Prudké zrýchlenie</td><td>zrýchlenie viac ako 3,0 m/s²</td><td>−4 body na každých 10 km</td></tr>
   <tr><td>Prekročenie limitu</td><td>rýchlosť nad limitom platným na danej ceste (+ tolerancia)</td><td>podľa podielu času, max. −40</td></tr>
 </table>
-<h3>Limit podľa typu cesty – v obci, mimo obce, diaľnica</h3>
-<p>Počas jazdy aplikácia zisťuje z OpenStreetMap, po akej ceste idete (približne každých 400 m, bez API kľúča):</p>
+<h3>Ako sa určuje rýchlostný limit</h3>
+<p>V <b>Nastavenia → Štýl jazdy a rýchlosť → Ako určovať rýchlostný limit</b> zvolíte jeden z troch spôsobov:</p>
+<table>
+  <tr><th>Spôsob</th><th>Čo sa porovnáva</th></tr>
+  <tr><td><b>Jednotný limit</b></td><td>Jedna hranica všade (napr. 130 km/h) – vhodné, ak chcete sledovať len extrémne rýchlosti.</td></tr>
+  <tr><td><b>Podľa typu cesty</b></td><td>Obec 50 / mimo obce 90 / diaľnica 130 km/h (limity sa dajú zmeniť pri vozidle). Značky sa neberú do úvahy – v zóne 30 sa prekročenie nezistí, na úseku so 70 v obci sa hlási zbytočne.</td></tr>
+  <tr><td><b>Podľa skutočných značiek z mapy</b> (predvolené)</td><td>Limit konkrétnej cesty, po ktorej idete, z OpenStreetMap: <b>zóny 30</b>, <b>úseky so 70 v obci</b>, limity platné len v jednom smere (napr. iný limit do mesta a z mesta), obytné zóny (20). Kde mapa limit nemá, platí limit podľa typu cesty.</td></tr>
+</table>
+<p>Pri značkách z mapy si aplikácia počas jazdy stiahne cesty v okolí (štvorce približne 1 × 0,7 km, aj s tvarom cesty a limitmi) zo služby <b>Overpass API</b> (OpenStreetMap) a <b>pri každom bode GPS</b> určí, po ktorej ceste a ktorým smerom idete – cesty križujúce sa na križovatke ani súbežné ulice sa nepomýlia. Zmeny limitu vidíte v Diagnostike („Limit z mapy: 70 km/h · Hurbanovská cesta“).</p>
+<h3>Moje limity – keď mapa limit nepozná</h3>
+<p>Ak mapa značku nemá (alebo ju má zle) a aplikácia hlási prekročenie, ktoré nebolo: otvorte jazdu → karta <b>Prekročenia rýchlosti</b> → pri danom čase <b>Opraviť limit</b> → zvoľte skutočný limit (20–130). Oprava sa zapamätá pre toto miesto (do 200 m) a <b>smer jazdy</b>, má prednosť pred mapou a ukladá sa aj na server (nový telefón ju obnoví). Dlhší úsek opravte vo viacerých miestach. Zoznam opráv: <b>Nastavenia → Štýl jazdy a rýchlosť → Moje limity</b> (ťuknutím na súradnice sa miesto otvorí v mape, opravu môžete zmazať). Oprava platí pre nové jazdy – štýl jazdy staršej jazdy sa neprepočíta.</p>
+<div class="tip">Chýbajúcu značku môžete doplniť aj priamo do OpenStreetMap (openstreetmap.org → Upraviť, tag <code>maxspeed</code>) – po niekoľkých dňoch ju začne používať aplikácia aj ostatní.</div>
+<h3>Typ cesty – v obci, mimo obce, diaľnica</h3>
+<p>Typ cesty aplikácia zisťuje z OpenStreetMap (približne každých 400 m, bez API kľúča); platí tam, kde nie je limit zo značky:</p>
 <table>
   <tr><th>Typ cesty</th><th>Ako sa rozpozná</th><th>Limit (osobné auto)</th></tr>
   <tr><td>V obci</td><td>ulica v zástavbe, domy s číslom do 80 m od cesty, mestská časť</td><td>50 km/h</td></tr>
@@ -395,10 +407,10 @@ Trasník</h1>
 </table>
 <ul>
   <li>Limity pre každý typ cesty sa nastavujú <b>pri vozidle</b> (Nastavenia → Vozidlá).</li>
-  <li><b>Dopravné značky z mapy</b> – ak má cesta v OpenStreetMap zadaný limit (napr. 70 km/h v obci alebo 30 km/h pri škole), použije sa ten. Ak má vozidlo pre daný typ cesty nižší limit ako všeobecný (príves), platí nižší z nich.</li>
+  <li>Ak má vozidlo pre daný typ cesty nižší limit ako všeobecný (príves), platí nižší z limitu vozidla a značky.</li>
   <li><b>Tolerancia</b> (predvolene 5 km/h) – o toľko môže rýchlosť z GPS prekročiť limit, kým sa to počíta.</li>
   <li>Na Prehľade sa počas jazdy zobrazuje <b>značka s aktuálnym limitom</b>, typ cesty a ulica. Ak mapa typ cesty neurčí správne alebo ste bez internetu, ťuknite na <i>V obci / Mimo obce / Diaľnica</i>; <i>Auto</i> vráti automatické rozpoznávanie.</li>
-  <li>Kým typ cesty nie je známy (napr. bez internetu na začiatku jazdy), prekročenie sa nehodnotí.</li>
+  <li>Kým nie je známy typ cesty ani limit zo značky (napr. bez internetu na začiatku jazdy), prekročenie sa nehodnotí.</li>
   <li>Mapové údaje nemusia byť všade úplné – značky v teréne majú vždy prednosť.</li>
 </ul>
 <p><b>Hodnotenie:</b> 90–100 výborná · 75–89 dobrá · 55–74 priemerná · pod 55 riziková. Pri zapnutom <i>Upozornení vibráciou</i> telefón pri prekročení limitu trikrát krátko zavibruje a zobrazí platný limit (najviac raz za minútu).</p>
@@ -759,8 +771,8 @@ Trasník</h1>
   <tr><td>Upozorniť na podozrivé jazdy</td><td>zapnuté</td><td>Karta Kontrola jázd na Prehľade.</td></tr>
   <tr><td colspan="3"><b>Štýl jazdy a rýchlosť</b></td></tr>
   <tr><td>Hodnotiť štýl jazdy</td><td>zapnuté</td><td>Udalosti a skóre.</td></tr>
-  <tr><td>Limit podľa typu cesty</td><td>zapnuté</td><td>V obci / mimo obce / diaľnica z OpenStreetMap, limity pri vozidle.</td></tr>
-  <tr><td>Použiť dopravné značky z mapy</td><td>zapnuté</td><td>Limit zo značky, ak je v mape zadaný.</td></tr>
+  <tr><td>Ako určovať rýchlostný limit</td><td>podľa značiek z mapy</td><td>Jednotný limit / podľa typu cesty (obec, mimo obce, diaľnica) / podľa skutočných značiek z OpenStreetMap.</td></tr>
+  <tr><td>Moje limity</td><td>žiadne</td><td>Vlastné opravy limitu z detailu jazdy (miesto + smer), majú prednosť pred mapou.</td></tr>
   <tr><td>Jednotný rýchlostný limit</td><td>130 km/h</td><td>Iba ak je limit podľa typu cesty vypnutý.</td></tr>
   <tr><td>Tolerancia</td><td>5 km/h</td><td>Rezerva pre nepresnosť GPS.</td></tr>
   <tr><td>Upozorniť vibráciou</td><td>vypnuté</td><td>Upozornenie pri prekročení limitu.</td></tr>
@@ -900,7 +912,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <li>Mapové podklady sa sťahujú od poskytovateľov máp; posielajú sa im iba súradnice zobrazených dlaždíc, nie vaše jazdy.</li>
   <li>Zdieľané vozidlo: vlastník a vodiči, s ktorými je zdieľané, vidia jazdy <b>tohto vozidla</b> (čas, trasa, účel) – nie vašu chôdzu ani jazdy inými vozidlami. Zdieľanie sa dá kedykoľvek zrušiť.</li>
   <li>Webový prehľad posiela vaše údaje (jazdy, prihlásenie) iba na váš server; knižnice, písmo a mapové dlaždice sťahuje prehliadač z verejných CDN (kapitola 33). Prihlásenie si pamätá len v prehliadači, kde ste ho zaškrtli.</li>
-  <li>Na rozpoznanie typu cesty sa počas jazdy približne každých 400 m posiela aktuálna poloha službe Nominatim (OpenStreetMap). Dá sa vypnúť v Nastavenia → Štýl jazdy → Limit podľa typu cesty.</li>
+  <li>Na rozpoznanie typu cesty sa počas jazdy približne každých 400 m posiela aktuálna poloha službe Nominatim (OpenStreetMap); pri limitoch zo značiek sa sťahujú cesty v okolí (približne každý kilometer jazdy) zo služby Overpass API. Dá sa vypnúť voľbou Jednotný limit (Nastavenia → Štýl jazdy a rýchlosť).</li>
 </ul>
 
 <h2 id="siet" class="newpage">33. Externé servery a IP adresy</h2>
@@ -913,6 +925,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><th>Doména a prevádzkovateľ</th><th>Účel · kedy · čo sa posiela</th><th>IPv4 (14. 10. 2026)</th><th>Rozsah / poznámka</th></tr>
   <tr><td><b>váš server</b><br>(napr. <code>mojadomena.sk</code>)</td><td>API Trasníka – synchronizácia, prihlásenie, záloha, nastavenia, zdieľanie. Posiela sa: jazdy, body trasy, vozidlá, miesta, tankovania, nastavenia.</td><td>IP vášho servera</td><td>jediné miesto s vašimi údajmi</td></tr>
   <tr><td><code>nominatim.openstreetmap.org</code><br>OpenStreetMap Foundation</td><td>Obec v adrese (koniec jazdy, oprava adries) a typ cesty s limitom (počas jazdy každých ~400 m). Posiela sa: GPS súradnice bodu, bez mena a účtu.</td><td class="ip">151.101.1.91<br>151.101.65.91<br>151.101.129.91<br>151.101.193.91</td><td>Fastly<br>151.101.0.0/16</td></tr>
+  <tr><td><code>overpass-api.de</code><br><code>overpass.kumi.systems</code> (záložný)<br>OpenStreetMap / Overpass</td><td>Skutočné rýchlostné limity ciest v okolí (pri voľbe „podľa značiek z mapy“), približne každý kilometer jazdy. Posiela sa: obdĺžnik oblasti (~1 × 0,7 km), nie presná poloha.</td><td class="ip">162.55.144.139<br>65.109.112.52<br>193.219.97.30</td><td>Hetzner (Nemecko/Fínsko); záložný server private.coffee</td></tr>
   <tr><td><code>server.arcgisonline.com</code><br>Esri</td><td>Mapové podklady (svetlá, tmavá, podrobná, satelitná mapa), aj ukladanie offline máp. Posiela sa: číslo dlaždice (oblasť a priblíženie).</td><td class="ip">143.204.204.26<br>143.204.204.56<br>143.204.204.60<br>143.204.204.89</td><td>Amazon CloudFront<br>(<code>*.cloudfront.net</code>)</td></tr>
   <tr><td><code>tile.openstreetmap.org</code><br><code>a./b./c.tile.openstreetmap.org</code><br>OpenStreetMap Foundation</td><td>„Klasická“ mapa – iba ak je zvolená. Posiela sa: číslo dlaždice.</td><td class="ip">151.101.1.91<br>151.101.65.91<br>151.101.129.91<br>151.101.193.91</td><td>Fastly<br>151.101.0.0/16</td></tr>
   <tr><td><code>a.tile.opentopomap.org</code><br><code>b.tile.opentopomap.org</code><br><code>c.tile.opentopomap.org</code><br>OpenTopoMap</td><td>„Terénna“ mapa – iba ak je zvolená. Posiela sa: číslo dlaždice.</td><td class="ip">159.195.68.179</td><td>vlastný server (Nemecko)</td></tr>
@@ -921,7 +934,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
 <ul>
   <li><b>Žiadna analytika, reklama ani hlásenie chýb tretím stranám</b> – aplikácia nemá Firebase, Crashlytics ani podobné knižnice.</li>
   <li>Bez pripojenia ku Google a OpenStreetMap aplikácia funguje – chýbať budú len adresy, typ cesty a nové mapové dlaždice.</li>
-  <li>Úplne bez externých služieb (okrem vášho servera): vypnite <b>Zisťovať adresy</b>, <b>Limit podľa typu cesty</b> a zapnite <b>Režim offline</b> máp (s vopred uloženou oblasťou). Polohu GPS samotnú (satelity) internet nepotrebuje.</li>
+  <li>Úplne bez externých služieb (okrem vášho servera): vypnite <b>Zisťovať adresy</b>, pri limite zvoľte <b>Jednotný limit</b> a zapnite <b>Režim offline</b> máp (s vopred uloženou oblasťou). Polohu GPS samotnú (satelity) internet nepotrebuje.</li>
 </ul>
 
 <h3>Webový prehľad v prehliadači</h3>

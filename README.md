@@ -155,6 +155,7 @@ Okrem vášho servera (HTTPS 443). IP sú snímka z 14. 10. 2026 – za CDN sa m
 | Doména | Kto | Účel | IPv4 (14. 10. 2026) |
 |---|---|---|---|
 | `nominatim.openstreetmap.org` | aplikácia | obec v adrese, typ cesty a limit (posiela súradnice) | 151.101.1.91, .65.91, .129.91, .193.91 (Fastly) |
+| `overpass-api.de`, `overpass.kumi.systems` | aplikácia | skutočné rýchlostné limity ciest (oblasť ~1 km) | 162.55.144.139, 65.109.112.52; 193.219.97.30 |
 | `server.arcgisonline.com` | aplikácia, web | mapové dlaždice Esri | 143.204.204.26, .56, .60, .89 (CloudFront) |
 | `tile.openstreetmap.org` (a./b./c.) | aplikácia | „Klasická“ mapa | 151.101.x.91 (Fastly) |
 | `a./b./c.tile.opentopomap.org` | aplikácia | „Terénna“ mapa | 159.195.68.179 |
