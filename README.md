@@ -31,7 +31,18 @@ REŽIM JAZDY VYPNUTÝ  → notifikácia + vibrácia so súhrnom, uloženie, odos
 Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nastaveniach vyberte **Bluetooth auta**
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
-## Novinky vo verzii 2.0
+## Novinky vo verzii 2.0 (zostavenia 2.0.N)
+- **Verzia 2.0.N** = číslo zostavenia z GitHub Actions; APK sa volá `Trasnik-N.apk` (vydanie `build-N`).
+- **Aktualizácia v aplikácii** – raz denne kontrola `api.github.com/repos/richardgogola12/CarTracking/releases/latest`, notifikácia, stiahnutie APK a systémová inštalácia (`sync/AppUpdate.kt`, povolenie `REQUEST_INSTALL_PACKAGES`). Nastavenia → Pomoc a aktualizácie.
+- **Bez Esri** – mapy iba OpenStreetMap (svetlá, tmavá = prefarbená cez ColorMatrix) a OpenTopoMap, v aplikácii aj na webe. Hromadné sťahovanie oblastí je vypnuté (pravidlá OSM); prezreté dlaždice sa ukladajú na 30 dní.
+- **Limity z mapy na disku** – štvorce z Overpass API sa ukladajú do `cacheDir/speedlimits` na 30 dní (opakované trasy aj bez internetu).
+- **Prepočet po oprave limitu** – uloženie „Môjho limitu“ zruší falošné prekročenia v úseku v jazdách za 120 dní, zníži čas prekračovania a prepočíta skóre (aj na serveri).
+- **Šablóny účelu jazdy** – ťukacie návrhy (účely do rovnakého cieľa, šablóny, naposledy použité).
+- **Kniha jázd za minulý mesiac** jedným ťuknutím – PDF / Excel z mesačnej notifikácie alebo zo Štatistík, všetky vozidlá.
+- **Náklady na auto** – výdavky (servis, poistenie, známka, parkovanie…), súčet s palivom, cena za km a za mesiac. Ukladajú sa ako položky `kind = expense`.
+- **Preriedenie starých trás** – body jázd starších ako N mesiacov (už na serveri) sa v telefóne preriedia na ~60 m.
+- **Automatické testy** – unit testy (`android/app/src/test`, JUnit) bežia v CI pred zostavením APK: vzdialenosť a filter km auta, limity z OSM, moje limity, učenie účelu, prepočet prekročení, náklady, preriedenie, šablóny účelu.
+- **Bezpečnosť servera** – obmedzenie pokusov o prihlásenie (10 / e-mail, 30 / IP za 15 min → HTTP 429), registrácie (10 / IP / h), predlžovanie tokenu používaním, bezpečnostné hlavičky, oprava udalostí bodov pri opätovnom odoslaní. Databáza: `backend/migrate_v8.sql`.
 - **Zvuky** – 28 syntetizovaných zvukov (`res/raw/sounds.json`, `service/Sounds.kt`) + systémový / vlastný z telefónu; zvlášť pre začiatok a koniec jazdy autom, chôdze, prekročenie rýchlosti a parkovací lístok; hlasitosť; prehrávanie aj v tichom režime (kanál budíka).
 - **Rýchlostné limity** – voľba jednotný / podľa typu cesty / podľa skutočných značiek z mapy (Overpass, priradenie cesty pri každom bode GPS), **Moje limity** – opravy z detailu jazdy.
 - **Účel jazdy z notifikácie** – po skončení jazdy tlačidlá *Služobná / Súkromná* s navrhnutým účelom a dôvodom.
@@ -39,7 +50,7 @@ a zapnite **„Sledovať iba keď je pripojené auto“**.
 - **Úspora batérie** – adaptívny interval GPS (diaľnica redšie, státie úsporne); Diagnostika ukazuje čas GPS a pokles batérie po dňoch.
 - **Kontrola jázd** – zabudnutý koniec, čakanie pred odjazdom, dlhá zastávka uprostred, rozdelená jazda, výpadok GPS, nereálna rýchlosť; oprava jedným ťuknutím (orezanie, rozdelenie, zlúčenie, zmazanie).
 - **Skratky na ikone** – Začať jazdu, Začať chôdzu, Kde je auto, Tankovanie.
-- Webový dashboard 2.0 (Bootstrap 5) – pozri nižšie. Server ani databáza sa nemenili.
+- Webový dashboard 2.0 (Bootstrap 5) – pozri nižšie.
 
 ## Novinky vo verzii 1.9
 - **Diagnostika detekcie** – kontrola podmienok (povolenia, batéria, Bluetooth) a záznam udalostí: čo hlásil systém, rýchlosti GPS pri overovaní, prečo sa jazda spustila / zahodila / ukončila; zdieľanie súboru.
@@ -100,7 +111,7 @@ a zapnite **„Sledovať iba keď je pripojené auto“**.
 ## Novinky vo verzii 1.2
 - **Viac vozidiel** – každé s vlastnou EČV, palivom, spotrebou, cenou, tachometrom a Bluetooth. Prepínanie na Prehľade (aj počas jazdy), automaticky podľa Bluetooth, dodatočne v detaile jazdy. Kniha jázd a štatistiky po vozidlách.
 - **Sledovanie chôdze** – automatická detekcia, kroky z krokomeru (funguje aj v budove), trasa, voliteľne iba v pracovnom čase; vlastné štatistiky.
-- **Mapa bez API kľúča** – CARTO začal vyžadovať kľúč, nahradené Esri / OpenStreetMap / OpenTopoMap (overené).
+- **Mapa bez API kľúča** – CARTO začal vyžadovať kľúč, nahradené Esri / OpenStreetMap / OpenTopoMap (od 2.0 už bez Esri).
 - **Test backendu** v GitHub Actions proti reálnej MySQL (`backend/tests/api_test.sh`). Databázu aktualizuje `backend/migrate_v3.sql`.
 
 ## Novinky vo verzii 1.1
@@ -158,15 +169,16 @@ Okrem vášho servera (HTTPS 443). IP sú snímka z 14. 10. 2026 – za CDN sa m
 |---|---|---|---|
 | `nominatim.openstreetmap.org` | aplikácia | obec v adrese, typ cesty a limit (posiela súradnice) | 151.101.1.91, .65.91, .129.91, .193.91 (Fastly) |
 | `overpass-api.de`, `overpass.kumi.systems` | aplikácia | skutočné rýchlostné limity ciest (oblasť ~1 km) | 162.55.144.139, 65.109.112.52; 193.219.97.30 |
-| `server.arcgisonline.com` | aplikácia, web | mapové dlaždice Esri | 143.204.204.26, .56, .60, .89 (CloudFront) |
-| `tile.openstreetmap.org` (a./b./c.) | aplikácia | „Klasická“ mapa | 151.101.x.91 (Fastly) |
-| `a./b./c.tile.opentopomap.org` | aplikácia | „Terénna“ mapa | 159.195.68.179 |
+| `tile.openstreetmap.org` (a./b./c.) | aplikácia, web | mapové dlaždice (svetlá aj tmavá mapa) | 151.101.1.91, .65.91, .129.91, .193.91 (Fastly) |
+| `a./b./c.tile.opentopomap.org` | aplikácia | „Turistická“ mapa | 159.195.68.179 |
+| `api.github.com` | aplikácia | kontrola novej verzie (raz denne, dá sa vypnúť) | 140.82.112.0/20 (GitHub) |
+| `github.com`, `objects.githubusercontent.com` | aplikácia | stiahnutie `Trasnik-N.apk` pri aktualizácii | 140.82.112.0/20; 185.199.108–111.133 |
 | servery Google (Play služby) | aplikácia | geokóder (ulica), sieťová poloha, rozpoznanie aktivity | rôzne (Google) |
 | `cdnjs.cloudflare.com` | web | Bootstrap, Icons, Chart.js, Leaflet | 104.17.24.14, 104.17.25.14 (Cloudflare) |
 | `cdn.jsdelivr.net` | web | DataTables, jQuery, JSZip | 104.17.207.5, 104.17.208.5 (Cloudflare) |
 | `fonts.googleapis.com`, `fonts.gstatic.com` | web | písmo Inter | 172.253.122.95, 192.178.210.94 (Google) |
 
-Bez analytiky a reklamy (žiadny Firebase/Crashlytics).
+Bez analytiky a reklamy (žiadny Firebase/Crashlytics). Esri (`server.arcgisonline.com`) sa od verzie 2.0 nepoužíva.
 
 ## Štruktúra
 ```

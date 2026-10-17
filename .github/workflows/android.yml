@@ -33,6 +33,16 @@ jobs:
           set -o pipefail
           gradle testReleaseUnitTest assembleRelease --no-daemon 2>&1 | tee build.log
 
+      - name: Výsledky unit testov
+        if: always()
+        run: |
+          R=app/build/test-results/testReleaseUnitTest
+          if ls $R/*.xml >/dev/null 2>&1; then
+            sum() { grep -ho "$1=\"[0-9]*\"" $R/*.xml | head -n 1000 | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}'; }
+            echo "::notice::Unit testy: $(sum tests) testov v $(ls $R/*.xml | wc -l) triedach, zlyhania: $(sum failures), chyby: $(sum errors)"
+            grep -l '<failure' $R/*.xml | while read -r f; do grep -A3 '<failure' "$f" | head -8 | while IFS= read -r l; do echo "::error::$(basename "$f"): ${l//%/%25}"; done; done
+          fi
+
       # Chyby kompilácie ako anotácie (viditeľné v prehľade buildu)
       - name: Report errors
         if: failure()

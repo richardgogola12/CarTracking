@@ -110,7 +110,7 @@ Trasník</h1>
     <li><a href="#parkovanie">Kde som zaparkoval a parkovací lístok</a></li>
     <li><a href="#bluetooth">Bluetooth auta</a></li>
     <li><a href="#miesta">Miesta (Domov, Práca, Klient)</a></li>
-    <li><a href="#tankovanie">Tankovanie a skutočná spotreba</a></li>
+    <li><a href="#tankovanie">Tankovanie, spotreba a náklady na auto</a></li>
     <li><a href="#pripomienky">Pripomienky</a></li>
     <li><a href="#widget">Widgety na ploche</a></li>
     <li><a href="#lista">Tlačidlá v rýchlej lište a skratky na ikone</a></li>
@@ -160,6 +160,13 @@ Trasník</h1>
   <li>Potvrďte <b>Inštalovať</b>.</li>
 </ol>
 <div class="note"><b>Aktualizácia:</b> novšiu verziu stačí nainštalovať „cez“ starú – údaje ostanú zachované. Všetky verzie od 1.1 sú podpísané rovnakým kľúčom.</div>
+<h3>Aktualizácia priamo v aplikácii (od verzie 2.0)</h3>
+<p>Verzia má tvar <b>2.0.N</b>, kde N je číslo zostavenia (súbor <code>Trasnik-N.apk</code>). Aplikácia sa raz denne pozrie na GitHub, či je novšie zostavenie, a pošle notifikáciu <b>„Nová verzia Trasníka“</b>. Ťuknutím sa APK stiahne (s priebehom v %) a otvorí sa systémová inštalácia – údaje ostanú.</p>
+<ul>
+  <li>Ručne: <b>Nastavenia → Pomoc a aktualizácie → Skontrolovať aktualizáciu teraz</b>.</li>
+  <li>Pri prvej aktualizácii Android požiada o povolenie <i>Inštalovať neznáme aplikácie</i> <b>pre Trasník</b> – zapnite ho a vráťte sa do aplikácie.</li>
+  <li>Upozornenia sa dajú vypnúť prepínačom <i>Upozorniť na novú verziu</i>. Aplikácia pritom na GitHub posiela iba bežnú požiadavku na zoznam vydaní (žiadne údaje o vás).</li>
+</ul>
 <div class="warn"><b>Prechod zo skúšobných verzií (build 1–3):</b> tie boli podpísané iným kľúčom. Pred prvou inštaláciou verzie 1.1 ich jedenkrát odinštalujte.</div>
 
 <h2 id="start">3. Prvé spustenie</h2>
@@ -371,11 +378,11 @@ Trasník</h1>
 <p>Ťuknutím na značku zobrazíte čas, adresu alebo rýchlosť. Ovládacie tlačidlá vpravo hore:</p>
 <table>
   <tr><th>Tlačidlo</th><th>Funkcia</th></tr>
-  <tr><td>Vrstvy</td><td>Typ mapy: podľa témy, svetlá, tmavá, klasická (OpenStreetMap), podrobná, terénna, satelitná.</td></tr>
+  <tr><td>Vrstvy</td><td>Typ mapy: podľa témy aplikácie, OpenStreetMap svetlá, OpenStreetMap tmavá, turistická (OpenTopoMap).</td></tr>
   <tr><td>Zameranie</td><td>Priblíži mapu tak, aby bola vidieť celá trasa.</td></tr>
   <tr><td>Celá obrazovka</td><td>Zväčší mapu na celú obrazovku a späť.</td></tr>
 </table>
-<p>Vľavo dole je mierka a legenda, vpravo dole zdroj mapových podkladov. Typ mapy sa pamätá a dá sa nastaviť aj v <b>Nastavenia → Mapa</b>. Mapové podklady sa sťahujú z internetu (Esri, OpenStreetMap, OpenTopoMap) a <b>nevyžadujú API kľúč</b>. Pri chôdzi má trasa jednu farbu a nezobrazujú sa udalosti štýlu jazdy.</p>
+<p>Vľavo dole je mierka a legenda, vpravo dole zdroj mapových podkladov. Typ mapy sa pamätá a dá sa nastaviť aj v <b>Nastavenia → Mapa</b>. Mapové podklady sa sťahujú z internetu z <b>OpenStreetMap</b> (svetlá aj tmavá mapa – tmavá je tá istá mapa s prefarbenými farbami, voda ostane modrá) a <b>OpenTopoMap</b> (turistická s vrstevnicami); sú zadarmo a <b>nevyžadujú API kľúč</b>. Od verzie 2.0 sa nepoužívajú mapy Esri – staršie nastavenie „Podrobná / Satelitná“ sa automaticky zmení na OpenStreetMap. Pri chôdzi má trasa jednu farbu a nezobrazujú sa udalosti štýlu jazdy.</p>
 
 <h2 id="styl">11. Štýl jazdy a skóre</h2>
 <p>Počas jazdy aplikácia z presných GPS bodov sleduje:</p>
@@ -394,8 +401,9 @@ Trasník</h1>
   <tr><td><b>Podľa skutočných značiek z mapy</b> (predvolené)</td><td>Limit konkrétnej cesty, po ktorej idete, z OpenStreetMap: <b>zóny 30</b>, <b>úseky so 70 v obci</b>, limity platné len v jednom smere (napr. iný limit do mesta a z mesta), obytné zóny (20). Kde mapa limit nemá, platí limit podľa typu cesty.</td></tr>
 </table>
 <p>Pri značkách z mapy si aplikácia počas jazdy stiahne cesty v okolí (štvorce približne 1 × 0,7 km, aj s tvarom cesty a limitmi) zo služby <b>Overpass API</b> (OpenStreetMap) a <b>pri každom bode GPS</b> určí, po ktorej ceste a ktorým smerom idete – cesty križujúce sa na križovatke ani súbežné ulice sa nepomýlia. Zmeny limitu vidíte v Diagnostike („Limit z mapy: 70 km/h · Hurbanovská cesta“).</p>
+<p><b>Uložené v telefóne:</b> stiahnuté štvorce s limitmi sa ukladajú do pamäte telefónu na <b>30 dní</b> – na trasách, ktoré jazdíte opakovane, sa limity nesťahujú znova a fungujú aj bez internetu. Počet uložených úsekov a tlačidlo <i>Vymazať</i> sú v Nastavenia → Štýl jazdy a rýchlosť. Bez internetu sa použije aj starší uložený štvorec.</p>
 <h3>Moje limity – keď mapa limit nepozná</h3>
-<p>Ak mapa značku nemá (alebo ju má zle) a aplikácia hlási prekročenie, ktoré nebolo: otvorte jazdu → karta <b>Prekročenia rýchlosti</b> → pri danom čase <b>Opraviť limit</b> → zvoľte skutočný limit (20–130). Oprava sa zapamätá pre toto miesto (do 200 m) a <b>smer jazdy</b>, má prednosť pred mapou a ukladá sa aj na server (nový telefón ju obnoví). Dlhší úsek opravte vo viacerých miestach. Zoznam opráv: <b>Nastavenia → Štýl jazdy a rýchlosť → Moje limity</b> (ťuknutím na súradnice sa miesto otvorí v mape, opravu môžete zmazať). Oprava platí pre nové jazdy – štýl jazdy staršej jazdy sa neprepočíta.</p>
+<p>Ak mapa značku nemá (alebo ju má zle) a aplikácia hlási prekročenie, ktoré nebolo: otvorte jazdu → karta <b>Prekročenia rýchlosti</b> → pri danom čase <b>Opraviť limit</b> → zvoľte skutočný limit (20–130). Oprava sa zapamätá pre toto miesto (do 200 m) a <b>smer jazdy</b>, má prednosť pred mapou a ukladá sa aj na server (nový telefón ju obnoví). Dlhší úsek opravte vo viacerých miestach. Zoznam opráv: <b>Nastavenia → Štýl jazdy a rýchlosť → Moje limity</b> (ťuknutím na súradnice sa miesto otvorí v mape, opravu môžete zmazať). Po uložení opravy aplikácia <b>prepočíta jazdy za posledných 120 dní</b>: prekročenia v opravenom úseku (do 200 m, rovnaký smer), pri ktorých ste išli najviac novým limitom + tolerancia, sa zrušia, čas prekračovania sa pomerne zníži a skóre jazdy sa prepočíta (aj na serveri). Počet upravených jázd ukáže hlásenie.</p>
 <div class="tip">Chýbajúcu značku môžete doplniť aj priamo do OpenStreetMap (openstreetmap.org → Upraviť, tag <code>maxspeed</code>) – po niekoľkých dňoch ju začne používať aplikácia aj ostatní.</div>
 <h3>Typ cesty – v obci, mimo obce, diaľnica</h3>
 <p>Typ cesty aplikácia zisťuje z OpenStreetMap (približne každých 400 m, bez API kľúča); platí tam, kde nie je limit zo značky:</p>
@@ -421,6 +429,7 @@ Trasník</h1>
 <p>Kniha jázd sa vedie <b>pre každé vozidlo zvlášť</b>. Pri vozidle (Nastavenia → Vozidlá) vyplňte EČV a <b>aktuálny stav tachometra</b> – od tohto okamihu aplikácia dopočítava tachometer pri každej jazde tohto vozidla. V <b>Nastavenia → Kniha jázd</b> zvoľte predvolený typ novej jazdy (súkromná / služobná).</p>
 <h3>12.2 Úprava jazdy</h3>
 <p>V detaile jazdy prepnite <b>Súkromná / Služobná</b> a doplňte <b>účel jazdy</b>. Zmena sa automaticky odošle na server.</p>
+<p><b>Šablóny účelu:</b> pod poľom <i>Účel jazdy</i> sú ťukacie návrhy – ťuknutím sa účel vloží a uloží. Poradie: najprv účely, ktoré ste už použili pri jazdách <b>do toho istého cieľa</b>, potom vaše <b>šablóny</b> a nakoniec naposledy použité účely. Šablóny upravíte v <b>Nastavenia → Kniha jázd a zlučovanie → Šablóny účelu jazdy</b> (jedna na riadok). Návrhy sú aj vo formulári ručného záznamu a úpravy jazdy.</p>
 <h3>12.3 Účel jazdy automaticky a z notifikácie</h3>
 <p>Po skončení jazdy príde notifikácia <b>„Jazda skončila · Služobná?“</b> so súhrnom, navrhnutým účelom a dôvodom (napr. <i>pracovný čas</i>, <i>miesto Klient</i>, <i>naučené z 5 jázd na tejto trase</i>). Tlačidlami <b>Služobná / Súkromná</b> jazdu zaradíte bez otvárania aplikácie; zvolená možnosť je označená ✓. Ak navrhnutý účel sedí, netreba robiť nič.</p>
 <p>Účel novej jazdy sa určí v tomto poradí:</p>
@@ -437,6 +446,12 @@ Trasník</h1>
   <li><b>Kniha jázd – tlač / PDF</b> otvorí systémovú tlač. Vyberte tlačiareň alebo <i>Uložiť ako PDF</i>. Výstup je na šírku A4 s tabuľkou jázd, súčtami (služobné, súkromné, palivo, náklady) a miestom na podpis.</li>
   <li><b>Export do Excelu (CSV)</b> vytvorí súbor, ktorý môžete poslať e-mailom alebo uložiť. Excel ho otvorí priamo so slovenskou diakritikou.</li>
 </ol>
+<h3>12.5 Kniha jázd za minulý mesiac jedným ťuknutím</h3>
+<ul>
+  <li>Na začiatku mesiaca príde <b>mesačné zhrnutie</b> (ak je zapnuté v Nastavenia → Notifikácie a zhrnutia) s tlačidlami <b>Kniha jázd – PDF</b> a <b>Kniha jázd – Excel</b>.</li>
+  <li>To isté je v <b>Štatistiky → Kniha jázd a export</b>: riadok <i>Minulý mesiac</i> s tlačidlami <b>PDF</b> a <b>Excel</b>.</li>
+  <li>Obsahuje <b>všetky vozidlá</b> – každé auto má vlastnú tabuľku s tachometrom (v PDF na novej strane, v CSV oddelené názvom vozidla).</li>
+</ul>
 <table>
   <tr><th>Stĺpce knihy jázd</th></tr>
   <tr><td>Poradie, dátum, čas od–do, odkiaľ, kam, účel, typ (S/P), tachometer na začiatku a na konci, km, palivo (l), náklady (€)</td></tr>
@@ -511,7 +526,7 @@ Trasník</h1>
 </ol>
 <p>Po uložení aplikácia ponúkne použiť miesta aj na <b>doterajšie jazdy</b> – buď iba doplniť názvy, alebo aj nastaviť typ jazdy.</p>
 
-<h2 id="tankovanie">18. Tankovanie a skutočná spotreba</h2>
+<h2 id="tankovanie">18. Tankovanie, spotreba a náklady na auto</h2>
 <p>Tankovanie zapisujete pri vozidle: <b>Nastavenia → Vozidlá → ikona pumpy</b> alebo na Prehľade <b>Vozidlo → Tankovanie</b>. Ťuknite na <b>Natankoval som</b> a zadajte:</p>
 <ul>
   <li>dátum, množstvo (l, pri elektromobile kWh), cenu za liter alebo celkovú sumu (druhá hodnota sa dopočíta),</li>
@@ -529,6 +544,14 @@ Trasník</h1>
   <li><b>Zrušiť opravu</b> – nové jazdy sa znova počítajú bez opravy.</li>
 </ul>
 <div class="tip">Pre presný výsledok zapisujte tachometer pri každom tankovaní a nechajte aplikáciu zaznamenávať všetky jazdy daného auta. Oprava sa ukladá v nastaveniach, takže sa obnoví aj na novom telefóne.</div>
+<h3>Celkové náklady na auto</h3>
+<p><b>Nastavenia → Vozidlá → ikona €</b> (alebo Nastavenia → Vozidlá, miesta, tankovanie → <i>Náklady na auto</i>) – koľko vás auto naozaj stojí.</p>
+<ul>
+  <li><b>Pridať výdavok</b>: druh (servis a opravy, poistenie, diaľničná známka, daň / STK / EK, pneumatiky, parkovanie, umytie, mýto, splátka / leasing, iné), suma, dátum, voliteľne tachometer a poznámka. Ťuknutím na výdavok ho upravíte alebo zmažete.</li>
+  <li>Karta <b>Celkové náklady</b> za obdobie <i>12 mesiacov / Tento rok / Minulý rok / Celkom</i>: súčet, <b>cena za km</b>, <b>mesačne</b>, prejdené km a rozpis podľa druhu.</li>
+  <li><b>Palivo</b> sa berie zo zapísaných tankovaní; ak v období žiadne nie je, použije sa odhad z jázd (spotreba × cena pri vozidle).</li>
+  <li>Výdavky sa zálohujú na server aj do súboru zálohy a obnovia sa na novom telefóne.</li>
+</ul>
 
 <h2 id="pripomienky">19. Pripomienky</h2>
 <p><b>Nastavenia → Miesta, pripomienky, tankovanie → Pripomienky → Pridať</b>. Typ zvolíte jedným ťuknutím – opakovanie sa nastaví samo:</p>
@@ -647,18 +670,14 @@ Trasník</h1>
 <p>Štatistiky → vyberte vozidlo → <b>Kniha jázd a export</b> → <b>👥 Spoločná kniha jázd (všetci vodiči)</b>. Stiahne zo servera jazdy <b>všetkých</b> vodičov tohto vozidla za obdobie a pripraví tlač / PDF so stĺpcom <b>Vodič</b> a súčtom km po vodičoch. Vyžaduje pripojenie na internet. Jazdy iného vodiča môžete vidieť, ale nemôžete ich meniť ani mazať.</p>
 
 <h2 id="offline">25. Offline mapy</h2>
-<p>Mapy sa sťahujú z internetu. Každá prezretá časť mapy sa v telefóne ukladá a zobrazí sa aj bez signálu. Vopred si môžete uložiť celú oblasť:</p>
-<ol>
-  <li>Nastavenia → Mapa → <b>Offline mapy – uložiť oblasť</b>.</li>
-  <li>Posuňte a priblížte mapu na oblasť (mesto, trasa do práce, cieľ dovolenky).</li>
-  <li>Zvoľte podrobnosť: <b>Mestá</b>, <b>Ulice</b>, <b>Detail</b> alebo <b>Max.</b> Aplikácia ukáže počet dlaždíc a približnú veľkosť (najviac 15 000 dlaždíc naraz – pri väčšej oblasti ju uložte po častiach).</li>
-  <li><b>Uložiť túto oblasť</b> – priebeh sa zobrazuje pod mapou.</li>
-</ol>
+<p>Mapy sa sťahujú z internetu. <b>Každá prezretá časť mapy sa v telefóne ukladá na 30 dní</b> a zobrazí sa aj bez signálu – stačí si oblasť (trasu do práce, cieľ dovolenky) raz pozrieť pri rôznych priblíženiach, kým ste na Wi-Fi.</p>
 <ul>
-  <li>Ukladať sa dajú podklady <b>Podrobná, Svetlá, Tmavá a Satelit</b> (Esri). Klasická (OpenStreetMap) a Turistická (OpenTopoMap) hromadné sťahovanie nedovoľujú – tie sa ukladajú len pri prezeraní.</li>
+  <li><b>Hromadné sťahovanie celých oblastí je od verzie 2.0 vypnuté</b>: aplikácia používa iba OpenStreetMap a OpenTopoMap a ich pravidlá hromadné sťahovanie nepovoľujú (servery sú zadarmo a prevádzkujú ich dobrovoľníci). Obrazovka <i>Nastavenia → Mapa → Offline mapy – uložené dlaždice</i> ukazuje uložené mapy, režim offline a vymazanie.</li>
   <li><b>Režim offline</b> (Nastavenia → Mapa alebo na obrazovke Offline mapy) – mapy nesťahujú nič z internetu, zobrazia sa iba uložené časti. Hodí sa v roamingu.</li>
   <li><b>Miesto pre uložené mapy</b> – limit veľkosti (predvolene 500 MB); pri prekročení sa najstaršie dlaždice vymažú. <b>Vymazať</b> odstráni všetky uložené mapy.</li>
 </ul>
+<h3>Preriedenie starých trás</h3>
+<p><b>Nastavenia → Mapa a offline mapy → Preriediť staré trasy</b> – šetrí miesto v telefóne pri dlhom používaní. Nastavíte, po koľkých mesiacoch (0 = nikdy, predvolené). V trasách starších jázd potom ostane bod približne <b>každých 60 m</b> (v zákrutách hustejšie), prvý a posledný bod a všetky udalosti (brzdenie, prekročenie) ostanú. <b>Mažú sa iba body, ktoré už sú na serveri</b> – tam ostáva plná trasa. Kilometre, časy, kniha jázd a štatistiky sa nemenia. Prebieha samo raz týždenne, alebo tlačidlom <i>Preriediť teraz</i>.</p>
 
 <h2 id="web">26. Webový prehľad na počítači</h2>
 <p>Na serveri je aj moderný webový dashboard (Bootstrap), kde jazdy a chôdzu prezeráte na počítači alebo tablete. Adresu nastaví správca servera, napr. <code>https://vas-server/cartracking/web/</code>. Prihlásite sa rovnakým e-mailom a heslom ako v aplikácii; prihlásenie si stránka môže zapamätať (iba v tomto prehliadači).</p>
@@ -705,16 +724,16 @@ Trasník</h1>
   <tr><td>Účet, server a záloha</td><td>Meno a e-mail, stiahnutie údajov zo servera, kontrola zálohy na serveri, adresa servera, synchronizácia, záloha do súboru, odhlásenie.</td></tr>
   <tr><td>Detekcia jazdy</td><td>Automatické sledovanie, štart po reštarte, rýchlosť a čas potvrdenia, ukončenie po státí, minimálna dĺžka, GPS.</td></tr>
   <tr><td>Chôdza a kroky</td><td>Sledovanie chôdze, pracovný čas, meranie vzdialenosti (kroky / GPS), dĺžka kroku a jej kalibrácia, ciele.</td></tr>
-  <tr><td>Vozidlá, miesta, tankovanie</td><td>Správa vozidiel, Bluetooth, miesta, pripomienky, tankovanie, časté trasy.</td></tr>
-  <tr><td>Kniha jázd a zlučovanie</td><td>Predvolený typ jazdy, adresy, účel jazdy automaticky (notifikácia, učenie, pravidlá), kontrola jázd, automatické zlučovanie.</td></tr>
-  <tr><td>Štýl jazdy a rýchlosť</td><td>Hodnotenie štýlu, limity podľa typu cesty, tolerancia, upozornenie.</td></tr>
+  <tr><td>Vozidlá, miesta, tankovanie</td><td>Správa vozidiel, Bluetooth, miesta, pripomienky, tankovanie, náklady na auto, časté trasy.</td></tr>
+  <tr><td>Kniha jázd a zlučovanie</td><td>Predvolený typ jazdy, adresy, šablóny účelu, účel jazdy automaticky (notifikácia, učenie, pravidlá), kontrola jázd, automatické zlučovanie.</td></tr>
+  <tr><td>Štýl jazdy a rýchlosť</td><td>Hodnotenie štýlu, spôsob určenia limitu, tolerancia, upozornenie, uložené limity z mapy, moje limity.</td></tr>
   <tr><td>Zvuky</td><td>Zvuky udalostí, hlasitosť, prehrávanie aj v tichom režime.</td></tr>
   <tr><td>Notifikácie a zhrnutia</td><td>Oznámenia, vibrácie, mesačné zhrnutie.</td></tr>
-  <tr><td>Mapa a offline mapy</td><td>Typ mapy, režim offline, veľkosť uložených máp, uloženie oblasti.</td></tr>
+  <tr><td>Mapa a offline mapy</td><td>Typ mapy (OpenStreetMap svetlá / tmavá, turistická), režim offline, veľkosť uložených máp, preriedenie starých trás.</td></tr>
   <tr><td>Widgety, lišta a skratky</td><td>Pridanie tlačidiel do lišty, skratky na ikone, informácie o widgetoch.</td></tr>
   <tr><td>Vzhľad a zabezpečenie</td><td>Téma, prihlásenie odtlačkom.</td></tr>
   <tr><td>Diagnostika a povolenia</td><td>Diagnostika detekcie, kontrola povolení.</td></tr>
-  <tr><td>Pomoc</td><td>Tento návod.</td></tr>
+  <tr><td>Pomoc a aktualizácie</td><td>Tento návod, upozornenie na novú verziu a aktualizácia aplikácie z GitHubu.</td></tr>
 </table>
 <div class="tip"><b>Všetky nastavenia</b> – aj nové (kalibrácia tachometra a kroku, diagnostika, offline mapy, ciele…) – sa automaticky ukladajú na server a po prihlásení na novom telefóne sa obnovia (okrem adresy servera a odtlačku prsta).</div>
 <h3>Zvuky</h3>
@@ -782,11 +801,12 @@ Trasník</h1>
   <tr><td>Max. prestávka – auto / chôdza</td><td>10 min / 5 min</td><td>Dlhšia prestávka = nová jazda.</td></tr>
   <tr><td>Max. vzdialenosť konca a začiatku</td><td>1 000 m</td><td>Jazdy iným vozidlom sa nezlučujú.</td></tr>
   <tr><td colspan="3"><b>Miesta, pripomienky, tankovanie, záloha</b></td></tr>
-  <tr><td>Miesta / Pripomienky / Tankovanie</td><td>–</td><td>Pozri samostatné kapitoly.</td></tr>
+  <tr><td>Miesta / Pripomienky / Tankovanie / Náklady na auto</td><td>–</td><td>Pozri samostatné kapitoly.</td></tr>
   <tr><td>Záloha a obnova</td><td>–</td><td>Súbor .ctbak so všetkými údajmi.</td></tr>
   <tr><td colspan="3"><b>Kniha jázd</b></td></tr>
   <tr><td>Predvolený typ jazdy</td><td>súkromná</td><td>Typ novo zaznamenanej jazdy.</td></tr>
   <tr><td>Zisťovať adresy</td><td>zapnuté</td><td>Ulica a obec začiatku a cieľa. Obec sa určuje podľa OpenStreetMap, ulica podľa Google; adresa sa berie z najpresnejšieho bodu na začiatku a konci jazdy. Tlačidlo <b>Opraviť adresy jázd</b> ich prepočíta za posledných 90 dní.</td></tr>
+  <tr><td>Šablóny účelu jazdy</td><td>Návšteva klienta, Nákup materiálu, Porada, Servis vozidla, Pošta / úrad</td><td>Ťukacie návrhy pod poľom Účel jazdy (jedna na riadok).</td></tr>
   <tr><td>Pýtať sa po jazde v notifikácii</td><td>zapnuté</td><td>Tlačidlá Služobná / Súkromná po skončení jazdy.</td></tr>
   <tr><td>Učiť sa z mojich rozhodnutí</td><td>zapnuté</td><td>Rovnaká trasa zaradená 2× rovnako → ďalšie jazdy automaticky.</td></tr>
   <tr><td>V pracovnom čase služobná / V deň voľna súkromná</td><td>vypnuté</td><td>Pravidlá podľa pracovných dní a hodín.</td></tr>
@@ -798,14 +818,17 @@ Trasník</h1>
   <tr><td>Jednotný rýchlostný limit</td><td>130 km/h</td><td>Iba ak je limit podľa typu cesty vypnutý.</td></tr>
   <tr><td>Tolerancia</td><td>5 km/h</td><td>Rezerva pre nepresnosť GPS.</td></tr>
   <tr><td>Upozorniť vibráciou</td><td>vypnuté</td><td>Upozornenie pri prekročení limitu.</td></tr>
+  <tr><td>Limity z mapy uložené v telefóne</td><td>–</td><td>Počet uložených úsekov (30 dní), tlačidlo Vymazať.</td></tr>
   <tr><td colspan="3"><b>Ostatné</b></td></tr>
   <tr><td>Server a synchronizácia</td><td>auto, aj mobilné dáta</td><td>Adresa API, automatické odosielanie, iba cez Wi-Fi.</td></tr>
   <tr><td>Mapa</td><td>podľa témy</td><td>Typ mapových podkladov.</td></tr>
   <tr><td>Režim offline</td><td>vypnuté</td><td>Mapy iba z uložených dlaždíc.</td></tr>
   <tr><td>Miesto pre uložené mapy</td><td>500 MB</td><td>Limit vyrovnávacej pamäte máp (prejaví sa po reštarte aplikácie).</td></tr>
-  <tr><td>Offline mapy – uložiť oblasť</td><td>–</td><td>Kapitola Offline mapy.</td></tr>
+  <tr><td>Offline mapy – uložené dlaždice</td><td>–</td><td>Kapitola Offline mapy.</td></tr>
+  <tr><td>Preriediť trasy staršie ako</td><td>nikdy</td><td>Body starých jázd (už na serveri) sa preriedia na ~60 m.</td></tr>
   <tr><td>Tlačidlá v rýchlej lište</td><td>–</td><td>Pridanie dlaždíc Jazda a Chôdza (Android 13+).</td></tr>
-  <tr><td>Mesačné zhrnutie</td><td>zapnuté</td><td>Notifikácia 1. deň v mesiaci.</td></tr>
+  <tr><td>Mesačné zhrnutie</td><td>zapnuté</td><td>Notifikácia 1. deň v mesiaci s tlačidlami Kniha jázd – PDF / Excel za minulý mesiac.</td></tr>
+  <tr><td>Upozorniť na novú verziu</td><td>zapnuté</td><td>Raz denne kontrola GitHubu, notifikácia a aktualizácia jedným ťuknutím.</td></tr>
   <tr><td>Zaznamenávať diagnostiku</td><td>zapnuté</td><td>Záznam udalostí detekcie v telefóne (kapitola Diagnostika detekcie).</td></tr>
   <tr><td>Zabezpečenie</td><td>vypnuté</td><td>Prihlásenie odtlačkom prsta.</td></tr>
   <tr><td>Vzhľad</td><td>podľa systému</td><td>Svetlá alebo tmavá téma.</td></tr>
@@ -845,7 +868,7 @@ Trasník</h1>
   <tr><td>Po prihlásení na novom telefóne chýbajú jazdy</td><td>Pozrite na Prehľad – sťahovanie môže ešte bežať alebo čakať na internet. Ak zlyhalo, ťuknite na Skúsiť znova. Na server sa dostanú iba jazdy, ktoré starý telefón stihol odoslať.</td></tr>
   <tr><td>Zdieľanie: „Používateľ s týmto e-mailom nemá účet“</td><td>Vodič sa musí najprv zaregistrovať v aplikácii na rovnakom serveri (rovnaká adresa API).</td></tr>
   <tr><td>Zdieľané vozidlo sa neobjavilo</td><td>Otvorte Nastavenia → Vozidlá (stiahne sa zo servera) alebo počkajte na synchronizáciu. Musíte byť online.</td></tr>
-  <tr><td>Offline mapa je sivá</td><td>Oblasť nebola uložená v danej podrobnosti alebo je zvolený iný podklad. Uložte oblasť pre aktuálny typ mapy, prípadne vypnite Režim offline.</td></tr>
+  <tr><td>Offline mapa je sivá</td><td>Táto časť mapy nebola prezretá v danom priblížení (alebo pri inom type mapy – svetlá a tmavá OpenStreetMap zdieľajú tie isté dlaždice). Pozrite si ju raz online, prípadne vypnite Režim offline.</td></tr>
   <tr><td>Tlačidlo v rýchlej lište nič nerobí</td><td>Najprv sa prihláste v aplikácii. Pri niektorých telefónoch sa aplikácia na okamih otvorí – to je v poriadku.</td></tr>
   <tr><td>Jazda sa nespustila automaticky</td><td>Skontrolujte Povolenia (všetky zelené) a výnimku z batérie. Rozpoznanie trvá 30 s – 2 min od rozbehnutia. Pri telefónoch Xiaomi/Huawei zapnite Automatické spustenie.</td></tr>
   <tr><td>Zaznamenala sa jazda autobusom</td><td>Zmažte ju v detaile jazdy. Do budúcna použite Bluetooth auta a voľbu „Sledovať iba keď je pripojené auto“.</td></tr>
@@ -860,12 +883,13 @@ Trasník</h1>
   <tr><td>Jazdy sa neodosielajú</td><td>Prehľad → Synchronizovať teraz. Skontrolujte voľbu „Iba cez Wi-Fi“.</td></tr>
   <tr><td>Nezobrazuje sa adresa</td><td>Adresa sa zisťuje pri konci jazdy a potrebuje internet. Bez pripojenia ostane prázdna.</td></tr>
   <tr><td>Nesprávna obec (napr. okresné mesto namiesto dediny)</td><td>Od verzie 2.0 sa obec zisťuje z OpenStreetMap a stará uložená poloha zo začiatku jazdy sa ignoruje. Staršie jazdy opravíte v <b>Nastavenia → Kniha jázd a zlučovanie → Opraviť adresy jázd</b>. Ak Google ani OpenStreetMap obec nepoznajú, zobrazí sa „okres …“.</td></tr>
-  <tr><td>Mapa je sivá</td><td>Mapové podklady potrebujú internet. Skúste iný typ mapy. Šedé mapy Esri majú najviac detailov do priblíženia 16, pri väčšom priblížení zvoľte Podrobnú alebo Klasickú.</td></tr>
+  <tr><td>Mapa je sivá</td><td>Mapové podklady potrebujú internet (alebo vypnite Režim offline). Turistická mapa má detaily najviac do priblíženia 17.</td></tr>
   <tr><td>Jazda sa priradila zlému vozidlu</td><td>V detaile jazdy ťuknite na Vozidlo → Zmeniť. Do budúcna priraďte vozidlám Bluetooth – prepnú sa samy.</td></tr>
   <tr><td>Chôdza sa nezaznamenáva</td><td>Skontrolujte Nastavenia → Chôdza (zapnuté, pracovný čas) a povolenie Fyzická aktivita (potrebné aj pre krokomer).</td></tr>
   <tr><td>Nesprávny limit (obec / mimo obce)</td><td>Ťuknite počas jazdy na správny typ cesty na Prehľade. Údaje pochádzajú z OpenStreetMap a nemusia byť všade úplné.</td></tr>
   <tr><td>Chôdza sa ukladá príliš často</td><td>Zvýšte Minimálnu vzdialenosť alebo zapnite Iba v pracovnom čase.</td></tr>
-  <tr><td>Aplikácia sa nedá aktualizovať</td><td>Staré skúšobné verzie (build 1–3) raz odinštalujte. Od verzie 1.1 aktualizácia funguje priamo.</td></tr>
+  <tr><td>Aplikácia sa nedá aktualizovať</td><td>Staré skúšobné verzie (build 1–3) raz odinštalujte. Od verzie 1.1 aktualizácia funguje priamo. Pri aktualizácii z aplikácie povoľte Trasníku <i>Inštalovať neznáme aplikácie</i>.</td></tr>
+  <tr><td>„Príliš veľa neúspešných pokusov“</td><td>Po 10 zlých heslách na jeden e-mail (alebo 30 z jednej siete) server prihlasovanie na 15 minút zablokuje – ochrana pred hádaním hesla. Počkajte a skúste znova.</td></tr>
   <tr><td>Odtlačok prestal fungovať</td><td>Po pridaní nového odtlačku sa prihláste heslom a v Nastaveniach zapnite biometriu znova.</td></tr>
 </table>
 
@@ -887,17 +911,19 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>migrate_v5.sql</code></td><td>Prechod na verziu 1.5 (miesta, tankovanie, pripomienky).</td></tr>
   <tr><td><code>migrate_v6.sql</code></td><td>Prechod na verziu 1.6 (sadzba náhrady €/km, zdieľané vozidlá).</td></tr>
   <tr><td><code>migrate_v7.sql</code></td><td>Prechod na verziu 1.7 (nastavenia na serveri, Bluetooth adresa vozidla – obnova na novom telefóne).</td></tr>
+  <tr><td><code>migrate_v8.sql</code></td><td>Prechod na verziu 2.0 (ochrana prihlásenia – tabuľka pokusov, výdavky na auto). Bez nej server funguje, len bez obmedzenia pokusov.</td></tr>
 </table>
 <h3>31.3 Tabuľky</h3>
 <table>
   <tr><th>Tabuľka</th><th>Obsah</th></tr>
   <tr><td><code>CarTracking_users</code></td><td>Používatelia (heslo ako bcrypt hash).</td></tr>
-  <tr><td><code>CarTracking_api_tokens</code></td><td>Prihlasovacie tokeny (iba SHA-256 hash, platnosť 90 dní).</td></tr>
+  <tr><td><code>CarTracking_api_tokens</code></td><td>Prihlasovacie tokeny (iba SHA-256 hash). Platnosť 90 dní, používaním sa predlžuje; nepoužívaný token vyprší a vypršané sa priebežne mažú.</td></tr>
+  <tr><td><code>CarTracking_login_attempts</code></td><td>Neúspešné prihlásenia a registrácie (e-mail, IP, čas) na obmedzenie pokusov; mažú sa po 1 dni.</td></tr>
   <tr><td><code>CarTracking_vehicles</code></td><td>Vozidlá: názov, EČV, palivo, spotreba, cena, tachometer, limity, sadzba €/km.</td></tr>
   <tr><td><code>CarTracking_vehicle_shares</code></td><td>Zdieľanie vozidla s ďalšími používateľmi.</td></tr>
   <tr><td><code>CarTracking_settings</code></td><td>Nastavenia aplikácie používateľa (JSON, novšie vyhráva).</td></tr>
   <tr><td><code>CarTracking_trips</code></td><td>Jazdy a chôdza: typ (car/walk), vozidlo, časy, km, kroky, adresy, účel, skóre.</td></tr>
-  <tr><td><code>CarTracking_items</code></td><td>Miesta, tankovania a pripomienky (JSON, novšia verzia vyhráva).</td></tr>
+  <tr><td><code>CarTracking_items</code></td><td>Miesta, tankovania, pripomienky a výdavky na auto (JSON, novšia verzia vyhráva).</td></tr>
   <tr><td><code>CarTracking_trip_points</code></td><td>Body trasy: čas, poloha, rýchlosť, presnosť, udalosť.</td></tr>
 </table>
 <h3>31.4 API</h3>
@@ -911,7 +937,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>GET /trips</code>, <code>GET /trips/{uuid}</code></td><td>Zoznam jázd, detail s bodmi</td></tr>
   <tr><td><code>DELETE /trips/{uuid}</code></td><td>Zmazanie jazdy</td></tr>
   <tr><td><code>POST /vehicles/sync</code>, <code>GET /vehicles</code></td><td>Odoslanie a zoznam vozidiel</td></tr>
-  <tr><td><code>POST /items/sync</code>, <code>GET /items?kind=</code></td><td>Miesta, tankovania, pripomienky</td></tr>
+  <tr><td><code>POST /items/sync</code>, <code>GET /items?kind=</code></td><td>Miesta, tankovania, pripomienky, výdavky (<code>place | refuel | reminder | expense</code>)</td></tr>
   <tr><td><code>GET /trips?from=&amp;to=&amp;type=</code></td><td>Jazdy za obdobie (ms), typ car / walk</td></tr>
   <tr><td><code>GET|POST /vehicles/{uuid}/shares</code></td><td>Zoznam / pridanie zdieľania (vlastník, <code>{email}</code>)</td></tr>
   <tr><td><code>DELETE /vehicles/{uuid}/shares/{user_id}</code></td><td>Zrušenie zdieľania (vlastník alebo sám vodič)</td></tr>
@@ -921,7 +947,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>POST /trips/points</code></td><td>Body trasy až 50 jázd naraz (<code>{uuids:[…]}</code>) – obnova na novom telefóne</td></tr>
 </table>
 <h3>31.5 Webový prehľad</h3>
-<p>Priečinok <code>backend/web</code> skopírujte vedľa priečinka <code>api</code> (napr. <code>/cartracking/web</code>). Stránku tvoria tri súbory – <code>index.html</code>, <code>app.css</code> a <code>app.js</code> – bez inštalácie; API hľadá v <code>../api/</code> (dá sa zmeniť na prihlasovacej obrazovke). Knižnice Bootstrap, Chart.js a Leaflet sa načítavajú z cdnjs.cloudflare.com, DataTables, jQuery a JSZip z cdn.jsdelivr.net.</p>
+<p>Priečinok <code>backend/web</code> skopírujte vedľa priečinka <code>api</code> (napr. <code>/cartracking/web</code>). Stránku tvoria tri súbory – <code>index.html</code>, <code>app.css</code> a <code>app.js</code> – bez inštalácie; API hľadá v <code>../api/</code> (dá sa zmeniť na prihlasovacej obrazovke). Knižnice Bootstrap, Chart.js a Leaflet sa načítavajú z cdnjs.cloudflare.com, DataTables, jQuery a JSZip z cdn.jsdelivr.net, mapové dlaždice z tile.openstreetmap.org.</p>
 
 <h2 id="sukromie">32. Bezpečnosť a súkromie</h2>
 <ul>
@@ -930,8 +956,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <li>Súbor zálohy nie je šifrovaný – obsahuje vaše trasy, uchovávajte ho na bezpečnom mieste.</li>
   <li>Prihlasovací token je v telefóne šifrovaný kľúčom v Android Keystore; heslo sa v telefóne neukladá.</li>
   <li>Na serveri sa heslá ukladajú ako bcrypt hash a tokeny ako SHA-256 hash.</li>
+  <li><b>Ochrana servera (od 2.0):</b> najviac 10 neúspešných prihlásení na e-mail a 30 z jednej IP adresy za 15 minút (potom HTTP 429), najviac 10 registrácií z IP za hodinu; odpovede API majú bezpečnostné hlavičky (<code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>, <code>Referrer-Policy</code>, <code>Cache-Control: no-store</code>); nepoužívaný token vyprší po 90 dňoch.</li>
   <li>Na adresy začiatku a cieľa sa posielajú súradnice začiatku a cieľa geokódovaniu systému Android (Google) a službe Nominatim (OpenStreetMap); dá sa vypnúť v Nastaveniach (Zisťovať adresy).</li>
-  <li>Mapové podklady sa sťahujú od poskytovateľov máp; posielajú sa im iba súradnice zobrazených dlaždíc, nie vaše jazdy.</li>
+  <li>Mapové podklady sa sťahujú z OpenStreetMap / OpenTopoMap; posielajú sa im iba čísla zobrazených dlaždíc, nie vaše jazdy.</li>
   <li>Zdieľané vozidlo: vlastník a vodiči, s ktorými je zdieľané, vidia jazdy <b>tohto vozidla</b> (čas, trasa, účel) – nie vašu chôdzu ani jazdy inými vozidlami. Zdieľanie sa dá kedykoľvek zrušiť.</li>
   <li>Webový prehľad posiela vaše údaje (jazdy, prihlásenie) iba na váš server; knižnice, písmo a mapové dlaždice sťahuje prehliadač z verejných CDN (kapitola 33). Prihlásenie si pamätá len v prehliadači, kde ste ho zaškrtli.</li>
   <li>Na rozpoznanie typu cesty sa počas jazdy približne každých 400 m posiela aktuálna poloha službe Nominatim (OpenStreetMap); pri limitoch zo značiek sa sťahujú cesty v okolí (približne každý kilometer jazdy) zo služby Overpass API. Dá sa vypnúť voľbou Jednotný limit (Nastavenia → Štýl jazdy a rýchlosť).</li>
@@ -948,15 +975,17 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><b>váš server</b><br>(napr. <code>mojadomena.sk</code>)</td><td>API Trasníka – synchronizácia, prihlásenie, záloha, nastavenia, zdieľanie. Posiela sa: jazdy, body trasy, vozidlá, miesta, tankovania, nastavenia.</td><td>IP vášho servera</td><td>jediné miesto s vašimi údajmi</td></tr>
   <tr><td><code>nominatim.openstreetmap.org</code><br>OpenStreetMap Foundation</td><td>Obec v adrese (koniec jazdy, oprava adries) a typ cesty s limitom (počas jazdy každých ~400 m). Posiela sa: GPS súradnice bodu, bez mena a účtu.</td><td class="ip">151.101.1.91<br>151.101.65.91<br>151.101.129.91<br>151.101.193.91</td><td>Fastly<br>151.101.0.0/16</td></tr>
   <tr><td><code>overpass-api.de</code><br><code>overpass.kumi.systems</code> (záložný)<br>OpenStreetMap / Overpass</td><td>Skutočné rýchlostné limity ciest v okolí (pri voľbe „podľa značiek z mapy“), približne každý kilometer jazdy. Posiela sa: obdĺžnik oblasti (~1 × 0,7 km), nie presná poloha.</td><td class="ip">162.55.144.139<br>65.109.112.52<br>193.219.97.30</td><td>Hetzner (Nemecko/Fínsko); záložný server private.coffee</td></tr>
-  <tr><td><code>server.arcgisonline.com</code><br>Esri</td><td>Mapové podklady (svetlá, tmavá, podrobná, satelitná mapa), aj ukladanie offline máp. Posiela sa: číslo dlaždice (oblasť a priblíženie).</td><td class="ip">143.204.204.26<br>143.204.204.56<br>143.204.204.60<br>143.204.204.89</td><td>Amazon CloudFront<br>(<code>*.cloudfront.net</code>)</td></tr>
-  <tr><td><code>tile.openstreetmap.org</code><br><code>a./b./c.tile.openstreetmap.org</code><br>OpenStreetMap Foundation</td><td>„Klasická“ mapa – iba ak je zvolená. Posiela sa: číslo dlaždice.</td><td class="ip">151.101.1.91<br>151.101.65.91<br>151.101.129.91<br>151.101.193.91</td><td>Fastly<br>151.101.0.0/16</td></tr>
-  <tr><td><code>a.tile.opentopomap.org</code><br><code>b.tile.opentopomap.org</code><br><code>c.tile.opentopomap.org</code><br>OpenTopoMap</td><td>„Terénna“ mapa – iba ak je zvolená. Posiela sa: číslo dlaždice.</td><td class="ip">159.195.68.179</td><td>vlastný server (Nemecko)</td></tr>
+  <tr><td><code>tile.openstreetmap.org</code><br><code>a./b./c.tile.openstreetmap.org</code><br>OpenStreetMap Foundation</td><td>Mapové podklady – svetlá aj tmavá mapa (predvolené), ukladanie prezretých dlaždíc na offline použitie. Posiela sa: číslo dlaždice (oblasť a priblíženie).</td><td class="ip">151.101.1.91<br>151.101.65.91<br>151.101.129.91<br>151.101.193.91</td><td>Fastly<br>151.101.0.0/16</td></tr>
+  <tr><td><code>a.tile.opentopomap.org</code><br><code>b.tile.opentopomap.org</code><br><code>c.tile.opentopomap.org</code><br>OpenTopoMap</td><td>„Turistická“ mapa – iba ak je zvolená. Posiela sa: číslo dlaždice.</td><td class="ip">159.195.68.179</td><td>vlastný server (Nemecko)</td></tr>
+  <tr><td><code>api.github.com</code><br>GitHub</td><td>Kontrola novej verzie (raz denne, dá sa vypnúť v Nastavenia → Pomoc a aktualizácie). Posiela sa: bežná požiadavka bez údajov o vás.</td><td class="ip">140.82.112.0/20</td><td>vlastná sieť GitHub (aktuálne rozsahy: <code>api.github.com/meta</code>)</td></tr>
+  <tr><td><code>github.com</code><br><code>objects.githubusercontent.com</code><br>GitHub</td><td>Stiahnutie súboru <code>Trasnik-N.apk</code> – iba keď potvrdíte aktualizáciu.</td><td class="ip">140.82.112.0/20<br>185.199.108.133<br>185.199.109.133<br>185.199.110.133<br>185.199.111.133</td><td>GitHub; súbory cez Fastly (185.199.108.0/22)</td></tr>
   <tr><td><b>servery Google</b><br>(Google Play služby)</td><td>Geokóder Android (ulica a číslo v adrese), poloha cez Wi-Fi a mobilnú sieť, rozpoznanie aktivity. Posiela sa: súradnice začiatku a cieľa; ďalšie podľa nastavení Google v telefóne.</td><td>rôzne</td><td>spravuje systém Android; rozsahy: <code>gstatic.com/ipranges/goog.json</code></td></tr>
 </table>
 <ul>
   <li><b>Žiadna analytika, reklama ani hlásenie chýb tretím stranám</b> – aplikácia nemá Firebase, Crashlytics ani podobné knižnice.</li>
-  <li>Bez pripojenia ku Google a OpenStreetMap aplikácia funguje – chýbať budú len adresy, typ cesty a nové mapové dlaždice.</li>
-  <li>Úplne bez externých služieb (okrem vášho servera): vypnite <b>Zisťovať adresy</b>, pri limite zvoľte <b>Jednotný limit</b> a zapnite <b>Režim offline</b> máp (s vopred uloženou oblasťou). Polohu GPS samotnú (satelity) internet nepotrebuje.</li>
+  <li>Bez pripojenia ku Google a OpenStreetMap aplikácia funguje – chýbať budú len adresy, typ cesty a nové mapové dlaždice (limity z mapy sa berú z uložených úsekov).</li>
+  <li><b>Od verzie 2.0 sa nepoužíva Esri</b> (<code>server.arcgisonline.com</code>) ani v aplikácii, ani na webe – túto adresu už nemusíte povoľovať.</li>
+  <li>Úplne bez externých služieb (okrem vášho servera): vypnite <b>Zisťovať adresy</b>, pri limite zvoľte <b>Jednotný limit</b>, vypnite <b>Upozorniť na novú verziu</b> a zapnite <b>Režim offline</b> máp (s vopred prezretou oblasťou). Polohu GPS samotnú (satelity) internet nepotrebuje.</li>
 </ul>
 
 <h3>Webový prehľad v prehliadači</h3>
@@ -968,13 +997,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>cdn.jsdelivr.net</code></td><td>DataTables (Responsive, Buttons), jQuery, JSZip</td><td class="ip">104.17.207.5<br>104.17.208.5</td><td>jsDelivr cez Cloudflare (104.16.0.0/13); v niektorých krajinách aj Fastly</td></tr>
   <tr><td><code>fonts.googleapis.com</code></td><td>Písmo Inter (štýl)</td><td class="ip">172.253.122.95</td><td>Google</td></tr>
   <tr><td><code>fonts.gstatic.com</code></td><td>Písmo Inter (súbory)</td><td class="ip">192.178.210.94</td><td>Google</td></tr>
-  <tr><td><code>server.arcgisonline.com</code></td><td>Mapové dlaždice (svetlá aj tmavá mapa)</td><td class="ip">143.204.204.26<br>143.204.204.56<br>143.204.204.60<br>143.204.204.89</td><td>Esri cez Amazon CloudFront</td></tr>
+  <tr><td><code>tile.openstreetmap.org</code></td><td>Mapové dlaždice OpenStreetMap (svetlá mapa; tmavá je tá istá mapa prefarbená v prehliadači)</td><td class="ip">151.101.1.91<br>151.101.65.91<br>151.101.129.91<br>151.101.193.91</td><td>OpenStreetMap Foundation cez Fastly (151.101.0.0/16)</td></tr>
 </table>
 <div class="tip">Ak má byť web nezávislý od CDN, stiahnite súbory knižníc na svoj server (napr. do <code>web/lib/</code>) a v <code>index.html</code> prepíšte adresy <code>https://cdnjs…</code> a <code>https://cdn.jsdelivr…</code> na lokálne. Mapové dlaždice a písmo ostanú z internetu (písmo sa pri výpadku nahradí systémovým).</div>
 
 <footer>
   Trasník · Používateľská príručka pre verziu 2.0 · © 2026 Richard Gogola<br>
-  Mapové údaje © Esri, HERE, Garmin, © prispievatelia OpenStreetMap, © OpenTopoMap, snímky © Esri, Maxar.
+  Mapové údaje © prispievatelia OpenStreetMap (ODbL), © OpenTopoMap (CC-BY-SA).
 </footer>
 
 </div>
