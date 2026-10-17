@@ -113,12 +113,13 @@ object Notifications {
 
     fun driveEvent(ctx: Context, started: Boolean, s: AppSettings, summary: String? = null, classify: Classify? = null) {
         if (s.vibrate) vibrate(ctx, s.vibrationPattern)
+        SoundPlayer.event(ctx, if (started) SoundEvent.DRIVE_START else SoundEvent.DRIVE_END, s)
         if (!started && classify != null && s.askCategory) { classifyNotification(ctx, s, summary, classify); return }
         if ((started && !s.notifyOnStart) || (!started && !s.notifyOnStop)) return
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
 
-        val n = NotificationCompat.Builder(ctx, if (s.sound) CH_EVENTS else CH_EVENTS_SILENT)
+        val n = NotificationCompat.Builder(ctx, CH_EVENTS_SILENT)
             .setSmallIcon(R.drawable.ic_car)
             .setContentTitle(if (started) "🚗 Režim jazdy ZAPNUTÝ" else "🅿️ Režim jazdy VYPNUTÝ")
             .setContentText(summary ?: if (started) "Sledujem polohu počas jazdy" else "Jazda bola uložená")
@@ -144,7 +145,7 @@ object Notifications {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val text = (summary ?: "Jazda bola uložená") + "\nÚčel: ${categoryLabel(c.category)} (${c.reason}) – zmeňte tlačidlom nižšie"
-        val n = NotificationCompat.Builder(ctx, if (s.sound && s.notifyOnStop) CH_EVENTS else CH_EVENTS_SILENT)
+        val n = NotificationCompat.Builder(ctx, CH_EVENTS_SILENT)
             .setSmallIcon(R.drawable.ic_car)
             .setContentTitle("🅿️ Jazda skončila · ${categoryLabel(c.category)}?")
             .setContentText(summary ?: "Služobná alebo súkromná?")
@@ -174,6 +175,7 @@ object Notifications {
     /** Začiatok / koniec chôdze – predvolene bez notifikácie a vibrácie (v práci by rušili). */
     fun walkEvent(ctx: Context, started: Boolean, s: AppSettings, summary: String? = null) {
         if (s.walkVibrate) vibrate(ctx, VibrationPattern.SHORT)
+        if (started || summary != null) SoundPlayer.event(ctx, if (started) SoundEvent.WALK_START else SoundEvent.WALK_END, s)
         if (!s.walkNotify) return
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
@@ -211,9 +213,10 @@ object Notifications {
     /** Upozornenie na prekročenie nastavenej rýchlosti (3 krátke vibrácie). */
     fun speedAlert(ctx: Context, speedKmh: Int, limitKmh: Int, zone: String?, s: AppSettings) {
         if (s.vibrate) vibrateRaw(ctx, longArrayOf(0, 150, 100, 150, 100, 150))
+        SoundPlayer.event(ctx, SoundEvent.SPEEDING, s)
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        val n = NotificationCompat.Builder(ctx, if (s.sound) CH_EVENTS else CH_EVENTS_SILENT)
+        val n = NotificationCompat.Builder(ctx, CH_EVENTS_SILENT)
             .setSmallIcon(R.drawable.ic_car)
             .setContentTitle("⚠️ Rýchlosť $speedKmh km/h")
             .setContentText("Limit $limitKmh km/h" + (zone?.let { " ($it)" } ?: ""))

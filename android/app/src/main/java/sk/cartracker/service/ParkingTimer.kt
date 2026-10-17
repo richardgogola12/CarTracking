@@ -14,7 +14,10 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
 import sk.cartracker.R
+import sk.cartracker.appScope
+import sk.cartracker.container
 import sk.cartracker.data.RuntimeState
 import sk.cartracker.ui.MainActivity
 import sk.cartracker.ui.formatTime
@@ -25,7 +28,7 @@ import sk.cartracker.ui.formatTime
  */
 object ParkingTimer {
     const val WARN_MIN = 10
-    const val CH_PARKING = "parking"
+    const val CH_PARKING = "parking_v2"   // nový kanál bez systémového zvuku (pôvodný „parking“ sa zmaže)
     private const val ID_NOTIF = 40
     private const val PREFS = "runtime"
     internal const val ACTION_WARN = "sk.cartracker.parking.WARN"
@@ -37,9 +40,11 @@ object ParkingTimer {
     fun until(ctx: Context): Long? = prefs(ctx).getLong("park_until", 0L).takeIf { it > 0 }
 
     fun createChannel(ctx: Context) {
+        runCatching { ctx.getSystemService(NotificationManager::class.java).deleteNotificationChannel("parking") }
         ctx.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CH_PARKING, "Parkovací lístok", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Upozornenie pred koncom zaplateného parkovania"
+                description = "Upozornenie pred koncom zaplateného parkovania (zvuk sa nastavuje v aplikácii: Nastavenia → Zvuky)"
+                setSound(null, null)
             }
         )
     }
@@ -86,6 +91,8 @@ object ParkingTimer {
 
     internal fun notify(ctx: Context, end: Boolean) {
         val until = until(ctx) ?: return
+        val app = ctx.applicationContext
+        app.appScope.launch { SoundPlayer.event(app, SoundEvent.PARKING, app.container.settings.current()) }
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val park = RuntimeState.parking(ctx)

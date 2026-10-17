@@ -414,12 +414,17 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
             }
         }
 
+        // ---------- Zvuky ----------
+        Group("Zvuky", Icons.AutoMirrored.Filled.VolumeUp, if (!s.sound) "vypnuté" else
+            "zapnuté · hlasitosť ${s.soundVolume} %" + (if (s.soundIgnoreSilent) " · aj v tichom režime" else "")) {
+            Sub("Zvuky udalostí") { SoundSettingsBody(s) { t -> update(t) } }
+        }
+
         // ---------- Notifikácie a zhrnutia ----------
         Group("Notifikácie a zhrnutia", Icons.Filled.Notifications, (if (s.notifyOnStart || s.notifyOnStop) "oznámenia zapnuté" else "bez oznámení") + (if (s.vibrate) " · vibrácie" else "") + (if (s.monthlySummary) " · mesačné zhrnutie" else "")) {
             Sub("Notifikácie a vibrácie") {
                 SwitchRow("Oznámiť zapnutie režimu jazdy", null, s.notifyOnStart) { on -> update { it.copy(notifyOnStart = on) } }
                 SwitchRow("Oznámiť vypnutie režimu jazdy", "So súhrnom jazdy (km, čas, priemer)", s.notifyOnStop) { on -> update { it.copy(notifyOnStop = on) } }
-                SwitchRow("Zvuk notifikácie", null, s.sound) { on -> update { it.copy(sound = on) } }
                 SwitchRow("Vibrovať pri zapnutí / vypnutí", null, s.vibrate) { on -> update { it.copy(vibrate = on) } }
                 if (s.vibrate) {
                     Text("Typ vibrácie", Modifier.padding(horizontal = 16.dp, vertical = 4.dp))

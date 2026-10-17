@@ -124,6 +124,16 @@ data class AppSettings(
     val tripCheck: Boolean = true,
     /** Moje limity – opravy používateľa: "lat,lng,limit[,smer];…" */
     val customLimits: String = "",
+    // Zvuky udalostí (id zo sounds.json, "none", "system" alebo "uri:…")
+    val soundDriveStart: String = "nahor",
+    val soundDriveEnd: String = "nadol",
+    val soundWalkStart: String = "none",
+    val soundWalkEnd: String = "none",
+    val soundSpeeding: String = "varovanie",
+    val soundParking: String = "dingdong",
+    val soundVolume: Int = 80,
+    /** Prehrať aj v tichom režime / pri vibráciách (cez kanál budíka). */
+    val soundIgnoreSilent: Boolean = true,
 ) {
     val workDaySet: Set<Int> get() = workDays.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
 
@@ -232,6 +242,14 @@ class SettingsRepository(private val context: Context) {
         val ADAPTIVE_GPS = booleanPreferencesKey("adaptive_gps")
         val TRIP_CHECK = booleanPreferencesKey("trip_check")
         val CUSTOM_LIMITS = stringPreferencesKey("custom_limits")
+        val SND_DS = stringPreferencesKey("sound_drive_start")
+        val SND_DE = stringPreferencesKey("sound_drive_end")
+        val SND_WS = stringPreferencesKey("sound_walk_start")
+        val SND_WE = stringPreferencesKey("sound_walk_end")
+        val SND_SP = stringPreferencesKey("sound_speeding")
+        val SND_PK = stringPreferencesKey("sound_parking")
+        val SND_VOL = intPreferencesKey("sound_volume")
+        val SND_SILENT = booleanPreferencesKey("sound_ignore_silent")
     }
 
     val flow: Flow<AppSettings> = context.dataStore.data
@@ -322,6 +340,14 @@ class SettingsRepository(private val context: Context) {
             adaptiveGps = p[K.ADAPTIVE_GPS] ?: d.adaptiveGps,
             tripCheck = p[K.TRIP_CHECK] ?: d.tripCheck,
             customLimits = p[K.CUSTOM_LIMITS] ?: d.customLimits,
+            soundDriveStart = p[K.SND_DS] ?: d.soundDriveStart,
+            soundDriveEnd = p[K.SND_DE] ?: d.soundDriveEnd,
+            soundWalkStart = p[K.SND_WS] ?: d.soundWalkStart,
+            soundWalkEnd = p[K.SND_WE] ?: d.soundWalkEnd,
+            soundSpeeding = p[K.SND_SP] ?: d.soundSpeeding,
+            soundParking = p[K.SND_PK] ?: d.soundParking,
+            soundVolume = p[K.SND_VOL] ?: d.soundVolume,
+            soundIgnoreSilent = p[K.SND_SILENT] ?: d.soundIgnoreSilent,
         )
     }
 
@@ -399,5 +425,13 @@ class SettingsRepository(private val context: Context) {
         p[K.ADAPTIVE_GPS] = s.adaptiveGps
         p[K.TRIP_CHECK] = s.tripCheck
         p[K.CUSTOM_LIMITS] = s.customLimits
+        p[K.SND_DS] = s.soundDriveStart
+        p[K.SND_DE] = s.soundDriveEnd
+        p[K.SND_WS] = s.soundWalkStart
+        p[K.SND_WE] = s.soundWalkEnd
+        p[K.SND_SP] = s.soundSpeeding
+        p[K.SND_PK] = s.soundParking
+        p[K.SND_VOL] = s.soundVolume
+        p[K.SND_SILENT] = s.soundIgnoreSilent
     }
 }
