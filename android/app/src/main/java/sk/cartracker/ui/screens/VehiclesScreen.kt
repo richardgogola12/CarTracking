@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ElectricCar
+import androidx.compose.material.icons.filled.Euro
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -84,7 +85,7 @@ fun fuelLabel(type: String) = FUEL_TYPES.firstOrNull { it.first == type }?.secon
 /** Zoznam vozidiel – pridanie, úprava, aktívne vozidlo, Bluetooth, skrytie. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VehiclesScreen(onBack: () -> Unit, onRefuels: (String) -> Unit = {}) {
+fun VehiclesScreen(onBack: () -> Unit, onRefuels: (String) -> Unit = {}, onExpenses: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     val c = ctx.container
     val scope = rememberCoroutineScope()
@@ -150,6 +151,7 @@ fun VehiclesScreen(onBack: () -> Unit, onRefuels: (String) -> Unit = {}) {
                         }
                         if (active) Icon(Icons.Filled.CheckCircle, "Aktívne", tint = MaterialTheme.colorScheme.primary)
                         IconButton(onClick = { onRefuels(v.uuid) }) { Icon(Icons.Filled.LocalGasStation, "Tankovanie") }
+                        IconButton(onClick = { onExpenses(v.uuid) }) { Icon(Icons.Filled.Euro, "Náklady na auto") }
                         if (!v.isShared) IconButton(onClick = { sharing = v }) { Icon(Icons.Filled.Share, "Zdieľať") }
                         IconButton(onClick = { if (v.isShared) sharedInfo = v else editing = v }) { Icon(Icons.Filled.Edit, "Upraviť") }
                     }

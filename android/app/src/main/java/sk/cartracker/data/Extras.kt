@@ -215,6 +215,22 @@ class ReminderRepository(
     }
 }
 
+class ExpenseRepository(private val db: AppDatabase, private val session: SessionStore) {
+    private val dao = db.extrasDao()
+    private fun uid() = session.user()?.id
+
+    fun expenses(vehicleUuid: String): Flow<List<sk.cartracker.data.local.ExpenseEntity>> = uid()?.let { dao.expensesFlow(it, vehicleUuid) } ?: emptyFlow()
+    suspend fun all(): List<sk.cartracker.data.local.ExpenseEntity> = uid()?.let { u -> dao.allExpenses(u).filter { !it.deleted } } ?: emptyList()
+
+    suspend fun save(e: sk.cartracker.data.local.ExpenseEntity): sk.cartracker.data.local.ExpenseEntity {
+        val u = uid() ?: return e
+        val v = e.copy(userId = u, synced = false, updatedAt = System.currentTimeMillis())
+        return if (e.id == 0L) v.copy(id = dao.insertExpense(v)) else v.also { dao.updateExpense(it) }
+    }
+
+    suspend fun delete(e: sk.cartracker.data.local.ExpenseEntity) = save(e.copy(deleted = true))
+}
+
 // =====================================================================
 // Synchronizácia miest, tankovaní a pripomienok na server (generická tabuľka)
 // =====================================================================
@@ -227,7 +243,8 @@ class ItemsSync(private val db: AppDatabase, private val api: ApiProvider, priva
         val places = dao.allPlaces(u).filter { !it.synced }
         val refuels = dao.allRefuels(u).filter { !it.synced }
         val reminders = dao.allReminders(u).filter { !it.synced }
-        val items = places.map { ItemDto("place", it.uuid, it.updatedAt, it.deleted, it) } +
+        val expenses = dao.allExpenses(u).filter { !it.synced }
+        val items = expenses.map { ItemDto("expense", it.uuid, it.updatedAt, it.deleted, it) } + places.map { ItemDto("place", it.uuid, it.updatedAt, it.deleted, it) } +
             refuels.map { ItemDto("refuel", it.uuid, it.updatedAt, it.deleted, it) } +
             reminders.map { ItemDto("reminder", it.uuid, it.updatedAt, it.deleted, it) }
         if (items.isEmpty()) return@withContext
@@ -235,5 +252,6 @@ class ItemsSync(private val db: AppDatabase, private val api: ApiProvider, priva
         places.filter { it.uuid in ok }.forEach { dao.updatePlace(it.copy(synced = true)) }
         refuels.filter { it.uuid in ok }.forEach { dao.updateRefuel(it.copy(synced = true)) }
         reminders.filter { it.uuid in ok }.forEach { dao.updateReminder(it.copy(synced = true)) }
+        expenses.filter { it.uuid in ok }.forEach { dao.updateExpense(it.copy(synced = true)) }
     }
 }

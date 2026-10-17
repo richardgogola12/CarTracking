@@ -126,6 +126,10 @@ data class AppSettings(
     val tripCheck: Boolean = true,
     /** Moje limity – opravy používateľa: "lat,lng,limit[,smer];…" */
     val customLimits: String = "",
+    // 2.0 – šablóny účelu jazdy (oddelené novým riadkom), preriedenie starých bodov (0 = nikdy), kontrola aktualizácií
+    val purposeTemplates: String = "Návšteva klienta\nNákup materiálu\nPorada\nServis vozidla\nPošta / úrad",
+    val thinAfterMonths: Int = 0,
+    val updateCheck: Boolean = true,
     // Zvuky udalostí (id zo sounds.json, "none", "system" alebo "uri:…")
     val soundDriveStart: String = "nahor",
     val soundDriveEnd: String = "nadol",
@@ -244,6 +248,9 @@ class SettingsRepository(private val context: Context) {
         val ADAPTIVE_GPS = booleanPreferencesKey("adaptive_gps")
         val TRIP_CHECK = booleanPreferencesKey("trip_check")
         val CUSTOM_LIMITS = stringPreferencesKey("custom_limits")
+        val PURPOSES = stringPreferencesKey("purpose_templates")
+        val THIN_MONTHS = intPreferencesKey("thin_after_months")
+        val UPDATE_CHECK = booleanPreferencesKey("update_check")
         val SND_DS = stringPreferencesKey("sound_drive_start")
         val SND_DE = stringPreferencesKey("sound_drive_end")
         val SND_WS = stringPreferencesKey("sound_walk_start")
@@ -342,6 +349,9 @@ class SettingsRepository(private val context: Context) {
             adaptiveGps = p[K.ADAPTIVE_GPS] ?: d.adaptiveGps,
             tripCheck = p[K.TRIP_CHECK] ?: d.tripCheck,
             customLimits = p[K.CUSTOM_LIMITS] ?: d.customLimits,
+            purposeTemplates = p[K.PURPOSES] ?: d.purposeTemplates,
+            thinAfterMonths = p[K.THIN_MONTHS] ?: d.thinAfterMonths,
+            updateCheck = p[K.UPDATE_CHECK] ?: d.updateCheck,
             soundDriveStart = p[K.SND_DS] ?: d.soundDriveStart,
             soundDriveEnd = p[K.SND_DE] ?: d.soundDriveEnd,
             soundWalkStart = p[K.SND_WS] ?: d.soundWalkStart,
@@ -427,6 +437,9 @@ class SettingsRepository(private val context: Context) {
         p[K.ADAPTIVE_GPS] = s.adaptiveGps
         p[K.TRIP_CHECK] = s.tripCheck
         p[K.CUSTOM_LIMITS] = s.customLimits
+        p[K.PURPOSES] = s.purposeTemplates
+        p[K.THIN_MONTHS] = s.thinAfterMonths
+        p[K.UPDATE_CHECK] = s.updateCheck
         p[K.SND_DS] = s.soundDriveStart
         p[K.SND_DE] = s.soundDriveEnd
         p[K.SND_WS] = s.soundWalkStart

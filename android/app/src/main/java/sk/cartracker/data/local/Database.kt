@@ -140,6 +140,31 @@ data class RefuelEntity(
     val pricePerUnit: Double get() = if (liters > 0) totalPrice / liters else 0.0
 }
 
+/** Druhy výdavkov na auto (okrem paliva – to je v tankovaní). */
+val EXPENSE_TYPES = listOf(
+    "service" to "Servis a opravy", "insurance" to "Poistenie (PZP, havarijné)", "vignette" to "Diaľničná známka",
+    "tax" to "Daň / STK / EK", "tires" to "Pneumatiky", "parking" to "Parkovanie", "wash" to "Umytie / kozmetika",
+    "toll" to "Mýto a poplatky", "leasing" to "Splátka / leasing", "other" to "Iné",
+)
+fun expenseLabel(type: String) = EXPENSE_TYPES.firstOrNull { it.first == type }?.second ?: "Iné"
+
+/** Výdavok na auto (servis, poistenie, známka, parkovanie…). */
+@Entity(tableName = "expenses", indices = [Index("uuid", unique = true), Index("userId"), Index("vehicleUuid")])
+data class ExpenseEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val uuid: String,
+    val userId: Int,
+    val vehicleUuid: String,
+    val ts: Long,
+    val type: String = "other",
+    val amount: Double,
+    val odometerKm: Int = 0,
+    val note: String = "",
+    val deleted: Boolean = false,
+    val synced: Boolean = false,
+    val updatedAt: Long = System.currentTimeMillis(),
+)
+
 val REMINDER_KINDS = listOf(
     "stk" to "STK", "ek" to "Emisná kontrola", "oil" to "Výmena oleja", "vignette" to "Diaľničná známka",
     "insurance" to "PZP / havarijné poistenie", "tires" to "Prezutie pneumatík", "service" to "Servisná prehliadka", "custom" to "Iné",
@@ -183,6 +208,13 @@ interface ExtrasDao {
     @Query("SELECT * FROM refuels WHERE userId = :userId AND deleted = 0 ORDER BY ts DESC") fun allRefuelsFlow(userId: Int): Flow<List<RefuelEntity>>
     @Query("SELECT * FROM refuels WHERE userId = :userId") suspend fun allRefuels(userId: Int): List<RefuelEntity>
     @Query("SELECT * FROM refuels WHERE uuid = :uuid") suspend fun refuel(uuid: String): RefuelEntity?
+
+    @Insert suspend fun insertExpense(e: ExpenseEntity): Long
+    @Update suspend fun updateExpense(e: ExpenseEntity)
+    @Query("SELECT * FROM expenses WHERE userId = :userId AND vehicleUuid = :vehicle AND deleted = 0 ORDER BY ts DESC")
+    fun expensesFlow(userId: Int, vehicle: String): Flow<List<ExpenseEntity>>
+    @Query("SELECT * FROM expenses WHERE userId = :userId") suspend fun allExpenses(userId: Int): List<ExpenseEntity>
+    @Query("SELECT * FROM expenses WHERE uuid = :uuid") suspend fun expense(uuid: String): ExpenseEntity?
 
     @Insert suspend fun insertReminder(r: ReminderEntity): Long
     @Update suspend fun updateReminder(r: ReminderEntity)
@@ -257,6 +289,7 @@ interface TripDao {
     /** Jazda, ktorá na serveri chýba – odošle sa znova celá aj s bodmi. */
     @Query("UPDATE points SET synced = 0 WHERE tripId = :tripId") suspend fun markPointsUnsynced(tripId: Long)
     @Query("UPDATE points SET event = NULL, synced = 0 WHERE id IN (:ids)") suspend fun clearPointEvents(ids: List<Long>)
+    @Query("DELETE FROM points WHERE id IN (:ids) AND synced = 1") suspend fun deleteSyncedPoints(ids: List<Long>)
     @Query("SELECT * FROM trips WHERE userId = :userId AND finished = 1 AND type = 'car' AND speedingSec > 0 AND startedAt >= :from ORDER BY startedAt DESC")
     suspend fun tripsWithSpeeding(userId: Int, from: Long): List<TripEntity>
     /** Rozdelenie jazdy: body od času [fromTs] presunie do novej jazdy. */
@@ -380,9 +413,25 @@ private val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+private val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, uuid TEXT NOT NULL, userId INTEGER NOT NULL,
+                vehicleUuid TEXT NOT NULL, ts INTEGER NOT NULL, type TEXT NOT NULL, amount REAL NOT NULL,
+                odometerKm INTEGER NOT NULL, note TEXT NOT NULL, deleted INTEGER NOT NULL, synced INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL)"""
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_expenses_uuid ON expenses (uuid)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_userId ON expenses (userId)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_expenses_vehicleUuid ON expenses (vehicleUuid)")
+    }
+}
+
 @Database(
-    entities = [TripEntity::class, PointEntity::class, VehicleEntity::class, PlaceEntity::class, RefuelEntity::class, ReminderEntity::class],
-    version = 6, exportSchema = false,
+    entities = [TripEntity::class, PointEntity::class, VehicleEntity::class, PlaceEntity::class, RefuelEntity::class, ReminderEntity::class,
+        ExpenseEntity::class],
+    version = 7, exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tripDao(): TripDao
@@ -391,7 +440,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         fun create(ctx: Context): AppDatabase =
             Room.databaseBuilder(ctx, AppDatabase::class.java, "car_tracking.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .fallbackToDestructiveMigration()
                 .build()
     }

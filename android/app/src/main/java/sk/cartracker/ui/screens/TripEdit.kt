@@ -133,6 +133,7 @@ private fun TripFormDialog(edit: TripEntity?, onDismiss: () -> Unit, onDone: (Lo
                     FilterChip(business, { business = true }, { Text("Služobná") })
                 }
                 OutlinedTextField(note, { note = it }, label = { Text("Účel / poznámka") }, modifier = Modifier.fillMaxWidth())
+                if (type == TYPE_CAR) PurposeChips(note, to.ifBlank { null }) { note = it }
                 Text(if (edit == null) "Ručný záznam nemá trasu na mape; v knihe jázd, štatistikách a náhradách sa počíta normálne."
                     else "Trasa GPS ostane, ako bola. Zmenené km a časy sa použijú v knihe jázd, štatistikách aj náhradách; zmena sa odošle na server.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

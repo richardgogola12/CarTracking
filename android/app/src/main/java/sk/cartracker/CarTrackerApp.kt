@@ -34,6 +34,7 @@ class AppContainer(ctx: Context) {
     val vehicles = VehicleRepository(db, session, settings, api, ctx)
     val places = PlacesRepository(db, session)
     val refuels = RefuelRepository(db, session)
+    val expenses = sk.cartracker.data.ExpenseRepository(db, session)
     val reminders = ReminderRepository(db, session, trips, vehicles)
     val items = ItemsSync(db, api, session)
 }
@@ -62,6 +63,8 @@ class CarTrackerApp : Application() {
             Configuration.getInstance().tileFileSystemCacheTrimBytes = mb * 1024 * 1024 * 85 / 100
         }
         sk.cartracker.sync.ReminderWorker.schedule(this)
+        sk.cartracker.sync.UpdateWorker.schedule(this)
+        sk.cartracker.sync.PointThinning.schedule(this)
         sk.cartracker.widget.CarWidget.updateAll(this)
 
         // Widgety sa obnovia pri každej zmene jázd (úprava, zmazanie, zlúčenie, synchronizácia…) a po polnoci

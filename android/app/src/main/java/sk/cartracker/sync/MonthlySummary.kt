@@ -23,7 +23,7 @@ import kotlin.math.roundToInt
 
 /** Prvý deň v mesiaci pošle zhrnutie predchádzajúceho mesiaca s porovnaním. */
 object MonthlySummary {
-    private val MONTHS = listOf("január", "február", "marec", "apríl", "máj", "jún", "júl", "august", "september", "október", "november", "december")
+    val MONTHS = listOf("január", "február", "marec", "apríl", "máj", "jún", "júl", "august", "september", "október", "november", "december")
 
     data class Totals(val km: Double, val trips: Int, val cost: Double, val businessKm: Double, val steps: Int, val walkKm: Double)
 
@@ -92,6 +92,16 @@ object MonthlySummary {
             .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n") + "\n(porovnanie s predchádzajúcim mesiacom)"))
             .setAutoCancel(true)
             .setContentIntent(open)
+            .apply {
+                // kniha jázd za minulý mesiac jedným ťuknutím
+                if (t.trips > 0) {
+                    fun act(code: Int, what: String) = PendingIntent.getActivity(ctx, code,
+                        Intent(ctx, MainActivity::class.java).setAction("sk.cartracker.shortcut.$what").addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                    addAction(R.drawable.ic_car, "Kniha jázd – PDF", act(52, "LOGBOOK_PDF"))
+                    addAction(R.drawable.ic_car, "Kniha jázd – Excel", act(53, "LOGBOOK_CSV"))
+                }
+            }
             .build()
         NotificationManagerCompat.from(ctx).notify(51, n)
     }

@@ -276,7 +276,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
         }
 
         // ---------- Vozidlá, miesta, tankovanie ----------
-        Group("Vozidlá, miesta, tankovanie", Icons.Filled.LocalGasStation, "vozidlá, Bluetooth, miesta, pripomienky, tankovanie, časté trasy") {
+        Group("Vozidlá, miesta, tankovanie", Icons.Filled.LocalGasStation, "vozidlá, Bluetooth, miesta, pripomienky, tankovanie, náklady, časté trasy") {
             Sub("Vozidlá") {
                 Text("Názov, EČV, palivo, spotreba, cena, tachometer a Bluetooth sa nastavujú pri každom vozidle.",
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -294,6 +294,9 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                 Text("Tankovanie – pri vozidle v časti Vozidlá (ikona pumpy)", Modifier.fillMaxWidth().clickable(onClick = onOpenVehicles).padding(16.dp),
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                Text("Náklady na auto (servis, poistenie, známka… cena za km)", Modifier.fillMaxWidth().clickable {
+                    scope.launch { val v = c.vehicles.active() ?: c.vehicles.all().firstOrNull(); if (v != null) onNavigate("expenses/${v.uuid}") else onOpenVehicles() }
+                }.padding(16.dp), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                 Text("Časté trasy", Modifier.fillMaxWidth().clickable { onNavigate("routes") }.padding(16.dp),
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             }
@@ -326,6 +329,16 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                         }
                     }.padding(horizontal = 16.dp, vertical = 12.dp),
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
+
+            Sub("Šablóny účelu jazdy") {
+                var tpl by remember(s.purposeTemplates) { mutableStateOf(s.purposeTemplates) }
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Ťukacie návrhy pod poľom „Účel jazdy“ v detaile jazdy. Každý účel na samostatný riadok. Okrem nich sa ponúknu účely, ktoré ste použili pri jazdách do toho istého cieľa, a naposledy použité.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(tpl, { tpl = it.take(2000) }, label = { Text("Šablóny (jedna na riadok)") }, minLines = 4, modifier = Modifier.fillMaxWidth())
+                    if (tpl != s.purposeTemplates) Button(onClick = { update { it.copy(purposeTemplates = tpl.trim()) } }) { Text("Uložiť šablóny") }
+                }
             }
 
             Sub("Účel jazdy automaticky") {
@@ -391,6 +404,14 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 SliderRow("Tolerancia", s.speedToleranceKmh, 0..20, 1, "km/h",
                     "O koľko môže GPS rýchlosť prekročiť limit, kým sa to počíta ako prekročenie.") { v -> update { it.copy(speedToleranceKmh = v) } }
                 SwitchRow("Upozorniť vibráciou pri prekročení", "Najviac raz za minútu", s.speedAlert) { on -> update { it.copy(speedAlert = on) } }
+                if (limitMode == 2) {
+                    var tilesCount by remember { mutableStateOf(sk.cartracker.data.SpeedLimits.diskCount()) }
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Limity z mapy uložené v telefóne: $tilesCount úsekov (~1 km², platia 30 dní, fungujú aj bez internetu).",
+                            Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (tilesCount > 0) TextButton(onClick = { sk.cartracker.data.SpeedLimits.clearDisk(); tilesCount = 0 }) { Text("Vymazať") }
+                    }
+                }
             }
             if (limitMode > 0) Sub("Moje limity") {
                 Text("Kde mapa limit nepozná alebo ho má zle, opravte ho v detaile jazdy pri prekročení rýchlosti (Opraviť limit). " +
@@ -465,6 +486,21 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 Text("Offline mapy – uložené dlaždice", Modifier.fillMaxWidth().clickable { onNavigate("offline") }.padding(16.dp),
                     color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             }
+            Sub("Preriediť staré trasy") {
+                SliderRow("Preriediť trasy staršie ako", s.thinAfterMonths, 0..36, 1, "mes.",
+                    "Šetrí miesto v telefóne: v trasách starších jázd ostane bod asi každých 60 m (v zákrutách hustejšie), udalosti ostanú. " +
+                        "Mažú sa len body uložené na serveri – tam ostane plná trasa. Kilometre a kniha jázd sa nemenia. 0 = nepreriedovať.",
+                    format = { if (it == 0) "nikdy" else "$it mes." }) { v -> update { it.copy(thinAfterMonths = v) } }
+                var thinMsg by remember { mutableStateOf<String?>(null) }
+                if (s.thinAfterMonths > 0) Text(thinMsg ?: "Preriediť teraz", Modifier.fillMaxWidth().clickable(enabled = thinMsg == null) {
+                    thinMsg = "Prerieďujem…"
+                    scope.launch {
+                        val n = runCatching { sk.cartracker.sync.PointThinning.run(ctx) }.getOrDefault(0)
+                        thinMsg = null
+                        message = if (n > 0) "Hotovo ✅ Odstránených $n bodov trasy." else "Nie je čo preriediť (jazdy sú už preriedené alebo ešte nie sú na serveri)."
+                    }
+                }.padding(16.dp), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
         }
 
         // ---------- Widgety a rýchla lišta ----------
@@ -535,9 +571,14 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
         }
 
         // ---------- Pomoc ----------
-        Group("Pomoc", Icons.AutoMirrored.Filled.HelpOutline, "návod a dokumentácia, aj na tlač") {
+        Group("Pomoc a aktualizácie", Icons.AutoMirrored.Filled.HelpOutline, "návod a dokumentácia, aktualizácia aplikácie") {
             Sub("Pomoc") {
                 Text("Návod a dokumentácia (aj na tlač)", Modifier.fillMaxWidth().clickable(onClick = onOpenHelp).padding(16.dp))
+            }
+            Sub("Aktualizácie") {
+                SwitchRow("Upozorniť na novú verziu", "Raz denne sa pozrie na GitHub (github.com/richardgogola12/CarTracking), či je nové zostavenie", s.updateCheck) { on -> update { it.copy(updateCheck = on) } }
+                Text("Skontrolovať aktualizáciu teraz", Modifier.fillMaxWidth().clickable { sk.cartracker.ui.MainActivity.showUpdate.value = true }.padding(16.dp),
+                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             }
         }
 

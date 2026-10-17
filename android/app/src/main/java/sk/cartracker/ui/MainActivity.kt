@@ -57,6 +57,8 @@ class MainActivity : FragmentActivity() {
     companion object {
         /** Obrazovka, ktorá sa má otvoriť po odomknutí (napr. zo skratky na ikone). */
         val pendingRoute = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+        /** Zobraziť dialóg aktualizácie (z notifikácie alebo z Nastavení). */
+        val showUpdate = kotlinx.coroutines.flow.MutableStateFlow(false)
         private const val SC = "sk.cartracker.shortcut."
     }
 
@@ -70,6 +72,7 @@ class MainActivity : FragmentActivity() {
         val a = i?.action ?: return
         if (!a.startsWith(SC)) return
         fun toast(t: String) = android.widget.Toast.makeText(this, t, android.widget.Toast.LENGTH_SHORT).show()
+        if (a == SC + "UPDATE") { showUpdate.value = true; return }
         if (!container.session.isLoggedIn) { toast("Najprv sa prihláste"); return }
         val st = sk.cartracker.service.TrackingState.state.value
         when (a.removePrefix(SC)) {
@@ -88,6 +91,14 @@ class MainActivity : FragmentActivity() {
                     runCatching { startActivity(if (nav.resolveActivity(packageManager) != null) nav else geo) }
                         .onFailure { toast("Nenašla sa aplikácia s mapou") }
                 }
+            }
+            "LOGBOOK_PDF" -> lifecycleScope.launch {
+                androidx.core.app.NotificationManagerCompat.from(this@MainActivity).cancel(51)
+                if (!MonthlyLogbook.print(this@MainActivity)) toast("Minulý mesiac nie sú žiadne jazdy autom")
+            }
+            "LOGBOOK_CSV" -> lifecycleScope.launch {
+                androidx.core.app.NotificationManagerCompat.from(this@MainActivity).cancel(51)
+                if (!MonthlyLogbook.shareCsv(this@MainActivity)) toast("Minulý mesiac nie sú žiadne jazdy autom")
             }
             "REFUEL" -> lifecycleScope.launch {
                 val v = container.vehicles.active()
@@ -114,6 +125,8 @@ class MainActivity : FragmentActivity() {
                 }
                 CarTrackerTheme(s.themeMode) {
                     Surface { AppNavigation(start) }
+                    val upd by showUpdate.collectAsStateWithLifecycle()
+                    if (upd) sk.cartracker.ui.screens.UpdateDialog { showUpdate.value = false }
                 }
             }
         }
@@ -147,7 +160,8 @@ private fun AppNavigation(start: String) {
                 onNavigate = { nav.navigate(it) },
             )
         }
-        composable("vehicles") { VehiclesScreen(onBack = { nav.popBackStack() }, onRefuels = { nav.navigate("refuels/$it") }) }
+        composable("vehicles") { VehiclesScreen(onBack = { nav.popBackStack() }, onRefuels = { nav.navigate("refuels/$it") }, onExpenses = { nav.navigate("expenses/$it") }) }
+        composable("expenses/{vehicle}") { sk.cartracker.ui.screens.ExpensesScreen(it.arguments?.getString("vehicle") ?: "", onBack = { nav.popBackStack() }) }
         composable("places") { PlacesScreen(onBack = { nav.popBackStack() }) }
         composable("reminders") { RemindersScreen(onBack = { nav.popBackStack() }) }
         composable("refuels/{vehicle}?add={add}", arguments = listOf(navArgument("add") { type = NavType.BoolType; defaultValue = false })) {

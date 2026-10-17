@@ -112,6 +112,9 @@ object ServerRestore {
                 "refuel" -> if (ex.refuel(it.uuid) == null) {
                     g.fromJson(data, RefuelEntity::class.java)?.let { r -> ex.insertRefuel(r.copy(id = 0, uuid = it.uuid, userId = user.id, synced = true)); nItems++ }
                 }
+                "expense" -> if (ex.expense(it.uuid) == null) {
+                    g.fromJson(data, sk.cartracker.data.local.ExpenseEntity::class.java)?.let { e -> ex.insertExpense(e.copy(id = 0, uuid = it.uuid, userId = user.id, synced = true)); nItems++ }
+                }
                 "reminder" -> if (ex.reminder(it.uuid) == null) {
                     g.fromJson(data, ReminderEntity::class.java)?.let { r -> ex.insertReminder(r.copy(id = 0, uuid = it.uuid, userId = user.id, synced = true)); nItems++ }
                 }

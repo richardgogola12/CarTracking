@@ -27,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -392,6 +393,17 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
 
         if (!walkMode) SectionCard("Kniha jázd a export") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val prevMonth = remember { sk.cartracker.ui.MonthlyLogbook.previousMonth() }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Minulý mesiac (${prevMonth.title}), všetky vozidlá:", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    androidx.compose.material3.FilledTonalButton(enabled = activity != null, onClick = {
+                        scope.launch { activity?.let { if (!sk.cartracker.ui.MonthlyLogbook.print(it)) android.widget.Toast.makeText(ctx, "Minulý mesiac nie sú jazdy autom", android.widget.Toast.LENGTH_SHORT).show() } }
+                    }) { Text("PDF") }
+                    OutlinedButton(onClick = {
+                        scope.launch { if (!sk.cartracker.ui.MonthlyLogbook.shareCsv(ctx)) android.widget.Toast.makeText(ctx, "Minulý mesiac nie sú jazdy autom", android.widget.Toast.LENGTH_SHORT).show() }
+                    }) { Text("Excel") }
+                }
+                HorizontalDivider()
                 if (logbookVehicle == null) {
                     Text("Kniha jázd sa vedie pre každé vozidlo zvlášť – vyberte vozidlo vyššie.", style = MaterialTheme.typography.bodySmall)
                 } else {

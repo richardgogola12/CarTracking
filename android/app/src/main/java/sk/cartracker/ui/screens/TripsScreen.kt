@@ -605,6 +605,7 @@ private fun TripLogbookCard(t: TripEntity, odometer: Double?, onSave: (String, S
             }
             OutlinedTextField(note, { note = it.take(500) }, label = { Text("Účel jazdy / poznámka") },
                 modifier = Modifier.fillMaxWidth(), minLines = 2)
+            PurposeChips(note, t.endPlace ?: t.endAddress) { p -> note = p; onSave(t.category, p) }
             if (note != t.note) TextButton(onClick = { onSave(t.category, note) }) { Text("Uložiť poznámku") }
             odometer?.let {
                 Text("Tachometer: ${it.toLong()} km → ${(it + t.distanceM / 1000).toLong()} km",

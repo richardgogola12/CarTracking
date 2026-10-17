@@ -45,6 +45,7 @@ object Backup {
         val places = ex.allPlaces(user.id).filter { !it.deleted }
         val refuels = ex.allRefuels(user.id).filter { !it.deleted }
         val reminders = ex.allReminders(user.id).filter { !it.deleted }
+        val expenses = ex.allExpenses(user.id).filter { !it.deleted }
         val trips = tripDao.allTrips(user.id).filter { it.finished }
         var points = 0
 
@@ -60,6 +61,7 @@ object Backup {
             w.name("places"); gson.toJson(places, List::class.java, w)
             w.name("refuels"); gson.toJson(refuels, List::class.java, w)
             w.name("reminders"); gson.toJson(reminders, List::class.java, w)
+            w.name("expenses"); gson.toJson(expenses, List::class.java, w)
             w.name("trips").beginArray()
             for (t in trips) {
                 val pts = tripDao.points(t.id)
@@ -109,6 +111,10 @@ object Backup {
                     "refuels" -> readArray(r, RefuelEntity::class.java) { x ->
                         if (ex.refuel(x.uuid) != null) skipped++
                         else { ex.insertRefuel(x.copy(id = 0, userId = user.id, synced = false)); nRef++ }
+                    }
+                    "expenses" -> readArray(r, sk.cartracker.data.local.ExpenseEntity::class.java) { x ->
+                        if (ex.expense(x.uuid) != null) skipped++
+                        else { ex.insertExpense(x.copy(id = 0, userId = user.id, synced = false)); nRef++ }
                     }
                     "reminders" -> readArray(r, ReminderEntity::class.java) { x ->
                         if (ex.reminder(x.uuid) != null) skipped++

@@ -59,6 +59,7 @@ object ServerBackup {
         ex.allPlaces(user.id).filter { !it.deleted && it.uuid !in remoteItems }.forEach { ex.updatePlace(it.copy(synced = false)); nItems++ }
         ex.allRefuels(user.id).filter { !it.deleted && it.uuid !in remoteItems }.forEach { ex.updateRefuel(it.copy(synced = false)); nItems++ }
         ex.allReminders(user.id).filter { !it.deleted && it.uuid !in remoteItems }.forEach { ex.updateReminder(it.copy(synced = false)); nItems++ }
+        ex.allExpenses(user.id).filter { !it.deleted && it.uuid !in remoteItems }.forEach { ex.updateExpense(it.copy(synced = false)); nItems++ }
 
         // nastavenia – ak na serveri ešte nie sú, odošlú sa súčasné
         val noSettings = runCatching { api.settings().updatedAt <= 0 }.getOrDefault(false)
