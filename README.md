@@ -32,6 +32,8 @@ Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nasta
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
 ## Novinky vo verzii 2.0 (zostavenia 2.0.N)
+- **Prihlásenie webu telefónom (QR kód)** – web na záložke *Telefónom* ukáže QR kód a 6-miestny kód; v aplikácii **Nastavenia → Účet → Prihlásiť web (QR kód)** (čítačka Google Play `play-services-code-scanner`, bez povolenia fotoaparátu) alebo *Prihlásiť web kódom*. Pred schválením aplikácia ukáže prehliadač a IP. Odkaz `trasnik://pair?c=…&api=…` otvorí aplikáciu aj z bežného fotoaparátu. Kód platí 5 min, jednorazovo; web sa prihlási sám (kontrola každé 2 s). Server: `/pair/*`, databáza `backend/migrate_v9.sql`. Kód: `ui/screens/WebPairing.kt`, test `WebPairTest`.
+- **Podrobný prehľad chôdze** (Štatistiky → Chôdza → Podrobný prehľad chôdze, `ui/screens/WalkStatsScreen.kt`, výpočty `data/WalkAnalytics.kt` s testami) – obdobia 7/30/90 dní, tento rok, 12 mesiacov; 10 ukazovateľov, grafy krokov po dňoch, rok v krokoch, hodiny dňa, dni v týždni, vývoj tempa, dĺžky chôdzí; tabuľky po dňoch, týždňoch, mesiacoch a najdlhšie chôdze (triedenie, súčty, CSV).
 - **Widgety – nový dizajn**: žiara podľa stavu, ikony, dlaždice, gradientné grafy, krúžok s percentom, náčrt trasy poslednej jazdy; hlavný widget sa prispôsobí výške (4×2 až 4×5); nový widget **Posledná jazda** s prepínačom Súkromná/Služobná. Kód: `widget/WidgetRender.kt`, `WidgetArt.kt`, `WidgetModels.kt`. Náhľady vykresľuje test `WidgetPreviewTest` (Robolectric) a CI ich zverejňuje vo vydaní `widget-previews`.
 - **Analýzy aj v aplikácii** (Štatistiky → Analýzy, `ui/screens/AnalyticsScreen.kt`, výpočty `data/Analytics.kt` s testami) – rovnaké grafy (Canvas) a triediteľné tabuľky s pevným prvým stĺpcom, súčtami a CSV.
 - **Web – stránka Analýzy**: grafy vývoj za 12 mesiacov, dĺžka jázd, teplotná mapa deň × hodina, rýchlosť × vzdialenosť, štýl jazdy po týždňoch; tabuľky po mesiacoch, najčastejšie ciele, dni v týždni a štýl po týždňoch (triedenie, hľadanie, Excel/CSV/tlač, súčty).
@@ -149,7 +151,8 @@ adresa servera, automatická synchronizácia, iba cez Wi-Fi · odtlačok prsta �
    Webový dashboard: celý priečinok `backend/web` (3 súbory) skopírujte vedľa neho (`htdocs/cartracking/web`) – otvorí sa na `https://SERVER/cartracking/web/`.
 4. Apache potrebuje `mod_rewrite` (súbor `.htaccess` je priložený). Pre nginx:
    `location /cartracking/api/ { try_files $uri /cartracking/api/index.php$is_args$args; }`
-5. Test: `curl -X POST http://SERVER/cartracking/api/login -d '{"email":"a@b.sk","password":"x"}'` → JSON s chybou = API beží.
+5. Prihlásenie webu z telefónu (QR) potrebuje tabuľku z `backend/migrate_v9.sql` (nová inštalácia ju má v `schema.sql`).
+6. Test: `curl -X POST http://SERVER/cartracking/api/login -d '{"email":"a@b.sk","password":"x"}'` → JSON s chybou = API beží.
 
 > Aplikácia aj webový prehľad vyžadujú **HTTPS** (nešifrované spojenie aplikácia odmietne).
 
@@ -180,7 +183,7 @@ Okrem vášho servera (HTTPS 443). IP sú snímka z 14. 10. 2026 – za CDN sa m
 | `api.github.com` | aplikácia | kontrola novej verzie (raz denne, dá sa vypnúť) | 140.82.112.0/20 (GitHub) |
 | `github.com`, `objects.githubusercontent.com` | aplikácia | stiahnutie `Trasnik-N.apk` pri aktualizácii | 140.82.112.0/20; 185.199.108–111.133 |
 | servery Google (Play služby) | aplikácia | geokóder (ulica), sieťová poloha, rozpoznanie aktivity | rôzne (Google) |
-| `cdnjs.cloudflare.com` | web | Bootstrap, Icons, Chart.js, Leaflet | 104.17.24.14, 104.17.25.14 (Cloudflare) |
+| `cdnjs.cloudflare.com` | web | Bootstrap, Icons, Chart.js, Leaflet, QR kód | 104.17.24.14, 104.17.25.14 (Cloudflare) |
 | `cdn.jsdelivr.net` | web | DataTables, jQuery, JSZip | 104.17.207.5, 104.17.208.5 (Cloudflare) |
 | `fonts.googleapis.com`, `fonts.gstatic.com` | web | písmo Inter | 172.253.122.95, 192.178.210.94 (Google) |
 
@@ -206,6 +209,9 @@ android/app/src/main/java/sk/cartracker/
 | POST | /register | `{name,email,password}` → `{token,user}` |
 | POST | /login | `{email,password}` → `{token,user}` |
 | POST | /logout | zruší token |
+| POST | /pair/start | web: nový QR / 6-miestny kód (bez tokenu, 5 min) |
+| GET | /pair/status?code= | web: pending / expired / approved + token (iba raz) |
+| POST | /pair/info, /pair/approve | aplikácia: kto žiada a schválenie (`{"code"}` alebo `{"short"}`) |
 | GET | /me | aktuálny používateľ |
 | POST | /trips/sync | idempotentný upsert jázd + bodov |
 | GET | /trips, /trips/{uuid} | zoznam / detail s bodmi |

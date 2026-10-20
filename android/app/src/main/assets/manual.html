@@ -502,6 +502,17 @@ Trasník</h1>
   <li><b>Štýl jazdy po týždňoch</b> – skóre, prudké udalosti na 100 km a % času nad limitom.</li>
   <li><b>Tabuľky</b>: prehľad po mesiacoch, najčastejšie ciele, dni v týždni a štýl po týždňoch. Ťuknutím na <b>nadpis stĺpca</b> tabuľku zoradíte (opätovným ťuknutím opačne), prvý stĺpec ostáva na mieste a ostatné sa posúvajú do strany. V päte sú súčty, ikonou tabuľky ju pošlete do Excelu (CSV). V cieľoch ťuknutím na riadok otvoríte poslednú jazdu do cieľa.</li>
 </ul>
+<h3>Podrobný prehľad chôdze</h3>
+<p><b>Štatistiky → Chôdza → Podrobný prehľad chôdze → Otvoriť</b>. Hore zvolíte obdobie: <i>7 dní, 30 dní, 90 dní, Tento rok, 12 mesiacov</i>.</p>
+<ul>
+  <li><b>Súhrn (10 ukazovateľov)</b> – kroky spolu, Ø krokov za deň, vzdialenosť, čas chôdze, priemerné tempo (min/km), počet chôdzí, dni so splneným cieľom (aj v %), aktívne dni, aktuálna a najdlhšia séria a podiel krokov v pracovnom čase.</li>
+  <li><b>Kroky po dňoch</b> – stĺpce každého dňa, čiara denného cieľa; dni so splneným cieľom sú zvýraznené.</li>
+  <li><b>Rok v krokoch</b> – mriežka posledných 53 týždňov, čím tmavšia, tým viac krokov.</li>
+  <li><b>Kedy chodíte</b> – kroky podľa hodiny dňa (chôdza cez viac hodín sa rozdelí pomerne) a <b>dni v týždni</b> – Ø krokov a % dní so splneným cieľom.</li>
+  <li><b>Vývoj tempa a krokov</b> – po týždňoch, aby bolo vidno, či sa zlepšujete.</li>
+  <li><b>Dĺžka chôdzí</b> – koľko chôdzí má do 500, 500–1000 … nad 10 000 krokov a aký podiel krokov tvoria.</li>
+  <li><b>Tabuľky</b>: po dňoch, po týždňoch, po mesiacoch a najdlhšie chôdze – zoradenie ťuknutím na nadpis stĺpca, súčty v päte, export do Excelu (CSV). Ťuknutím na najdlhšiu chôdzu otvoríte jej detail.</li>
+</ul>
 <h3>Pracovný výkaz chôdze</h3>
 <p>V režime <b>Chôdza</b> karta <b>Pracovný výkaz chôdze</b> spočíta kroky, vzdialenosť a čas chôdze <b>iba v pracovnom čase</b> – dni a hodiny sa berú z Nastavenia → Chôdza (pracovné dni, začiatok a koniec). Chôdza, ktorá začala pred začiatkom práce alebo skončila po nej, sa započíta pomerne podľa času. Tlačidlom <b>Výkaz – tlač / PDF</b> vytlačíte prehľad po dňoch s priemerom na deň, <b>Export do Excelu (CSV)</b> ho uloží ako tabuľku.</p>
 <h3>Mesačné zhrnutie</h3>
@@ -711,7 +722,16 @@ Trasník</h1>
 <p><b>Nastavenia → Mapa a offline mapy → Preriediť staré trasy</b> – šetrí miesto v telefóne pri dlhom používaní. Nastavíte, po koľkých mesiacoch (0 = nikdy, predvolené). V trasách starších jázd potom ostane bod približne <b>každých 60 m</b> (v zákrutách hustejšie), prvý a posledný bod a všetky udalosti (brzdenie, prekročenie) ostanú. <b>Mažú sa iba body, ktoré už sú na serveri</b> – tam ostáva plná trasa. Kilometre, časy, kniha jázd a štatistiky sa nemenia. Prebieha samo raz týždenne, alebo tlačidlom <i>Preriediť teraz</i>.</p>
 
 <h2 id="web">26. Webový prehľad na počítači</h2>
-<p>Na serveri je aj moderný webový dashboard (Bootstrap), kde jazdy a chôdzu prezeráte na počítači alebo tablete. Adresu nastaví správca servera, napr. <code>https://vas-server/cartracking/web/</code>. Prihlásite sa rovnakým e-mailom a heslom ako v aplikácii; prihlásenie si stránka môže zapamätať (iba v tomto prehliadači).</p>
+<p>Na serveri je aj moderný webový dashboard (Bootstrap), kde jazdy a chôdzu prezeráte na počítači alebo tablete. Adresu nastaví správca servera, napr. <code>https://vas-server/cartracking/web/</code>. Prihlásiť sa dá dvoma spôsobmi; prihlásenie si stránka môže zapamätať (iba v tomto prehliadači).</p>
+<h3>Prihlásenie telefónom (QR kód) – bez hesla</h3>
+<ol>
+  <li>Otvorte web na počítači – na záložke <b>Telefónom</b> je <b>QR kód</b> a pod ním <b>6-miestny kód</b>.</li>
+  <li>V telefóne: <b>Nastavenia → Účet, server a záloha → Účet → Prihlásiť web (QR kód)</b> a namierte fotoaparát na obrazovku. QR kód môžete načítať aj bežným fotoaparátom telefónu – otvorí sa Trasník.</li>
+  <li>Aplikácia ukáže, <b>ktorý prehliadač a z akej IP adresy</b> žiada o prihlásenie – ťuknite <b>Prihlásiť</b>. Stránka na počítači sa do 2 sekúnd prihlási sama.</li>
+</ol>
+<p>Ak čítačka QR nefunguje, ťuknite <b>Prihlásiť web kódom</b> a prepíšte 6-miestny kód zo stránky. Kód platí <b>5 minút</b> a dá sa použiť iba raz; po vypršaní sa na stránke sám obnoví. Web a aplikácia musia používať <b>rovnaký server</b> (adresa API) – inak aplikácia upozorní.</p>
+<div class="tip">Potvrďte iba kód, ktorý vidíte na vlastnej obrazovke. Prístup webu zrušíte odhlásením na webe. Na serveri musí byť spustená migrácia <code>migrate_v9.sql</code>.</div>
+<p>Druhá záložka <b>E-mail a heslo</b> funguje ako doteraz – rovnaký e-mail a heslo ako v aplikácii.</p>
 <p><b>Horná lišta</b> platí pre všetky stránky: obdobie <b>Týždeň / Mesiac / Rok</b> s posunom ‹ ›, výber vozidla, obnovenie, svetlý / tmavý režim a menu účtu (tlač, odhlásenie).</p>
 <p>Stránka je <b>responzívna</b> – funguje na počítači, tablete aj mobile. Na mobile je dole <b>navigačná lišta</b> (Prehľad, Jazdy, Mapa, Kniha, Viac), výber obdobia a vozidla sa rozloží na celú šírku a grafy a mapy sa prispôsobia displeju.</p>
 <h3>Stránka Analýzy</h3>
@@ -766,7 +786,7 @@ Trasník</h1>
 <p>Nastavenia sú rozdelené do <b>rozbaľovacích skupín</b>. Pri zbalenej skupine vidíte krátky súhrn aktuálneho stavu (napr. „zapnutá · od 25 km/h · koniec po 4 min státia“); ťuknutím ju rozbalíte.</p>
 <table>
   <tr><th>Skupina</th><th>Obsah</th></tr>
-  <tr><td>Účet, server a záloha</td><td>Meno a e-mail, stiahnutie údajov zo servera, kontrola zálohy na serveri, adresa servera, synchronizácia, záloha do súboru, odhlásenie.</td></tr>
+  <tr><td>Účet, server a záloha</td><td>Meno a e-mail, prihlásenie webu z telefónu (QR), stiahnutie údajov zo servera, kontrola zálohy na serveri, adresa servera, synchronizácia, záloha do súboru, odhlásenie.</td></tr>
   <tr><td>Detekcia jazdy</td><td>Automatické sledovanie, štart po reštarte, rýchlosť a čas potvrdenia, ukončenie po státí, minimálna dĺžka, GPS.</td></tr>
   <tr><td>Chôdza a kroky</td><td>Sledovanie chôdze, pracovný čas, meranie vzdialenosti (kroky / GPS), dĺžka kroku a jej kalibrácia, ciele.</td></tr>
   <tr><td>Vozidlá, miesta, tankovanie</td><td>Správa vozidiel, Bluetooth, miesta, pripomienky, tankovanie, náklady na auto, časté trasy.</td></tr>
@@ -880,7 +900,7 @@ Trasník</h1>
   <tr><td>Zaznamenávať diagnostiku</td><td>zapnuté</td><td>Záznam udalostí detekcie v telefóne (kapitola Diagnostika detekcie).</td></tr>
   <tr><td>Zabezpečenie</td><td>vypnuté</td><td>Prihlásenie odtlačkom prsta.</td></tr>
   <tr><td>Vzhľad</td><td>podľa systému</td><td>Svetlá alebo tmavá téma.</td></tr>
-  <tr><td>Účet</td><td>–</td><td>Stiahnuť údaje a nastavenia zo servera, skontrolovať zálohu na serveri, vymazanie jázd z telefónu, odhlásenie.</td></tr>
+  <tr><td>Účet</td><td>–</td><td>Prihlásiť web (QR kód alebo 6-miestny kód), stiahnuť údaje a nastavenia zo servera, skontrolovať zálohu na serveri, vymazanie jázd z telefónu, odhlásenie.</td></tr>
 </table>
 
 <h2 id="diagnostika">29. Diagnostika detekcie</h2>
@@ -960,6 +980,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>migrate_v6.sql</code></td><td>Prechod na verziu 1.6 (sadzba náhrady €/km, zdieľané vozidlá).</td></tr>
   <tr><td><code>migrate_v7.sql</code></td><td>Prechod na verziu 1.7 (nastavenia na serveri, Bluetooth adresa vozidla – obnova na novom telefóne).</td></tr>
   <tr><td><code>migrate_v8.sql</code></td><td>Prechod na verziu 2.0 (ochrana prihlásenia – tabuľka pokusov, výdavky na auto). Bez nej server funguje, len bez obmedzenia pokusov.</td></tr>
+  <tr><td><code>migrate_v9.sql</code></td><td>Prihlásenie webu z telefónu cez QR kód (tabuľka <code>CarTracking_pairings</code>). Bez nej funguje prihlásenie e-mailom a heslom.</td></tr>
 </table>
 <h3>31.3 Tabuľky</h3>
 <table>
@@ -980,6 +1001,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>POST /register</code></td><td>Registrácia → token</td></tr>
   <tr><td><code>POST /login</code></td><td>Prihlásenie → token</td></tr>
   <tr><td><code>POST /logout</code></td><td>Zrušenie tokenu</td></tr>
+  <tr><td><code>POST /pair/start</code></td><td>Web: nový QR / 6-miestny kód na prihlásenie (bez tokenu, platí 5 min, max. 60 za hodinu z jednej IP)</td></tr>
+  <tr><td><code>GET /pair/status?code=</code></td><td>Web: čaká na potvrdenie – <i>pending</i>, <i>expired</i> alebo <i>approved</i> s tokenom (vydá sa iba raz)</td></tr>
+  <tr><td><code>POST /pair/info</code>, <code>/pair/approve</code></td><td>Aplikácia (prihlásená): kto žiada o prihlásenie a jeho schválenie; telo <code>{"code"}</code> alebo <code>{"short"}</code></td></tr>
   <tr><td><code>GET /me</code></td><td>Aktuálny používateľ</td></tr>
   <tr><td><code>POST /trips/sync</code></td><td>Odoslanie jázd a bodov (opakovateľné bez duplicít)</td></tr>
   <tr><td><code>GET /trips</code>, <code>GET /trips/{uuid}</code></td><td>Zoznam jázd, detail s bodmi</td></tr>
@@ -995,7 +1019,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>POST /trips/points</code></td><td>Body trasy až 50 jázd naraz (<code>{uuids:[…]}</code>) – obnova na novom telefóne</td></tr>
 </table>
 <h3>31.5 Webový prehľad</h3>
-<p>Priečinok <code>backend/web</code> skopírujte vedľa priečinka <code>api</code> (napr. <code>/cartracking/web</code>). Stránku tvoria tri súbory – <code>index.html</code>, <code>app.css</code> a <code>app.js</code> – bez inštalácie; API hľadá v <code>../api/</code> (dá sa zmeniť na prihlasovacej obrazovke). Knižnice Bootstrap, Chart.js a Leaflet sa načítavajú z cdnjs.cloudflare.com, DataTables, jQuery a JSZip z cdn.jsdelivr.net, mapové dlaždice z tile.openstreetmap.org.</p>
+<p>Priečinok <code>backend/web</code> skopírujte vedľa priečinka <code>api</code> (napr. <code>/cartracking/web</code>). Stránku tvoria tri súbory – <code>index.html</code>, <code>app.css</code> a <code>app.js</code> – bez inštalácie; API hľadá v <code>../api/</code> (dá sa zmeniť na prihlasovacej obrazovke). Knižnice Bootstrap, Chart.js, Leaflet a QR kód (qrcode-generator) sa načítavajú z cdnjs.cloudflare.com, DataTables, jQuery a JSZip z cdn.jsdelivr.net, mapové dlaždice z tile.openstreetmap.org.</p>
 
 <h2 id="sukromie">32. Bezpečnosť a súkromie</h2>
 <ul>
@@ -1041,7 +1065,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
 <table class="net">
   <colgroup><col style="width:29%"><col style="width:32%"><col style="width:19%"><col style="width:20%"></colgroup>
   <tr><th>Doména</th><th>Čo sa sťahuje</th><th>IPv4 (14. 10. 2026)</th><th>Prevádzkovateľ / rozsah</th></tr>
-  <tr><td><code>cdnjs.cloudflare.com</code></td><td>Bootstrap, Bootstrap Icons, Chart.js, Leaflet</td><td class="ip">104.17.24.14<br>104.17.25.14</td><td>Cloudflare (104.16.0.0/13)</td></tr>
+  <tr><td><code>cdnjs.cloudflare.com</code></td><td>Bootstrap, Bootstrap Icons, Chart.js, Leaflet, QR kód</td><td class="ip">104.17.24.14<br>104.17.25.14</td><td>Cloudflare (104.16.0.0/13)</td></tr>
   <tr><td><code>cdn.jsdelivr.net</code></td><td>DataTables (Responsive, Buttons), jQuery, JSZip</td><td class="ip">104.17.207.5<br>104.17.208.5</td><td>jsDelivr cez Cloudflare (104.16.0.0/13); v niektorých krajinách aj Fastly</td></tr>
   <tr><td><code>fonts.googleapis.com</code></td><td>Písmo Inter (štýl)</td><td class="ip">172.253.122.95</td><td>Google</td></tr>
   <tr><td><code>fonts.gstatic.com</code></td><td>Písmo Inter (súbory)</td><td class="ip">192.178.210.94</td><td>Google</td></tr>
