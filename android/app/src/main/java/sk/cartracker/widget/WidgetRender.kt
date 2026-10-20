@@ -81,17 +81,21 @@ object WidgetRender {
         v.setTextViewText(R.id.w_status, st.title)
         v.setTextViewText(R.id.w_vehicle, m.vehicle ?: "")
 
-        // ---- rozpočet výšky: čo sa zmestí (hlavička + tlačidlá vždy) ----
+        // ---- rozpočet výšky (dp, zmerané na náhľadoch): hlavička + hlavný blok + dlaždice + tlačidlá, potom čo sa zmestí ----
         val h = if (hDp <= 0) 480 else hDp
-        val compact = h < 235                 // 4 × 2: bez veľkého čísla, km v prvej dlaždici
-        val showChart = h >= 355
-        val showTripRow = h >= 430
-        val showInfoRow = h >= 465
+        val compact = h < 235                 // 4 × 2: bez veľkého čísla (km v prvej dlaždici), počas jazdy menšia rýchlosť
+        val liveNow = m.state == DriveState.DRIVING || m.state == DriveState.WALKING
+        var used = when { compact -> 185; liveNow -> 288; else -> 212 }
+        val showChart = h >= used + 102; if (showChart) used += 102
+        val showTripRow = !liveNow && m.lastTrip != null && h >= used + 84; if (showTripRow) used += 84
+        val infoText = m.reminder ?: m.parkingAddr?.let { a -> "Auto stojí: $a" + (m.parkingSince?.let { " · ${formatDuration(now - it)}" } ?: "") }
+        val showInfoRow = infoText != null && h >= used + 30
 
         // ---- živý blok alebo „dnes“ ----
         val live = m.state == DriveState.DRIVING || m.state == DriveState.WALKING
         v.setViewVisibility(R.id.w_live, if (live) View.VISIBLE else View.GONE)
         v.setViewVisibility(R.id.w_hero, if (live || compact) View.GONE else View.VISIBLE)
+        v.setTextViewTextSize(R.id.w_big, android.util.TypedValue.COMPLEX_UNIT_SP, if (compact) 34f else 46f)
         if (live) {
             v.setChronometer(R.id.w_chrono, SystemClock.elapsedRealtime() - (now - m.liveStartedAt), null, true)
             if (m.state == DriveState.DRIVING) {
@@ -158,7 +162,7 @@ object WidgetRender {
 
         // ---- posledná jazda ----
         val t = m.lastTrip
-        val showTrip = t != null && showTripRow && !live
+        val showTrip = t != null && showTripRow
         v.setViewVisibility(R.id.w_trip, if (showTrip) View.VISIBLE else View.GONE)
         if (showTrip && t != null) {
             v.setImageViewBitmap(R.id.w_trip_map, WidgetArt.route(t.route, (64 * d).toInt(), (52 * d).toInt(), d))
@@ -169,8 +173,8 @@ object WidgetRender {
         }
 
         // ---- pripomienka / parkovanie ----
-        val info = m.reminder ?: m.parkingAddr?.let { a -> "Auto stojí: $a" + (m.parkingSince?.let { " · ${formatDuration(now - it)}" } ?: "") }
-        val showInfo = info != null && showInfoRow
+        val info = infoText
+        val showInfo = showInfoRow
         v.setViewVisibility(R.id.w_info, if (showInfo) View.VISIBLE else View.GONE)
         if (showInfo) {
             v.setTextViewText(R.id.w_info_tx, info)
