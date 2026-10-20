@@ -69,6 +69,8 @@ dependencies {
     // Poloha + rozpoznávanie aktivity (jazda autom)
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+    // Čítačka QR kódu (Google Play služby – bez povolenia fotoaparátu v aplikácii)
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 
     // Lokálna DB (offline buffer) + nastavenia
     implementation("androidx.room:room-runtime:2.6.1")

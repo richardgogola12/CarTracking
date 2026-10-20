@@ -59,6 +59,8 @@ class MainActivity : FragmentActivity() {
         val pendingRoute = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
         /** Zobraziť dialóg aktualizácie (z notifikácie alebo z Nastavení). */
         val showUpdate = kotlinx.coroutines.flow.MutableStateFlow(false)
+        /** Odkaz trasnik://pair?… z QR kódu na webe – potvrdí sa po odomknutí. */
+        val pendingPair = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
         private const val SC = "sk.cartracker.shortcut."
     }
 
@@ -70,6 +72,11 @@ class MainActivity : FragmentActivity() {
     /** Skratky na ikone aplikácie: Začať jazdu / chôdzu, Kde je auto, Tankovanie. */
     private fun handleShortcut(i: android.content.Intent?) {
         val a = i?.action ?: return
+        if (a == android.content.Intent.ACTION_VIEW && i.data?.scheme == "trasnik") {
+            if (!container.session.isLoggedIn) android.widget.Toast.makeText(this, "Najprv sa prihláste v aplikácii", android.widget.Toast.LENGTH_LONG).show()
+            else pendingPair.value = i.dataString
+            return
+        }
         if (!a.startsWith(SC)) return
         fun toast(t: String) = android.widget.Toast.makeText(this, t, android.widget.Toast.LENGTH_SHORT).show()
         if (a == SC + "UPDATE") { showUpdate.value = true; return }
@@ -145,6 +152,9 @@ private fun AppNavigation(start: String) {
         val r = pending ?: return@LaunchedEffect
         if (entry?.destination?.route == "main") { MainActivity.pendingRoute.value = null; nav.navigate(r) }
     }
+    val pair by MainActivity.pendingPair.collectAsStateWithLifecycle()
+    val unlocked = entry?.destination?.route.let { it != null && it != "login" && it != "lock" && it != "register" }
+    if (pair != null && unlocked) sk.cartracker.ui.screens.WebPairDialog(pair!!) { MainActivity.pendingPair.value = null }
     NavHost(nav, startDestination = start) {
         composable("login") { LoginScreen(onLoggedIn = { nav.goClean("main") }, onRegister = { nav.navigate("register") }) }
         composable("register") {

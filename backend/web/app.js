@@ -92,10 +92,52 @@ $("loginForm").addEventListener("submit", async (e) => {
     start();
   } catch (ex) { err.textContent = ex.message; err.classList.remove("d-none"); }
 });
+// ---- Prihlásenie cez QR kód z aplikácie (párovanie) ----
+const PAIR = { code: null, timer: null, until: 0 };
+function stopPairing() { clearTimeout(PAIR.timer); PAIR.timer = null; }
+async function startPairing() {
+  stopPairing();
+  if ($("login").classList.contains("d-none")) return;
+  $("qrState").textContent = "Pripravujem kód…"; $("qrImg").classList.add("dim");
+  try {
+    const r = await api("pair/start", { method: "POST", body: "{}" });
+    PAIR.code = r.code; PAIR.until = Date.now() + r.expires_in * 1000;
+    const text = "trasnik://pair?c=" + r.code + "&api=" + encodeURIComponent(S.api);
+    if (window.qrcode) { const q = qrcode(0, "M"); q.addData(text); q.make(); $("qrImg").innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); }
+    else $("qrImg").innerHTML = '<div class="small text-body-secondary p-3">QR knižnica sa nenačítala – použite kód nižšie</div>';
+    $("qrImg").classList.remove("dim");
+    $("qrShort").textContent = r.short.slice(0, 3) + " " + r.short.slice(3);
+    pollPairing();
+  } catch (e) {
+    $("qrState").textContent = e.message; $("qrShort").textContent = "––– –––";
+    PAIR.timer = setTimeout(startPairing, 15000);
+  }
+}
+async function pollPairing() {
+  if ($("login").classList.contains("d-none")) return stopPairing();
+  const left = Math.max(0, Math.round((PAIR.until - Date.now()) / 1000));
+  $("qrState").textContent = `Čakám na potvrdenie v telefóne · kód platí ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  if (left <= 0) return startPairing();
+  try {
+    const r = await api("pair/status?code=" + PAIR.code);
+    if (r.status === "approved") {
+      stopPairing();
+      const keep = $("rememberQr").checked;
+      S.token = r.token; S.user = r.user;
+      LS.set("ct_api", S.api); LS.set("ct_token", r.token, keep); LS.set("ct_user", JSON.stringify(r.user), keep);
+      start(); toast("Prihlásené cez telefón ✓"); return;
+    }
+    if (r.status === "expired") return startPairing();
+  } catch {}
+  PAIR.timer = setTimeout(pollPairing, 2000);
+}
+$("apiUrl").addEventListener("change", () => { const v = $("apiUrl").value.trim(); if (v) { S.api = v; startPairing(); } });
+
 function logout() {
   if (S.token) fetch((S.api.endsWith("/") ? S.api : S.api + "/") + "logout", { method: "POST", headers: { Authorization: "Bearer " + S.token } }).catch(() => {});
   S.token = null; LS.del("ct_token"); LS.del("ct_user");
   $("app").classList.add("d-none"); $("login").classList.remove("d-none");
+  startPairing();
 }
 $("logoutBtn").onclick = logout;
 function setTheme(t, rerender = true) {
@@ -1238,6 +1280,7 @@ $("vehicleSel").onchange = (e) => { S.vehicle = e.target.value; LS.set("ct_vehic
 $("reload").onclick = async () => { for (const k in pointCache) delete pointCache[k]; S.loadedKey = ""; S.yearKey = ""; await loadBase().catch(() => {}); render(); toast("Údaje obnovené"); };
 
 async function start() {
+  stopPairing();
   $("login").classList.add("d-none"); $("app").classList.remove("d-none");
   $("who").textContent = S.user?.name || ""; $("sideUser").textContent = S.user?.email || S.user?.name || "";
   document.querySelectorAll("#periodSeg button").forEach(x => x.classList.toggle("active", x.dataset.p === S.period));
@@ -1247,4 +1290,4 @@ async function start() {
   loading(false);
   route();
 }
-if (S.token) start(); else $("login").classList.remove("d-none");
+if (S.token) start(); else { $("login").classList.remove("d-none"); startPairing(); }

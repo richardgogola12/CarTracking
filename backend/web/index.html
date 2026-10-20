@@ -31,6 +31,26 @@
         <img class="brand-logo" src="icon.svg" alt="">
         <div><h1 class="h4 mb-0 fw-bold">Trasník</h1><div class="text-body-secondary small">Jazdy, chôdza a kniha jázd na počítači</div></div>
       </div>
+      <ul class="nav nav-pills nav-fill login-tabs mb-3" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tabQr" type="button" role="tab"><i class="bi bi-qr-code-scan me-1"></i>Telefónom</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tabPw" type="button" role="tab"><i class="bi bi-key me-1"></i>E-mail a heslo</button></li>
+      </ul>
+      <div class="tab-content">
+      <div class="tab-pane fade show active" id="tabQr" role="tabpanel">
+        <div class="qr-box text-center">
+          <div id="qrImg" class="qr-img mx-auto" aria-label="QR kód na prihlásenie"></div>
+          <div class="small text-body-secondary mt-2">alebo zadajte v aplikácii kód</div>
+          <div id="qrShort" class="qr-short">––– –––</div>
+          <div id="qrState" class="small text-body-secondary">Pripravujem kód…</div>
+        </div>
+        <ol class="small text-body-secondary mt-3 mb-0 ps-3">
+          <li>Otvorte <b>Trasník</b> v telefóne.</li>
+          <li><b>Nastavenia → Účet → Prihlásiť web (QR kód)</b>.</li>
+          <li>Namierte fotoaparát na kód a potvrďte. Stránka sa prihlási sama.</li>
+        </ol>
+        <div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="rememberQr" checked><label class="form-check-label" for="rememberQr">Zapamätať prihlásenie v tomto prehliadači</label></div>
+      </div>
+      <div class="tab-pane fade" id="tabPw" role="tabpanel">
       <form id="loginForm" class="vstack gap-3">
         <div class="form-floating"><input id="em" type="email" class="form-control" placeholder="e-mail" autocomplete="username" required><label for="em">E-mail</label></div>
         <div class="form-floating"><input id="pw" type="password" class="form-control" placeholder="heslo" autocomplete="current-password" required><label for="pw">Heslo</label></div>
@@ -38,6 +58,8 @@
         <div class="alert alert-danger py-2 small d-none" id="loginErr"></div>
         <button class="btn btn-primary btn-lg w-100" type="submit"><i class="bi bi-box-arrow-in-right me-2"></i>Prihlásiť sa</button>
       </form>
+      </div>
+      </div>
       <details class="mt-4 small">
         <summary class="text-body-secondary">Adresa API servera</summary>
         <input id="apiUrl" type="url" class="form-control form-control-sm mt-2" placeholder="https://server/cartracking/api/">
@@ -156,6 +178,7 @@
 <div class="toast-container position-fixed end-0 p-3 toast-pos"><div id="toast" class="toast align-items-center text-bg-dark border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>

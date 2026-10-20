@@ -100,12 +100,17 @@ data class VehicleSyncRequest(val vehicles: List<VehicleDto>)
 data class SyncRequest(val trips: List<TripDto>)
 data class SyncResponse(val synced: List<String>)
 data class OkResponse(val ok: Boolean?)
+/** Prihlásenie webu z telefónu: code = tajný kód z QR, short = 6-miestny kód zo stránky (jedno z nich). */
+data class PairRequest(val code: String? = null, val short: String? = null)
+data class PairInfo(val browser: String?, val ip: String?, val createdAt: Long?)
 private data class ErrorResponse(val error: String?)
 
 interface ApiService {
     @POST("register") suspend fun register(@Body body: AuthRequest): AuthResponse
     @POST("login") suspend fun login(@Body body: AuthRequest): AuthResponse
     @POST("logout") suspend fun logout(): OkResponse
+    @POST("pair/info") suspend fun pairInfo(@Body body: PairRequest): PairInfo
+    @POST("pair/approve") suspend fun pairApprove(@Body body: PairRequest): PairInfo
     @GET("me") suspend fun me(): MeResponse
     @POST("trips/sync") suspend fun sync(@Body body: SyncRequest): SyncResponse
     @POST("items/sync") suspend fun syncItems(@Body body: ItemSyncRequest): SyncResponse

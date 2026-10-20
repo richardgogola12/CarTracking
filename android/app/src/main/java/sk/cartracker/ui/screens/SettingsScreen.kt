@@ -131,6 +131,8 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                     Text(user?.name ?: "", fontWeight = FontWeight.SemiBold)
                     Text(user?.email ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     HorizontalDivider()
+                    WebPairButtons()
+                    HorizontalDivider()
                     OutlinedButton(onClick = {
                         sk.cartracker.sync.RestoreWorker.start(ctx)
                         message = "Sťahujem údaje zo servera – priebeh je na Prehľade."
