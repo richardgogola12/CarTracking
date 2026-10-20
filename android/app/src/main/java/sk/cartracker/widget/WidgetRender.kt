@@ -85,7 +85,7 @@ object WidgetRender {
         val h = if (hDp <= 0) 480 else hDp
         val compact = h < 235                 // 4 × 2: bez veľkého čísla (km v prvej dlaždici), počas jazdy menšia rýchlosť
         val liveNow = m.state == DriveState.DRIVING || m.state == DriveState.WALKING
-        var used = when { compact -> 180; liveNow -> 250; else -> 220 }
+        var used = when { compact -> 180; liveNow -> 262; else -> 220 }
         val showChart = h >= used + 102; if (showChart) used += 102
         val showTripRow = !liveNow && m.lastTrip != null && h >= used + 76; if (showTripRow) used += 76
         val infoText = m.reminder ?: m.parkingAddr?.let { a -> "Auto stojí: $a" + (m.parkingSince?.let { " · ${formatDuration(now - it)}" } ?: "") }

@@ -32,6 +32,7 @@ Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nasta
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
 ## Novinky vo verzii 2.0 (zostavenia 2.0.N)
+- **Widgety – nový dizajn**: žiara podľa stavu, ikony, dlaždice, gradientné grafy, krúžok s percentom, náčrt trasy poslednej jazdy; hlavný widget sa prispôsobí výške (4×2 až 4×5); nový widget **Posledná jazda** s prepínačom Súkromná/Služobná. Kód: `widget/WidgetRender.kt`, `WidgetArt.kt`, `WidgetModels.kt`. Náhľady vykresľuje test `WidgetPreviewTest` (Robolectric) a CI ich zverejňuje vo vydaní `widget-previews`.
 - **Analýzy aj v aplikácii** (Štatistiky → Analýzy, `ui/screens/AnalyticsScreen.kt`, výpočty `data/Analytics.kt` s testami) – rovnaké grafy (Canvas) a triediteľné tabuľky s pevným prvým stĺpcom, súčtami a CSV.
 - **Web – stránka Analýzy**: grafy vývoj za 12 mesiacov, dĺžka jázd, teplotná mapa deň × hodina, rýchlosť × vzdialenosť, štýl jazdy po týždňoch; tabuľky po mesiacoch, najčastejšie ciele, dni v týždni a štýl po týždňoch (triedenie, hľadanie, Excel/CSV/tlač, súčty).
 - **Doladenie podľa reálnych jázd (diagnostika 14.–20. 10.)** – ručná jazda sa ukončí sama po zaparkovaní; koniec jazdy = posledný pohyb (státie na konci sa oreže); jazda zo „stačí jedna podmienka“ sa ohlási až po pohnutí auta, falošné hlásenie (v noci) sa potichu zahodí; po reštarte služby systémom sa nadviaže na rozbehnutú jazdu; chôdza v budove berie vzdialenosť z krokov; názov cesty bez mena „cesta č. 1494“.

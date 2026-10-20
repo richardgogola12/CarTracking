@@ -598,35 +598,38 @@ Trasník</h1>
 </ul>
 
 <h2 id="widget">20. Widgety na ploche</h2>
-<p>Podržte prst na prázdnom mieste plochy → <b>Miniaplikácie / Widgety</b> → <b>Trasník</b> a pretiahnite ho na plochu. Ťuknutím na widget sa otvorí aplikácia.</p>
-<p><b>Farba podľa stavu</b>: tmavá = čakám na jazdu, oranžová = overujem, či ide o auto, zelená = jazda, modrá = chôdza. Hore je stav, aktívne vozidlo (EČV) a čas poslednej aktualizácie.</p>
+<p>Podržte prst na prázdnom mieste plochy → <b>Miniaplikácie / Widgety</b> → <b>Trasník</b> a pretiahnite ho na plochu. Ťuknutím na widget (mimo tlačidiel) sa otvorí aplikácia.</p>
+<p><b>Vzhľad (od verzie 2.0)</b>: tmavé pozadie so zaoblenými rohmi a jemnou <b>farebnou žiarou podľa stavu</b> – fialová = pripravený, oranžová = overujem jazdu, zelená = jazda, modrá = chôdza. Vľavo hore je štítok so stavom, vpravo aktívne vozidlo a tlačidlo obnovenia. Tlačidlá majú ikony, hlavná akcia je biela (Jazda), ukončenie červené.</p>
 <ul>
-  <li><b>Počas jazdy</b> – veľká aktuálna rýchlosť, dopravná značka s limitom pre daný typ cesty (pri prekročení limitu značka sčervenie), trvanie jazdy (beží každú sekundu), prejdené km a náklady na palivo.</li>
-  <li><b>Počas chôdze</b> – počet krokov, trvanie a vzdialenosť.</li>
-  <li><b>Dlaždice dňa</b> – dnes km autom, počet jázd, kroky a náklady.</li>
-  <li><b>Tlačidlá</b> – <b>🚗 Jazda</b>, <b>🚶 Chôdza</b> a <b>⟳</b> obnoviť. Pri overovaní <b>✓ Je to jazda</b> (hneď zapne režim jazdy) a <b>✕ Nie je</b>; počas záznamu <b>⏹ Ukončiť</b>.</li>
+  <li><b>Keď nejazdíte</b> – veľké číslo <b>km najazdených dnes</b> a čas za volantom.</li>
+  <li><b>Počas jazdy</b> – veľká aktuálna rýchlosť (pri prekročení limitu sčervenie), dopravná značka s limitom (pri prekročení so žiarou), bežiaci čas jazdy, km a náklady.</li>
+  <li><b>Počas chôdze</b> – počet krokov, čas a vzdialenosť.</li>
+  <li><b>Dlaždice</b> – jazdy dnes, kroky a náklady (v malom widgete km namiesto počtu jázd).</li>
+  <li><b>Tlačidlá</b> – <b>Jazda</b>, <b>Chôdza</b> a <b>navigácia k zaparkovanému autu</b>; pri overovaní <b>Je to jazda / Nie je</b>; počas záznamu <b>Ukončiť</b>.</li>
 </ul>
-<p><b>Veľký widget</b> (roztiahnutý aspoň na 3 riadky) ukazuje navyše:</p>
+<p><b>Widget sa prispôsobí veľkosti</b> (podržte ho a ťahajte okraje):</p>
+<table>
+  <tr><th>Veľkosť</th><th>Čo sa zobrazí</th></tr>
+  <tr><td>4 × 2</td><td>stav, dlaždice (km dnes, kroky, náklady) alebo rýchlosť počas jazdy, tlačidlá</td></tr>
+  <tr><td>4 × 3</td><td>+ veľké číslo dnešných km a <b>posledná jazda</b> s náčrtom trasy</td></tr>
+  <tr><td>4 × 4</td><td>+ <b>prepínateľný graf</b> a krúžok krokov</td></tr>
+  <tr><td>4 × 5</td><td>+ najbližšia pripomienka (STK…) alebo kde stojí auto</td></tr>
+</table>
 <ul>
-  <li><b>prepínateľný graf</b> – <b>ťuknutím na graf</b> prepnete medzi tromi zobrazeniami (bodky ●○○ hore ukazujú, ktoré je zapnuté):
-    <ul>
-      <li><b>Km autom za 7 dní</b> – stĺpce po dňoch, dnešok zvýraznený, súčet za týždeň,</li>
-      <li><b>Rýchlosť</b> – krivka rýchlosti aktuálnej jazdy (počas jazdy sa priebežne dopĺňa), inak poslednej jazdy autom; s priemerom Ø, maximom a časom začiatku a konca,</li>
-      <li><b>Kroky za 7 dní</b> – stĺpce krokov po dňoch so súčtom.</li>
-    </ul>
-    Každý widget na ploche si pamätá svoje zobrazenie, takže môžete mať napr. dva widgety s rôznymi grafmi,</li>
-  <li><b>krúžok krokov</b> – dnešné kroky voči dennému cieľu (Nastavenia → Chôdza → Denný cieľ krokov); po splnení zezelená,</li>
-  <li>najbližšiu <b>pripomienku</b> (napr. STK o 12 dní) a <b>kde je zaparkované</b> auto.</li>
+  <li><b>Graf</b> – ťuknutím prepnete <b>km autom za 7 dní</b> → <b>rýchlosť</b> aktuálnej / poslednej jazdy → <b>kroky za 7 dní</b> (bodky ●○○ ukazujú, ktorý je zapnutý). Dnešok je zvýraznený farebne, pri dneškoch a maxime je hodnota. Každý widget si pamätá svoj graf.</li>
+  <li><b>Krúžok krokov</b> – percento denného cieľa s farebným prechodom; po splnení zezelená.</li>
+  <li><b>Posledná jazda</b> – náčrt trasy farbený podľa rýchlosti (zelený štart, červený cieľ), odkiaľ → kam, kedy, km, trvanie a typ. Ťuknutím sa otvorí <b>detail jazdy</b>.</li>
 </ul>
-<p>Veľkosť widgetu sa dá meniť podržaním a ťahaním okrajov; obsah sa prispôsobí. Počas jazdy sa údaje obnovujú približne každých 20 sekúnd, trvanie beží priebežne.</p>
+<p>Počas jazdy sa údaje obnovujú približne každých 20 sekúnd, čas jazdy beží priebežne.</p>
 <h3>Ďalšie widgety</h3>
-<p>V zozname widgetov nájdete okrem hlavného ešte štyri menšie – na plochu ich pridáte rovnako (podržať prst na ploche → Widgety → Trasník):</p>
+<p>V zozname widgetov nájdete okrem hlavného ešte päť ďalších – na plochu ich pridáte rovnako (podržať prst na ploche → Widgety → Trasník):</p>
 <table>
   <tr><th>Widget</th><th>Veľkosť</th><th>Čo ukazuje</th></tr>
-  <tr><td><b>Trasník – tlačidlá</b></td><td>3 × 1</td><td>Stav (farba ako hlavný widget) a dve tlačidlá: <b>🚗 Jazda</b> a <b>🚶 Chôdza</b>; počas záznamu <b>⏹ Ukončiť</b> a rýchlosť / km alebo kroky; pri overovaní <b>✓ Je to jazda</b> / <b>✕ Nie je</b>.</td></tr>
+  <tr><td><b>Trasník – tlačidlá</b></td><td>3 × 1</td><td>Stav s dnešnými km a dve tlačidlá: <b>Jazda</b> a <b>Chôdza</b> (ikona); počas záznamu <b>Ukončiť</b> a rýchlosť a km alebo kroky; pri overovaní <b>Jazda</b> / <b>✕</b>.</td></tr>
   <tr><td><b>Trasník – kroky</b></td><td>3 × 2</td><td>Krúžok dnešných krokov k dennému cieľu, dnešné km pešo, koľko krokov chýba do cieľa, <b>🔥 séria</b> dní so splneným cieľom a rekord, graf krokov za 7 dní.</td></tr>
-  <tr><td><b>Trasník – parkovanie</b></td><td>4 × 2</td><td>Adresa zaparkovaného auta a ako dlho tam stojí, <b>parkovací lístok</b> s odpočtom zostávajúceho času (beží každú sekundu), tlačidlá <b>🧭 Nájsť auto</b> (navigácia pešo) a <b>🎫 Lístok</b> (otvorí aplikáciu na nastavenie).</td></tr>
-  <tr><td><b>Trasník – mesiac</b></td><td>4 × 2</td><td>Tento mesiac: km autom, počet jázd, náklady, služobné km, kroky, km pešo, <b>porovnanie km s minulým mesiacom</b> (za rovnaký počet dní) a graf km po dňoch.</td></tr>
+  <tr><td><b>Trasník – parkovanie</b></td><td>4 × 2</td><td>Adresa zaparkovaného auta a ako dlho tam stojí, <b>parkovací lístok</b> s odpočtom zostávajúceho času (beží každú sekundu), tlačidlá <b>Navigovať k autu</b> (navigácia pešo) a <b>Lístok</b> (otvorí aplikáciu na nastavenie). Posledných 10 minút lístka je odpočet červený.</td></tr>
+  <tr><td><b>Trasník – posledná jazda</b> (nový)</td><td>4 × 2</td><td>Väčší <b>náčrt trasy</b> poslednej jazdy farbený podľa rýchlosti, odkiaľ → kam, čas, km, trvanie, Ø rýchlosť, náklady, vozidlo a <b>štýl jazdy</b>. Prepínač <b>Súkromná / Služobná</b> priamo na ploche – ťuknutím jazdu zaradíte (aj sa to naučí pre trasu) bez otvárania aplikácie. Ťuknutím na widget sa otvorí detail jazdy.</td></tr>
+  <tr><td><b>Trasník – mesiac</b></td><td>4 × 2</td><td>Tento mesiac: veľké číslo km autom, počet jázd, služobné km, kroky, náklady, štítok <b>▲ / ▼ % oproti minulému mesiacu</b> (za rovnaký počet dní, zelený / červený) a graf km po dňoch.</td></tr>
 </table>
 <p>Všetky widgety sa obnovujú spolu s hlavným – počas jazdy a chôdze, pri každej zmene záznamov (nová, upravená, zmazaná, zlúčená či rozdelená jazda, synchronizácia, obnova zo servera), pri zmene parkovacieho lístka, tesne po polnoci a najmenej raz za 30 minút. Ťuknutím na widget (mimo tlačidiel) sa otvorí aplikácia.</p>
 <p><b>Dnešné kroky a km</b> počítajú widgety aj Prehľad v aplikácii rovnako: dokončené záznamy dňa + práve prebiehajúca chôdza alebo jazda. Do krokov sa počítajú len zaznamenané chôdze – krátke presuny pod minimálnu vzdialenosť chôdze (Nastavenia → Chôdza) sa neukladajú, preto môže byť číslo nižšie ako v krokomere telefónu (Google Fit, Samsung Health).</p>
