@@ -160,6 +160,22 @@ echo "$H" | grep -qi '^x-content-type-options: nosniff' || fail "chýba X-Conten
 echo "$H" | grep -qi '^cache-control: no-store' || fail "chýba Cache-Control"
 echo "OK  bezpečnostné hlavičky"
 
+# Prihlásenie webu cez QR kód
+check "QR – začiatok" 200 "$(req -X POST "$API/pair/start" -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0) Chrome/130.0')"
+PCODE=$(echo "$LAST" | python3 -c 'import sys,json;print(json.load(sys.stdin)["code"])'); PSHORT=$(echo "$LAST" | python3 -c 'import sys,json;print(json.load(sys.stdin)["short"])')
+check "QR – čaká" 200 "$(req "$API/pair/status?code=$PCODE")"
+echo "$LAST" | grep -q pending || fail "QR mal čakať: $LAST"
+check "QR – info bez prihlásenia" 401 "$(req -X POST "$API/pair/info" -d "{\"short\":\"$PSHORT\"}")"
+check "QR – info" 200 "$(req "${AUTH[@]}" -X POST "$API/pair/info" -d "{\"short\":\"$PSHORT\"}")"
+echo "$LAST" | grep -q 'Chrome Windows' || fail "QR info nesedí: $LAST"
+check "QR – zlý kód" 404 "$(req "${AUTH[@]}" -X POST "$API/pair/approve" -d '{"short":"000000x"}')"
+check "QR – schválenie" 200 "$(req "${AUTH[@]}" -X POST "$API/pair/approve" -d "{\"code\":\"$PCODE\"}")"
+check "QR – web dostane token" 200 "$(req "$API/pair/status?code=$PCODE")"
+WTOKEN=$(echo "$LAST" | python3 -c 'import sys,json;d=json.load(sys.stdin);assert d["status"]=="approved";print(d["token"])')
+check "QR – token funguje" 200 "$(req -H "Authorization: Bearer $WTOKEN" "$API/me")"
+check "QR – token iba raz" 200 "$(req "$API/pair/status?code=$PCODE")"
+echo "$LAST" | grep -q expired || fail "token sa nemal vydať druhýkrát: $LAST"
+
 # Obmedzenie pokusov o prihlásenie: 10 zlých hesiel → 429 (aj so správnym heslom), iný účet funguje
 for i in $(seq 1 10); do check "zlé heslo $i" 401 "$(req -X POST "$API/login" -d "{\"email\":\"$EMAIL\",\"password\":\"zle$i\"}")"; done
 check "zablokované po 10 pokusoch" 429 "$(req -X POST "$API/login" -d "{\"email\":\"$EMAIL\",\"password\":\"heslo1234\"}")"

@@ -135,3 +135,17 @@ CREATE TABLE IF NOT EXISTS CarTracking_login_attempts (
     INDEX idx_attempts_email (email, created_at),
     INDEX idx_attempts_ip (ip, created_at)
 ) ENGINE=InnoDB;
+
+-- Prihlásenie webu cez QR kód z aplikácie (v9)
+CREATE TABLE IF NOT EXISTS CarTracking_pairings (
+    code_hash  CHAR(64)     NOT NULL PRIMARY KEY COMMENT 'SHA-256 tajného kódu z QR',
+    short_code CHAR(6)      NOT NULL COMMENT '6 číslic na ručné zadanie',
+    ip         VARCHAR(45)  NOT NULL DEFAULT '',
+    user_agent VARCHAR(255) NOT NULL DEFAULT '',
+    user_id    INT UNSIGNED NULL,
+    token      CHAR(64)     NULL COMMENT 'vydaný token – zmaže sa hneď po odovzdaní webu',
+    created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME     NOT NULL,
+    INDEX idx_pair_short (short_code, expires_at),
+    CONSTRAINT CarTracking_fk_pair_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

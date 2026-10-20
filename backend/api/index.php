@@ -107,10 +107,10 @@ function clientIp(): string { return substr((string)($_SERVER['REMOTE_ADDR'] ?? 
  */
 function tooManyAttempts(PDO $pdo, string $kind, string $email): bool {
     try {
-        if ($kind === 'register') {
-            $st = $pdo->prepare("SELECT COUNT(*) FROM CarTracking_login_attempts WHERE kind = 'register' AND ip = ? AND created_at > NOW() - INTERVAL 1 HOUR");
-            $st->execute([clientIp()]);
-            return (int)$st->fetchColumn() >= 10;
+        if ($kind === 'register' || $kind === 'pair') {
+            $st = $pdo->prepare("SELECT COUNT(*) FROM CarTracking_login_attempts WHERE kind = ? AND ip = ? AND created_at > NOW() - INTERVAL 1 HOUR");
+            $st->execute([$kind, clientIp()]);
+            return (int)$st->fetchColumn() >= ($kind === 'pair' ? 60 : 10);
         }
         $st = $pdo->prepare("SELECT SUM(email = ?), SUM(ip = ?) FROM CarTracking_login_attempts
                              WHERE kind = 'fail' AND created_at > NOW() - INTERVAL 15 MINUTE AND (email = ? OR ip = ?)");
@@ -234,9 +234,72 @@ if ($method === 'POST' && $path === '/login') {
     respond(200, ['token' => $token, 'user' => publicUser($user)]);
 }
 
+// ---------- Prihlásenie webu cez QR kód / párovací kód z aplikácie ----------
+// 1) web: POST /pair/start → {code (tajný, na čakanie), short (6 číslic), expires_in}; QR obsahuje code a adresu API
+// 2) aplikácia (prihlásená): POST /pair/info {code|short} → kto žiada (prehliadač, IP); POST /pair/approve {code|short} → schválenie
+// 3) web: GET /pair/status?code= → pending | approved (+ token a používateľ, iba raz) | expired
+function pairRow(PDO $pdo, array $b): ?array {
+    $code = strtolower((string)($b['code'] ?? '')); $short = preg_replace('/\D/', '', (string)($b['short'] ?? ''));
+    if (preg_match('/^[a-f0-9]{64}$/', $code)) {
+        $st = $pdo->prepare('SELECT *, UNIX_TIMESTAMP(created_at) AS created_ts FROM CarTracking_pairings WHERE code_hash = ? AND expires_at > NOW()'); $st->execute([hash('sha256', $code)]);
+    } elseif (strlen($short) === 6) {
+        $st = $pdo->prepare('SELECT *, UNIX_TIMESTAMP(created_at) AS created_ts FROM CarTracking_pairings WHERE short_code = ? AND expires_at > NOW() AND user_id IS NULL'); $st->execute([$short]);
+    } else return null;
+    return $st->fetch() ?: null;
+}
+function browserName(string $ua): string {
+    $b = preg_match('/Edg\//', $ua) ? 'Edge' : (preg_match('/OPR\//', $ua) ? 'Opera' : (preg_match('/Firefox\//', $ua) ? 'Firefox' : (preg_match('/Chrome\//', $ua) ? 'Chrome' : (preg_match('/Safari\//', $ua) ? 'Safari' : 'prehliadač'))));
+    $o = preg_match('/Windows/', $ua) ? 'Windows' : (preg_match('/Mac OS X/', $ua) && !preg_match('/iPhone|iPad/', $ua) ? 'macOS' : (preg_match('/Android/', $ua) ? 'Android' : (preg_match('/iPhone|iPad/', $ua) ? 'iOS' : (preg_match('/Linux/', $ua) ? 'Linux' : ''))));
+    return trim("$b $o");
+}
+if ($method === 'POST' && $path === '/pair/start') {
+    try {
+        if (tooManyAttempts($pdo, 'pair', '')) fail(429, 'Príliš veľa pokusov z tejto siete. Skúste to neskôr.');
+        recordAttempt($pdo, 'pair', '');
+        $pdo->exec('DELETE FROM CarTracking_pairings WHERE expires_at < NOW() - INTERVAL 1 HOUR');
+        $code = bin2hex(random_bytes(32));
+        for ($i = 0; $i < 5; $i++) {
+            $short = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $dup = $pdo->prepare('SELECT 1 FROM CarTracking_pairings WHERE short_code = ? AND expires_at > NOW()'); $dup->execute([$short]);
+            if (!$dup->fetch()) break;
+        }
+        $pdo->prepare('INSERT INTO CarTracking_pairings (code_hash, short_code, ip, user_agent, expires_at) VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))')
+            ->execute([hash('sha256', $code), $short, clientIp(), mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255)]);
+        respond(200, ['code' => $code, 'short' => $short, 'expires_in' => 300]);
+    } catch (PDOException $e) { fail(503, 'Prihlásenie cez QR nie je na serveri zapnuté (spustite migrate_v9.sql)'); }
+}
+if ($method === 'GET' && $path === '/pair/status') {
+    $code = strtolower((string)($_GET['code'] ?? ''));
+    if (!preg_match('/^[a-f0-9]{64}$/', $code)) fail(422, 'Neplatný kód');
+    try {
+        $st = $pdo->prepare('SELECT p.*, (p.expires_at < NOW()) AS expired, u.name, u.email FROM CarTracking_pairings p LEFT JOIN CarTracking_users u ON u.id = p.user_id WHERE p.code_hash = ?');
+        $st->execute([hash('sha256', $code)]);
+        $r = $st->fetch();
+    } catch (PDOException $e) { fail(503, 'Prihlásenie cez QR nie je na serveri zapnuté'); }
+    if (!$r || ((int)$r['expired'] && !$r['token'])) respond(200, ['status' => 'expired']);
+    if (!$r['user_id'] || !$r['token']) respond(200, ['status' => 'pending']);
+    // token sa vydá iba raz
+    $pdo->prepare('DELETE FROM CarTracking_pairings WHERE code_hash = ?')->execute([hash('sha256', $code)]);
+    respond(200, ['status' => 'approved', 'token' => $r['token'], 'user' => ['id' => (int)$r['user_id'], 'name' => $r['name'], 'email' => $r['email']]]);
+}
+
 // Všetko ďalej vyžaduje prihlásenie
 $user = requireUser($pdo);
 $uid  = (int)$user['id'];
+
+if ($method === 'POST' && ($path === '/pair/info' || $path === '/pair/approve')) {
+    $b = body();
+    $email = 'pair:' . $uid;
+    if (tooManyAttempts($pdo, 'fail', $email)) fail(429, 'Príliš veľa neplatných kódov. Skúste to o 15 minút.');
+    try { $r = pairRow($pdo, $b); } catch (PDOException $e) { fail(503, 'Prihlásenie cez QR nie je na serveri zapnuté (spustite migrate_v9.sql)'); }
+    if (!$r) { recordAttempt($pdo, 'fail', $email); fail(404, 'Kód neplatí alebo vypršal – obnovte stránku na počítači'); }
+    if ($r['user_id'] && (int)$r['user_id'] !== $uid) fail(409, 'Kód už bol použitý');
+    $info = ['browser' => browserName((string)$r['user_agent']), 'ip' => $r['ip'], 'created_at' => (int)$r['created_ts'] * 1000];
+    if ($path === '/pair/info') respond(200, $info);
+    $token = issueToken($pdo, $uid, 'Web · ' . $info['browser'], $config['token_days']);
+    $pdo->prepare('UPDATE CarTracking_pairings SET user_id = ?, token = ? WHERE code_hash = ?')->execute([$uid, $token, $r['code_hash']]);
+    respond(200, ['ok' => true] + $info);
+}
 
 if ($method === 'POST' && $path === '/logout') {
     $pdo->prepare('DELETE FROM CarTracking_api_tokens WHERE id = ?')->execute([$user['token_id']]);
