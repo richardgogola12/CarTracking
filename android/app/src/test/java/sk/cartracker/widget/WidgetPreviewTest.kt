@@ -25,7 +25,7 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * Vykreslí náhľady všetkých widgetov do build/widget-previews/*.png (CI ich zverejní na kontrolu dizajnu).
+ * Vykreslí náhľady všetkých widgetov do build/widget-previews ako PNG (CI ich zverejní na kontrolu dizajnu).
  * Zároveň overí, že sa RemoteViews dajú nafúknuť (nepovolená trieda v layoute by tu spadla).
  */
 @RunWith(RobolectricTestRunner::class)
