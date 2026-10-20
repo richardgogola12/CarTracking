@@ -88,7 +88,7 @@ object WidgetRender {
         var used = when { compact -> 180; liveNow -> 262; else -> 220 }
         val showChart = h >= used + 102; if (showChart) used += 102
         val showTripRow = !liveNow && m.lastTrip != null && h >= used + 76; if (showTripRow) used += 76
-        val infoText = m.reminder ?: m.parkingAddr?.let { a -> "Auto stojí: $a" + (m.parkingSince?.let { " · ${formatDuration(now - it)}" } ?: "") }
+        val infoText = m.reminder ?: m.parkingAddr?.let { a -> "Auto stojí" + (m.parkingSince?.let { " od ${whenText(it, now)}" } ?: "") + ": $a" }
         val showInfoRow = infoText != null && h >= used + 30
 
         // ---- živý blok alebo „dnes“ ----
@@ -283,7 +283,12 @@ object WidgetRender {
         } else {
             v.setViewVisibility(R.id.p_find, View.VISIBLE)
             v.setTextViewText(R.id.p_addr, m.addr ?: String.format(Locale.US, "%.5f, %.5f", m.lat, m.lng))
-            v.setTextViewText(R.id.p_since, m.since?.let { "od ${formatTime(it)} · ${formatDuration(now - it)}" } ?: "")
+            // čas státia beží priamo vo widgete (Chronometer) – nezávisí od toho, kedy sa widget naposledy obnovil
+            v.setTextViewText(R.id.p_since, m.since?.let { "od ${whenText(it, now)} ·" } ?: "")
+            if (m.since != null) {
+                v.setViewVisibility(R.id.p_since_chrono, View.VISIBLE)
+                v.setChronometer(R.id.p_since_chrono, SystemClock.elapsedRealtime() - (now - m.since), null, true)
+            }
             if (m.lat != null && m.lng != null) button(v, R.id.p_find, R.id.p_find_ic, R.id.p_find_tx, R.drawable.ic_w_nav, "Navigovať k autu", "primary", findCar(ctx, m.lat, m.lng))
         }
         val until = m.ticketUntil?.takeIf { !m.driving }
