@@ -95,208 +95,150 @@ private fun n0(v: Number) = String.format(SKL, "%,d", v.toLong())
 private fun hm(min: Int?) = min?.let { "${it / 60}:${(it % 60).toString().padStart(2, '0')}" } ?: ""
 private fun hours(ms: Long) = n1(ms / 3_600_000.0) + " h"
 
-private enum class APeriod(val label: String, val months: Int) { M1("Tento mesiac", 1), M3("3 mesiace", 3), Y("12 mesiacov", 12), THIS_YEAR("Tento rok", 0) }
+/** Údaje podrobných štatistík jázd pre obdobie [from, to) a 12 mesiacov končiacich mesiacom obdobia. */
+class CarData(
+    val title: String, val cars: List<TripEntity>, val months: List<Analytics.Month>, val weeks: List<Analytics.Week>, val bins: List<Analytics.Bin>,
+    val heat: Analytics.Heat, val dests: List<Analytics.Dest>, val dows: List<Analytics.Weekday>, val yTitle: String,
+)
 
-/** Analýzy – grafy a triediteľné tabuľky (to isté ako stránka Analýzy na webe). */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyticsScreen(onBack: () -> Unit, onOpenTrip: (Long) -> Unit) {
-    val ctx = LocalContext.current
-    val c = ctx.container
-    val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
-    var period by remember { mutableStateOf(APeriod.M1) }
-    var vehicleFilter by remember { mutableStateOf("") }
-    var vehicles by remember { mutableStateOf<List<VehicleEntity>>(emptyList()) }
-    var all by remember { mutableStateOf<List<TripEntity>?>(null) }
-    val now = remember { System.currentTimeMillis() }
-    val months12 = remember { Analytics.monthStarts(now) }
-    LaunchedEffect(Unit) {
-        vehicles = c.vehicles.all()
-        val from = minOf(months12.first(), Calendar.getInstance().apply { set(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis)
-        all = c.trips.tripsBetween(from, now + 86_400_000L)
+fun rememberCarData(all: List<TripEntity>, from: Long, to: Long, title: String, vehicleFilter: String, vmap: Map<String, VehicleEntity>, s: AppSettings): CarData =
+    remember(all, from, to, vehicleFilter, vmap, s) {
+        val costOf: (TripEntity) -> Double = { it.cost(vmap[it.vehicleUuid], s) }
+        val litersOf: (TripEntity) -> Double = { it.liters(vmap[it.vehicleUuid], s) }
+        val end = minOf(to - 1, System.currentTimeMillis())
+        val m12 = Analytics.monthStarts(end)
+        val mine = all.filter { it.isWalk || vehicleFilter.isEmpty() || it.vehicleUuid == vehicleFilter }
+        val yCars = mine.filter { !it.isWalk && it.startedAt >= m12.first() && it.startedAt < m12.last() }
+        val yWalks = mine.filter { it.isWalk && it.startedAt >= m12.first() && it.startedAt < m12.last() }
+        val cars = mine.filter { !it.isWalk && it.startedAt in from until to }
+        val walks = mine.filter { it.isWalk && it.startedAt in from until to }
+        val months = Analytics.months(yCars, yWalks, end, costOf, litersOf)
+        CarData(title, cars, months, Analytics.weeks(yCars), Analytics.lengthBins(cars), Analytics.heat(cars), Analytics.destinations(cars, costOf),
+            Analytics.weekdays(cars, walks, from, to), "${months.firstOrNull()?.longLabel ?: ""} – ${months.lastOrNull()?.longLabel ?: ""}")
     }
-    val vmap = remember(vehicles) { vehicles.associateBy { it.uuid } }
-    val costOf: (TripEntity) -> Double = { it.cost(vmap[it.vehicleUuid], s) }
-    val litersOf: (TripEntity) -> Double = { it.liters(vmap[it.vehicleUuid], s) }
 
-    val (pFrom, pTo) = remember(period) {
-        val cal = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
-        val from = when (period) {
-            APeriod.THIS_YEAR -> cal.apply { set(Calendar.DAY_OF_YEAR, 1) }.timeInMillis
-            else -> cal.apply { set(Calendar.DAY_OF_MONTH, 1); add(Calendar.MONTH, -(period.months - 1)) }.timeInMillis
-        }
-        from to now + 1
-    }
-    val trips = all ?: emptyList()
-    val yCars = trips.filter { !it.isWalk && (vehicleFilter.isEmpty() || it.vehicleUuid == vehicleFilter) && it.startedAt >= months12.first() }
-    val yWalks = trips.filter { it.isWalk && it.startedAt >= months12.first() }
-    val cars = trips.filter { !it.isWalk && (vehicleFilter.isEmpty() || it.vehicleUuid == vehicleFilter) && it.startedAt in pFrom until pTo }
-    val walks = trips.filter { it.isWalk && it.startedAt in pFrom until pTo }
-    val months = remember(all, vehicleFilter, s) { Analytics.months(yCars, yWalks, now, costOf, litersOf) }
-    val weeks = remember(all, vehicleFilter) { Analytics.weeks(yCars) }
-    val bins = remember(all, vehicleFilter, period) { Analytics.lengthBins(cars) }
-    val heat = remember(all, vehicleFilter, period) { Analytics.heat(cars) }
-    val dests = remember(all, vehicleFilter, period, s) { Analytics.destinations(cars, costOf) }
-    val dows = remember(all, vehicleFilter, period) { Analytics.weekdays(cars, walks, pFrom, pTo) }
-    val yTitle = "${months.firstOrNull()?.longLabel ?: ""} – ${months.lastOrNull()?.longLabel ?: ""}"
-
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Analýzy") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Späť") } })
-    }) { pad ->
-        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(12.dp, 4.dp, 12.dp, 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        APeriod.entries.forEach { p -> FilterChip(period == p, { period = p }, { Text(p.label) }) }
-                    }
-                    if (vehicles.size > 1) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        FilterChip(vehicleFilter.isEmpty(), { vehicleFilter = "" }, { Text("Všetky vozidlá") })
-                        vehicles.filter { !it.archived }.forEach { v -> FilterChip(vehicleFilter == v.uuid, { vehicleFilter = v.uuid }, { Text(v.label) }) }
-                    }
-                    if (all == null) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Text("Grafy a tabuľky „12 mesiacov“ sú vždy za posledných 12 mesiacov, ostatné za zvolené obdobie (${period.label.lowercase()}). " +
-                        "Tabuľky zoradíte ťuknutím na nadpis stĺpca, posúvajú sa do strany.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            if (all == null) return@LazyColumn
-
-            item {
-                SectionCard("Vývoj za 12 mesiacov") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        Legend(listOf(VIOLET to "Služobné km", GREEN to "Súkromné km", AMBER to "Náklady €"))
-                        MonthChart(months, Modifier.fillMaxWidth().height(220.dp))
-                    }
-                }
-            }
-            item {
-                SectionCard("Dĺžka jázd · ${period.label.lowercase()}") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        if (cars.isEmpty()) EmptyNote() else {
-                            Legend(listOf(CYAN to "Počet jázd", ROSE to "% najazdených km"))
-                            LengthChart(bins, Modifier.fillMaxWidth().height(200.dp))
-                        }
-                    }
-                }
-            }
-            item {
-                SectionCard("Kedy jazdíte · km podľa dňa a hodiny") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        if (cars.isEmpty()) EmptyNote() else {
-                            HeatMap(heat, Modifier.fillMaxWidth())
-                            val (d, h) = heat.peak()
-                            Text("Najviac: ${Analytics.DOW[d]} $h:00 – ${n1(heat.km[d][h])} km (${heat.count[d][h]} jázd)",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-                        }
-                    }
-                }
-            }
-            item {
-                SectionCard("Rýchlosť × vzdialenosť") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        if (cars.isEmpty()) EmptyNote() else {
-                            Legend(listOf(VIOLET to "Služobné", GREEN to "Súkromné"))
-                            ScatterChart(cars, Modifier.fillMaxWidth().height(230.dp), onOpenTrip)
-                            Text("Každá bodka je jedna jazda – ťuknutím otvoríte detail.", style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-            item {
-                SectionCard("Štýl jazdy po týždňoch · 12 mesiacov") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        if (weeks.isEmpty()) EmptyNote() else {
-                            Legend(listOf(GREEN to "Skóre", ROSE to "Udalosti / 100 km", AMBER to "% času nad limitom"))
-                            StyleChart(weeks, Modifier.fillMaxWidth().height(200.dp))
-                        }
-                    }
-                }
-            }
-
-            // ---------------- tabuľky ----------------
-            item {
-                SectionCard("Prehľad po mesiacoch") {
-                    SortableTable<Analytics.Month>(months, listOf(
-                        TCol("Mesiac", 116.dp, start = true, bold = true, text = { it.longLabel }, key = { it.start.toDouble() }),
-                        TCol("Jazdy", 56.dp, text = { n0(it.trips) }, key = { it.trips.toDouble() }),
-                        TCol("Km", 70.dp, bold = true, text = { n1(it.km) }, key = { it.km }),
-                        TCol("Služobné", 80.dp, text = { n1(it.bizKm) + if (it.km > 0) " (${(it.bizKm / it.km * 100).roundToInt()} %)" else "" }, key = { it.bizKm }),
-                        TCol("Súkromné", 74.dp, text = { n1(it.privKm) }, key = { it.privKm }),
-                        TCol("Dni", 46.dp, text = { n0(it.days) }, key = { it.days.toDouble() }),
-                        TCol("Za volantom", 86.dp, text = { hours(it.ms) }, key = { it.ms.toDouble() }),
-                        TCol("Ø km/h", 62.dp, text = { if (it.ms > 0) n0(it.avgSpeed.roundToInt()) else "" }, key = { it.avgSpeed }),
-                        TCol("Ø km/jazda", 78.dp, text = { if (it.trips > 0) n1(it.perTrip) else "" }, key = { it.perTrip }),
-                        TCol("Palivo l", 66.dp, text = { n1(it.liters) }, key = { it.liters }),
-                        TCol("Náklady", 84.dp, text = { formatMoney(it.cost) }, key = { it.cost }),
-                        TCol("Ø skóre", 62.dp, text = { it.score?.toString() ?: "" }, key = { (it.score ?: -1).toDouble() }, color = { scoreColor(it.score) }),
-                        TCol("Kroky", 74.dp, text = { n0(it.steps) }, key = { it.steps.toDouble() }),
-                    ), initialSort = 0, initialDesc = true,
-                        footer = listOf("Spolu", n0(months.sumOf { it.trips }), n1(months.sumOf { it.km }), n1(months.sumOf { it.bizKm }), n1(months.sumOf { it.privKm }),
-                            n0(months.sumOf { it.days }), hours(months.sumOf { it.ms }), "", "", n1(months.sumOf { it.liters }), formatMoney(months.sumOf { it.cost }), "", n0(months.sumOf { it.steps })),
-                        csvName = "mesiace")
-                }
-            }
-            item {
-                SectionCard("Najčastejšie ciele · ${period.label.lowercase()}") {
-                    if (dests.isEmpty()) Box(Modifier.padding(horizontal = 12.dp)) { EmptyNote() } else
-                    SortableTable<Analytics.Dest>(dests, listOf(
-                        TCol("Cieľ", 150.dp, start = true, bold = true, text = { (if (it.isPlace) "📍 " else "") + it.name }, key = { it.name }),
-                        TCol("Návštevy", 70.dp, bold = true, text = { n0(it.visits) }, key = { it.visits.toDouble() }),
-                        TCol("Km spolu", 72.dp, text = { n1(it.km) }, key = { it.km }),
-                        TCol("Ø km", 56.dp, text = { n1(it.avgKm) }, key = { it.avgKm }),
-                        TCol("Ø trvanie", 74.dp, text = { formatDuration(it.avgMs) }, key = { it.avgMs.toDouble() }),
-                        TCol("Ø príchod", 72.dp, text = { hm(it.arrivalMin) }, key = { it.arrivalMin.toDouble() }),
-                        TCol("Služobne", 66.dp, text = { "${it.bizPct.roundToInt()} %" }, key = { it.bizPct }),
-                        TCol("Náklady", 80.dp, text = { formatMoney(it.cost) }, key = { it.cost }),
-                        TCol("Naposledy", 86.dp, text = { formatDate(it.last) }, key = { it.last.toDouble() }),
-                    ), initialSort = 1, initialDesc = true, limit = 15, onRowClick = { onOpenTrip(it.lastTripId) },
-                        footer = listOf("${dests.size} cieľov", n0(dests.sumOf { it.visits }), n1(dests.sumOf { it.km }), "", "", "", "", formatMoney(dests.sumOf { it.cost }), ""),
-                        note = "Ťuknutím na riadok otvoríte poslednú jazdu do cieľa.", csvName = "ciele")
-                }
-            }
-            item {
-                SectionCard("Dni v týždni · ${period.label.lowercase()}") {
-                    SortableTable<Analytics.Weekday>(dows, listOf(
-                        TCol("Deň", 92.dp, start = true, bold = true, text = { it.name }, key = { it.index.toDouble() }),
-                        TCol("Jazdy", 56.dp, text = { n0(it.trips) }, key = { it.trips.toDouble() }),
-                        TCol("Km", 66.dp, bold = true, text = { n1(it.km) }, key = { it.km }),
-                        TCol("Ø km / deň", 78.dp, text = { n1(it.perDayKm) }, key = { it.perDayKm }),
-                        TCol("Ø jazda", 66.dp, text = { if (it.trips > 0) n1(it.perTrip) + " km" else "" }, key = { it.perTrip }),
-                        TCol("Za volantom", 86.dp, text = { hours(it.ms) }, key = { it.ms.toDouble() }),
-                        TCol("Služobné km", 86.dp, text = { n1(it.bizKm) }, key = { it.bizKm }),
-                        TCol("Ø 1. odchod", 80.dp, text = { hm(it.firstDeparture) }, key = { (it.firstDeparture ?: 9999).toDouble() }),
-                        TCol("Ø skóre", 62.dp, text = { it.score?.toString() ?: "" }, key = { (it.score ?: -1).toDouble() }, color = { scoreColor(it.score) }),
-                        TCol("Kroky", 74.dp, text = { n0(it.steps) }, key = { it.steps.toDouble() }),
-                    ), initialSort = 0, initialDesc = false,
-                        footer = listOf("Spolu", n0(dows.sumOf { it.trips }), n1(dows.sumOf { it.km }), "", "", hours(dows.sumOf { it.ms }), n1(dows.sumOf { it.bizKm }), "", "", n0(dows.sumOf { it.steps })),
-                        csvName = "dni-v-tyzdni")
-                }
-            }
-            item {
-                SectionCard("Štýl jazdy po týždňoch · tabuľka") {
-                    if (weeks.isEmpty()) Box(Modifier.padding(horizontal = 12.dp)) { EmptyNote() } else
-                    SortableTable<Analytics.Week>(weeks, listOf(
-                        TCol("Týždeň", 120.dp, start = true, bold = true, text = { it.label + "\n" + it.range }, key = { it.start.toDouble() }),
-                        TCol("Jazdy", 56.dp, text = { n0(it.trips) }, key = { it.trips.toDouble() }),
-                        TCol("Km", 66.dp, bold = true, text = { n1(it.km) }, key = { it.km }),
-                        TCol("Brzdenia", 70.dp, text = { n0(it.brakes) }, key = { it.brakes.toDouble() }),
-                        TCol("Zrýchlenia", 78.dp, text = { n0(it.accels) }, key = { it.accels.toDouble() }),
-                        TCol("Na 100 km", 74.dp, text = { n1(it.per100) }, key = { it.per100 }),
-                        TCol("Nad limitom", 100.dp, text = { formatDuration(it.speedingSec * 1000L) + " · " + n1(it.speedingPct) + " %" }, key = { it.speedingPct }),
-                        TCol("Max km/h", 70.dp, text = { n0(it.maxSpeed.roundToInt()) }, key = { it.maxSpeed }),
-                        TCol("Ø skóre", 62.dp, text = { it.score?.toString() ?: "" }, key = { (it.score ?: -1).toDouble() }, color = { scoreColor(it.score) }),
-                    ), initialSort = 0, initialDesc = true, limit = 12, rowHeight = 48.dp,
-                        footer = listOf("${weeks.size} týždňov", n0(weeks.sumOf { it.trips }), n1(weeks.sumOf { it.km }), n0(weeks.sumOf { it.brakes }), n0(weeks.sumOf { it.accels }),
-                            n1(weeks.sumOf { it.km }.let { k -> if (k > 0) weeks.sumOf { it.brakes + it.accels } / k * 100 else 0.0 }), formatDuration(weeks.sumOf { it.speedingSec } * 1000L), "", ""),
-                        csvName = "styl-po-tyzdnoch")
-                }
-            }
-            item {
-                Text("Obdobie 12 mesiacov: $yTitle", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+/** Podrobné grafy jázd – súčasť Štatistiky → Auto. */
+@Composable
+fun CarCharts(d: CarData, onNavigate: (String) -> Unit) {
+        SectionCard("Vývoj za 12 mesiacov") {
+            Column(Modifier.padding(horizontal = 12.dp)) {
+                Legend(listOf(VIOLET to "Služobné km", GREEN to "Súkromné km", AMBER to "Náklady €"))
+                MonthChart(d.months, Modifier.fillMaxWidth().height(220.dp))
             }
         }
-    }
+        SectionCard("Dĺžka jázd · ${d.title}") {
+            Column(Modifier.padding(horizontal = 12.dp)) {
+                if (d.cars.isEmpty()) EmptyNote() else {
+                    Legend(listOf(CYAN to "Počet jázd", ROSE to "% najazdených km"))
+                    LengthChart(d.bins, Modifier.fillMaxWidth().height(200.dp))
+                }
+            }
+        }
+        SectionCard("Kedy jazdíte · km podľa dňa a hodiny") {
+            Column(Modifier.padding(horizontal = 12.dp)) {
+                if (d.cars.isEmpty()) EmptyNote() else {
+                    HeatMap(d.heat, Modifier.fillMaxWidth())
+                    val (pd, ph) = d.heat.peak()
+                    Text("Najviac: ${Analytics.DOW[pd]} $ph:00 – ${n1(d.heat.km[pd][ph])} km (${d.heat.count[pd][ph]} jázd)",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+        }
+        SectionCard("Rýchlosť × vzdialenosť") {
+            Column(Modifier.padding(horizontal = 12.dp)) {
+                if (d.cars.isEmpty()) EmptyNote() else {
+                    Legend(listOf(VIOLET to "Služobné", GREEN to "Súkromné"))
+                    ScatterChart(d.cars, Modifier.fillMaxWidth().height(230.dp), { id: Long -> onNavigate("trip/$id") })
+                    Text("Každá bodka je jedna jazda – ťuknutím otvoríte detail.", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        SectionCard("Štýl jazdy po týždňoch · 12 mesiacov") {
+            Column(Modifier.padding(horizontal = 12.dp)) {
+                if (d.weeks.isEmpty()) EmptyNote() else {
+                    Legend(listOf(GREEN to "Skóre", ROSE to "Udalosti / 100 km", AMBER to "% času nad limitom"))
+                    StyleChart(d.weeks, Modifier.fillMaxWidth().height(200.dp))
+                }
+            }
+        }
+}
+
+/** Triediteľné tabuľky jázd – súčasť Štatistiky → Auto. */
+@Composable
+fun CarTables(d: CarData, onNavigate: (String) -> Unit) {
+        SectionCard("Prehľad po mesiacoch") {
+            SortableTable<Analytics.Month>(d.months, listOf(
+                TCol("Mesiac", 116.dp, start = true, bold = true, text = { it.longLabel }, key = { it.start.toDouble() }),
+                TCol("Jazdy", 56.dp, text = { n0(it.trips) }, key = { it.trips.toDouble() }),
+                TCol("Km", 70.dp, bold = true, text = { n1(it.km) }, key = { it.km }),
+                TCol("Služobné", 80.dp, text = { n1(it.bizKm) + if (it.km > 0) " (${(it.bizKm / it.km * 100).roundToInt()} %)" else "" }, key = { it.bizKm }),
+                TCol("Súkromné", 74.dp, text = { n1(it.privKm) }, key = { it.privKm }),
+                TCol("Dni", 46.dp, text = { n0(it.days) }, key = { it.days.toDouble() }),
+                TCol("Za volantom", 86.dp, text = { hours(it.ms) }, key = { it.ms.toDouble() }),
+                TCol("Ø km/h", 62.dp, text = { if (it.ms > 0) n0(it.avgSpeed.roundToInt()) else "" }, key = { it.avgSpeed }),
+                TCol("Ø km/jazda", 78.dp, text = { if (it.trips > 0) n1(it.perTrip) else "" }, key = { it.perTrip }),
+                TCol("Palivo l", 66.dp, text = { n1(it.liters) }, key = { it.liters }),
+                TCol("Náklady", 84.dp, text = { formatMoney(it.cost) }, key = { it.cost }),
+                TCol("Ø skóre", 62.dp, text = { it.score?.toString() ?: "" }, key = { (it.score ?: -1).toDouble() }, color = { scoreColor(it.score) }),
+                TCol("Kroky", 74.dp, text = { n0(it.steps) }, key = { it.steps.toDouble() }),
+            ), initialSort = 0, initialDesc = true,
+                footer = listOf("Spolu", n0(d.months.sumOf { it.trips }), n1(d.months.sumOf { it.km }), n1(d.months.sumOf { it.bizKm }), n1(d.months.sumOf { it.privKm }),
+                    n0(d.months.sumOf { it.days }), hours(d.months.sumOf { it.ms }), "", "", n1(d.months.sumOf { it.liters }), formatMoney(d.months.sumOf { it.cost }), "", n0(d.months.sumOf { it.steps })),
+                csvName = "mesiace")
+        }
+        SectionCard("Najčastejšie ciele · ${d.title}") {
+            if (d.dests.isEmpty()) Box(Modifier.padding(horizontal = 12.dp)) { EmptyNote() } else
+            SortableTable<Analytics.Dest>(d.dests, listOf(
+                TCol("Cieľ", 150.dp, start = true, bold = true, text = { (if (it.isPlace) "📍 " else "") + it.name }, key = { it.name }),
+                TCol("Návštevy", 70.dp, bold = true, text = { n0(it.visits) }, key = { it.visits.toDouble() }),
+                TCol("Km spolu", 72.dp, text = { n1(it.km) }, key = { it.km }),
+                TCol("Ø km", 56.dp, text = { n1(it.avgKm) }, key = { it.avgKm }),
+                TCol("Ø trvanie", 74.dp, text = { formatDuration(it.avgMs) }, key = { it.avgMs.toDouble() }),
+                TCol("Ø príchod", 72.dp, text = { hm(it.arrivalMin) }, key = { it.arrivalMin.toDouble() }),
+                TCol("Služobne", 66.dp, text = { "${it.bizPct.roundToInt()} %" }, key = { it.bizPct }),
+                TCol("Náklady", 80.dp, text = { formatMoney(it.cost) }, key = { it.cost }),
+                TCol("Naposledy", 86.dp, text = { formatDate(it.last) }, key = { it.last.toDouble() }),
+            ), initialSort = 1, initialDesc = true, limit = 15, onRowClick = { onNavigate("trip/${it.lastTripId}") },
+                footer = listOf("${d.dests.size} cieľov", n0(d.dests.sumOf { it.visits }), n1(d.dests.sumOf { it.km }), "", "", "", "", formatMoney(d.dests.sumOf { it.cost }), ""),
+                note = "Ťuknutím na riadok otvoríte poslednú jazdu do cieľa.", csvName = "ciele")
+        }
+        SectionCard("Dni v týždni · ${d.title}") {
+            SortableTable<Analytics.Weekday>(d.dows, listOf(
+                TCol("Deň", 92.dp, start = true, bold = true, text = { it.name }, key = { it.index.toDouble() }),
+                TCol("Jazdy", 56.dp, text = { n0(it.trips) }, key = { it.trips.toDouble() }),
+                TCol("Km", 66.dp, bold = true, text = { n1(it.km) }, key = { it.km }),
+                TCol("Ø km / deň", 78.dp, text = { n1(it.perDayKm) }, key = { it.perDayKm }),
+                TCol("Ø jazda", 66.dp, text = { if (it.trips > 0) n1(it.perTrip) + " km" else "" }, key = { it.perTrip }),
+                TCol("Za volantom", 86.dp, text = { hours(it.ms) }, key = { it.ms.toDouble() }),
+                TCol("Služobné km", 86.dp, text = { n1(it.bizKm) }, key = { it.bizKm }),
+                TCol("Ø 1. odchod", 80.dp, text = { hm(it.firstDeparture) }, key = { (it.firstDeparture ?: 9999).toDouble() }),
+                TCol("Ø skóre", 62.dp, text = { it.score?.toString() ?: "" }, key = { (it.score ?: -1).toDouble() }, color = { scoreColor(it.score) }),
+                TCol("Kroky", 74.dp, text = { n0(it.steps) }, key = { it.steps.toDouble() }),
+            ), initialSort = 0, initialDesc = false,
+                footer = listOf("Spolu", n0(d.dows.sumOf { it.trips }), n1(d.dows.sumOf { it.km }), "", "", hours(d.dows.sumOf { it.ms }), n1(d.dows.sumOf { it.bizKm }), "", "", n0(d.dows.sumOf { it.steps })),
+                csvName = "dni-v-tyzdni")
+        }
+        SectionCard("Štýl jazdy po týždňoch · tabuľka") {
+            if (d.weeks.isEmpty()) Box(Modifier.padding(horizontal = 12.dp)) { EmptyNote() } else
+            SortableTable<Analytics.Week>(d.weeks, listOf(
+                TCol("Týždeň", 120.dp, start = true, bold = true, text = { it.label + "\n" + it.range }, key = { it.start.toDouble() }),
+                TCol("Jazdy", 56.dp, text = { n0(it.trips) }, key = { it.trips.toDouble() }),
+                TCol("Km", 66.dp, bold = true, text = { n1(it.km) }, key = { it.km }),
+                TCol("Brzdenia", 70.dp, text = { n0(it.brakes) }, key = { it.brakes.toDouble() }),
+                TCol("Zrýchlenia", 78.dp, text = { n0(it.accels) }, key = { it.accels.toDouble() }),
+                TCol("Na 100 km", 74.dp, text = { n1(it.per100) }, key = { it.per100 }),
+                TCol("Nad limitom", 100.dp, text = { formatDuration(it.speedingSec * 1000L) + " · " + n1(it.speedingPct) + " %" }, key = { it.speedingPct }),
+                TCol("Max km/h", 70.dp, text = { n0(it.maxSpeed.roundToInt()) }, key = { it.maxSpeed }),
+                TCol("Ø skóre", 62.dp, text = { it.score?.toString() ?: "" }, key = { (it.score ?: -1).toDouble() }, color = { scoreColor(it.score) }),
+            ), initialSort = 0, initialDesc = true, limit = 12, rowHeight = 48.dp,
+                footer = listOf("${d.weeks.size} týždňov", n0(d.weeks.sumOf { it.trips }), n1(d.weeks.sumOf { it.km }), n0(d.weeks.sumOf { it.brakes }), n0(d.weeks.sumOf { it.accels }),
+                    n1(d.weeks.sumOf { it.km }.let { k -> if (k > 0) d.weeks.sumOf { it.brakes + it.accels } / k * 100 else 0.0 }), formatDuration(d.weeks.sumOf { it.speedingSec } * 1000L), "", ""),
+                csvName = "styl-po-tyzdnoch")
+        }
+    Text("Grafy a tabuľky „12 mesiacov“: ${d.yTitle}. Tabuľky zoradíte ťuknutím na nadpis stĺpca, posúvajú sa do strany.",
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 private fun scoreColor(s: Int?): Color? = when {

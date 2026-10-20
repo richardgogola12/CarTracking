@@ -226,6 +226,7 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
         val time = trips.sumOf { (it.endedAt ?: it.startedAt) - it.startedAt }
 
         val wd = if (walkMode) rememberWalkData(all, r.from, r.to, s) else null
+        val cd = if (!walkMode) rememberCarData(all, r.from, r.to, r.title, vehicleFilter, vehicleMap, s) else null
         if (wd != null) {
             WalkSummary(wd)
         } else {
@@ -306,6 +307,8 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
             }
         }
 
+        if (cd != null) CarCharts(cd, onNavigate)
+
         // Deň: zoznam záznamov a časová os
         if (period == Period.DAY) SectionCard(if (walkMode) "Chôdza v tento deň" else "Jazdy v tento deň") {
             Column(Modifier.padding(horizontal = 4.dp)) {
@@ -361,14 +364,6 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
             }
         }
 
-        if (!walkMode) SectionCard("Analýzy") {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Vývoj za 12 mesiacov, kedy jazdíte, dĺžky jázd, štýl po týždňoch a tabuľky po mesiacoch, cieľoch a dňoch so zoraďovaním.",
-                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                Button(onClick = { onNavigate("analytics") }) { Text("Otvoriť") }
-            }
-        }
-
         if (!walkMode) SectionCard("Časté trasy") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Opakované cesty (napr. Domov → Práca): priemerný čas a kedy je najlepšie vyraziť.",
@@ -381,6 +376,7 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
             RouteMap(routes, Modifier.fillMaxWidth().height(320.dp).padding(top = 4.dp), colorBySpeed = false, showEvents = false)
         }
         if (wd != null) WalkTables(wd, onNavigate)
+        if (cd != null) CarTables(cd, onNavigate)
 
         if (!walkMode) SectionCard("Kniha jázd a export") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

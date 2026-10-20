@@ -399,13 +399,15 @@ window.addEventListener("afterprint", () => { for (const k in tables) if (printL
 //  Smerovanie
 // =====================================================================
 const PAGES = {
-  prehlad: ["Dashboard", pageDashboard], analyzy: ["Analýzy", pageAnalytics], jazdy: ["Jazdy a chôdza", pageTrips], mapa: ["Mapa", pageMap],
+  prehlad: ["Dashboard", pageDashboard], statistiky: ["Štatistiky", pageStats], jazdy: ["Jazdy a chôdza", pageTrips], mapa: ["Mapa", pageMap],
   den: ["Časová os dňa", pageDay], kniha: ["Kniha jázd", pageLogbook], nahrady: ["Cestovné náhrady", pageReimb],
-  vozidla: ["Vozidlá a tankovanie", pageVehicles], trasy: ["Časté trasy", pageRoutes], chodza: ["Chôdza a kroky", pageWalk],
+  vozidla: ["Vozidlá a tankovanie", pageVehicles], trasy: ["Časté trasy", pageRoutes],
   miesta: ["Miesta", pagePlaces], ucet: ["Účet a server", pageAccount],
 };
 function route() {
-  const p = (location.hash.replace(/^#\/?/, "").split("?")[0]) || "prehlad";
+  let p = (location.hash.replace(/^#\/?/, "").split("?")[0]) || "prehlad";
+  // staré odkazy: Analýzy a Chôdza sú teraz spolu v Štatistikách
+  if (p === "analyzy" || p === "chodza") { S.statMode = p === "chodza" ? "chodza" : "auto"; history.replaceState(null, "", "#/statistiky?m=" + S.statMode); p = "statistiky"; }
   S.page = PAGES[p] ? p : "prehlad";
   document.querySelectorAll("#nav .nav-link, #bottomNav a[data-page]").forEach(a => a.classList.toggle("active", a.dataset.page === S.page));
   $("pageTitle").textContent = PAGES[S.page][0];
@@ -675,17 +677,34 @@ const scoreAvg = (arr) => { const sc = arr.filter(t => t.score != null); const v
 const scoreBadge = (v) => v == null ? "" : `<span class="badge rounded-pill ${v >= 85 ? "text-bg-success" : v >= 70 ? "text-bg-warning" : "text-bg-danger"}">${v}</span>`;
 const LEN_BINS = [[0, 2, "do 2 km"], [2, 5, "2–5 km"], [5, 10, "5–10 km"], [10, 20, "10–20 km"], [20, 50, "20–50 km"], [50, 100, "50–100 km"], [100, 1e9, "nad 100 km"]];
 
+// =====================================================================
+//  Štatistiky – podrobné štatistiky jázd aj chôdze na jednom mieste (prepínač Auto / Chôdza ako v aplikácii)
+// =====================================================================
+async function pageStats() {
+  const q = new URLSearchParams(location.hash.split("?")[1] || "");
+  const m = q.get("m") || S.statMode || LS.get("ct_statmode") || "auto";
+  S.statMode = m === "chodza" ? "chodza" : "auto"; LS.set("ct_statmode", S.statMode);
+  $("pageTitle").textContent = S.statMode === "chodza" ? "Štatistiky · Chôdza" : "Štatistiky · Auto";
+  if (S.statMode === "chodza") await pageWalk(); else await pageAnalytics();
+  if (S.page !== "statistiky") return;
+  $("content").insertAdjacentHTML("afterbegin", `<div class="stat-switch noprint mb-3"><div class="btn-group w-100" role="group" aria-label="Auto alebo chôdza">
+    <a class="btn ${S.statMode === "auto" ? "btn-primary" : "btn-outline-primary"}" href="#/statistiky?m=auto"><i class="bi bi-car-front me-1"></i>Auto</a>
+    <a class="btn ${S.statMode === "chodza" ? "btn-primary" : "btn-outline-primary"}" href="#/statistiky?m=chodza"><i class="bi bi-person-walking me-1"></i>Chôdza</a>
+  </div></div>`);
+}
+
 async function pageAnalytics() {
   // 12 mesiacov končiacich mesiacom, v ktorom končí zvolené obdobie
   const endD = new Date(S.range.to - 1), mEnd = new Date(endD.getFullYear(), endD.getMonth() + 1, 1), mStart = new Date(mEnd.getFullYear(), mEnd.getMonth() - 12, 1);
   const key = +mStart + "-" + +mEnd;
   if (S.yearKey !== key) { loading(true); try { S.yearTrips = await fetchTrips(+mStart, +mEnd); S.yearKey = key; } finally { loading(false); } }
+  if (S.page !== "statistiky") return;
   const yCars = carTrips(S.yearTrips), yWalks = walkTrips(S.yearTrips), cars = carTrips(), walks = walkTrips();
   const months = Array.from({ length: 12 }, (_, i) => { const a = new Date(mStart.getFullYear(), mStart.getMonth() + i, 1), z = new Date(a.getFullYear(), a.getMonth() + 1, 1);
     return { a: +a, z: +z, label: a.toLocaleDateString("sk-SK", { month: "short", year: "2-digit" }), long: a.toLocaleDateString("sk-SK", { month: "long", year: "numeric" }) }; });
   const yTitle = months[0].long + " – " + months[11].long;
 
-  $("content").innerHTML = printHead("Analýzy") + `<div class="row g-3">
+  $("content").innerHTML = printHead("Štatistiky – auto") + `<div class="row g-3">
     ${card("Vývoj za 12 mesiacov", `<div class="chart-box lg"><canvas id="anTrend"></canvas></div>`, { col: "col-xl-8", sub: yTitle })}
     ${card("Dĺžka jázd", cars.length ? `<div class="chart-box lg"><canvas id="anLen"></canvas></div>` : empty("rulers", "Žiadne jazdy v období"), { col: "col-xl-4", sub: "počet jázd a podiel km · " + esc(S.range.title) })}
     ${card("Kedy jazdíte", cars.length ? `<div id="anHeat"></div>` : empty("calendar3", "Žiadne jazdy v období"), { col: "col-xl-7", sub: "km podľa dňa a hodiny začiatku · " + esc(S.range.title) })}
@@ -1217,7 +1236,7 @@ async function pageWalk() {
   const today = sod(Date.now()), tomorrow = addDays(today, 1), yearAgo = addDays(today, -364);
   const to = Math.min(S.range.to, tomorrow), from = S.range.from;
   if (S.walkYearKey !== today) { loading(true); try { S.walkYear = await fetchTrips(yearAgo, tomorrow, "walk").catch(() => []); S.walkYearKey = today; } finally { loading(false); } }
-  if (S.page !== "chodza") return;
+  if (S.page !== "statistiky") return;
   const walks = walkTrips().filter(t => t.started_at < to), pw = walkTrips(S.prevTrips);
   const days = walkDays(walks, from, to, goal, w), yDays = walkDays(S.walkYear.map(normTrip), yearAgo, tomorrow, goal, w);
   const steps = sum(days, x => x.steps), dist = sum(days, x => x.m), time = sum(days, x => x.ms), work = sum(days, x => x.work);
@@ -1231,7 +1250,7 @@ async function pageWalk() {
     (k, l) => ({ label: new Date(k).toLocaleDateString("sk-SK", { month: "long", year: "numeric" }), sub: l.length + " dní" }));
   const hm = (m) => Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0");
 
-  $("content").innerHTML = printHead("Chôdza a kroky") + `<div class="row g-3">
+  $("content").innerHTML = printHead("Štatistiky – chôdza") + `<div class="row g-3">
     ${kpi("person-walking", "ico-blue", "Kroky spolu", int(steps), steps, sum(pw, t => t.steps))}
     ${kpi("calendar-day", "ico-cyan", "Ø krokov za deň", int(days.length ? steps / days.length : 0))}
     ${kpi("bullseye", "ico-green", "Cieľ splnený", `${goalDays}× <small class="text-body-secondary fs-6">${days.length ? Math.round(goalDays / days.length * 100) : 0} % dní</small>`)}
