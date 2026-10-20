@@ -41,5 +41,5 @@ data class ParkingModel(
 
 data class MonthModel(
     val monthName: String, val km: Double, val trips: Int, val cost: Double, val businessKm: Double, val steps: Int, val walkKm: Double,
-    val vsPct: Int?, val days: List<Pair<String, Double>>,
+    val vsPct: Int?, val days: List<Pair<String, Double>>, val prevMonth: String = "",
 )

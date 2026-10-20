@@ -81,10 +81,17 @@ object WidgetRender {
         v.setTextViewText(R.id.w_status, st.title)
         v.setTextViewText(R.id.w_vehicle, m.vehicle ?: "")
 
+        // ---- rozpočet výšky: čo sa zmestí (hlavička + tlačidlá vždy) ----
+        val h = if (hDp <= 0) 480 else hDp
+        val compact = h < 235                 // 4 × 2: bez veľkého čísla, km v prvej dlaždici
+        val showChart = h >= 355
+        val showTripRow = h >= 430
+        val showInfoRow = h >= 465
+
         // ---- živý blok alebo „dnes“ ----
         val live = m.state == DriveState.DRIVING || m.state == DriveState.WALKING
         v.setViewVisibility(R.id.w_live, if (live) View.VISIBLE else View.GONE)
-        v.setViewVisibility(R.id.w_hero, if (live) View.GONE else View.VISIBLE)
+        v.setViewVisibility(R.id.w_hero, if (live || compact) View.GONE else View.VISIBLE)
         if (live) {
             v.setChronometer(R.id.w_chrono, SystemClock.elapsedRealtime() - (now - m.liveStartedAt), null, true)
             if (m.state == DriveState.DRIVING) {
@@ -110,10 +117,15 @@ object WidgetRender {
         }
 
         // ---- dlaždice ----
-        val showTiles = hDp == 0 || hDp >= 170
-        v.setViewVisibility(R.id.w_tiles, if (showTiles) View.VISIBLE else View.GONE)
-        v.setTextViewText(R.id.w_t1, "${m.todayTrips}")
-        v.setTextViewText(R.id.w_t1l, when (m.todayTrips) { 1 -> "jazda"; in 2..4 -> "jazdy"; else -> "jázd" })
+        // počas jazdy v malom widgete dlaždice nie sú (živý blok je väčší)
+        v.setViewVisibility(R.id.w_tiles, if (live && compact) View.GONE else View.VISIBLE)
+        if (compact && !live) {
+            v.setTextViewText(R.id.w_t1, km1(m.todayKm * 1000) + " km")
+            v.setTextViewText(R.id.w_t1l, "dnes autom")
+        } else {
+            v.setTextViewText(R.id.w_t1, "${m.todayTrips}")
+            v.setTextViewText(R.id.w_t1l, when (m.todayTrips) { 1 -> "jazda dnes"; in 2..4 -> "jazdy dnes"; else -> "jázd dnes" })
+        }
         v.setTextViewText(R.id.w_t2, WidgetArt.compact(m.todaySteps))
         v.setTextViewText(R.id.w_t3, formatMoney(m.todayCost).replace(" €", " €"))
         v.setInt(R.id.w_t1i, "setColorFilter", WidgetArt.GREEN_L)
@@ -121,11 +133,10 @@ object WidgetRender {
         v.setInt(R.id.w_t3i, "setColorFilter", Color.rgb(0xFD, 0xE6, 0x8A))
 
         // ---- graf + krúžok ----
-        val showChart = hDp == 0 || hDp >= 260
         v.setViewVisibility(R.id.w_week_row, if (showChart) View.VISIBLE else View.GONE)
         if (showChart) {
             val chartW = ((wDp - 32 - 104 - 20).coerceAtLeast(120) * d).toInt()
-            val chartH = (70 * d).toInt()
+            val chartH = (58 * d).toInt()
             val dots = (0 until CHART_COUNT).joinToString(" ") { if (it == chartMode) "●" else "○" }
             when (chartMode) {
                 CHART_SPEED -> {
@@ -142,12 +153,12 @@ object WidgetRender {
                 }
             }
             v.setOnClickPendingIntent(R.id.w_chart_box, chartToggle(ctx, widgetId))
-            v.setImageViewBitmap(R.id.w_ring, WidgetArt.ring(m.todaySteps, m.stepGoal, (96 * d).toInt(), d))
+            v.setImageViewBitmap(R.id.w_ring, WidgetArt.ring(m.todaySteps, m.stepGoal, (86 * d).toInt(), d))
         }
 
         // ---- posledná jazda ----
         val t = m.lastTrip
-        val showTrip = t != null && (hDp == 0 || hDp >= 330) && !live
+        val showTrip = t != null && showTripRow && !live
         v.setViewVisibility(R.id.w_trip, if (showTrip) View.VISIBLE else View.GONE)
         if (showTrip && t != null) {
             v.setImageViewBitmap(R.id.w_trip_map, WidgetArt.route(t.route, (64 * d).toInt(), (52 * d).toInt(), d))
@@ -159,7 +170,7 @@ object WidgetRender {
 
         // ---- pripomienka / parkovanie ----
         val info = m.reminder ?: m.parkingAddr?.let { a -> "Auto stojí: $a" + (m.parkingSince?.let { " · ${formatDuration(now - it)}" } ?: "") }
-        val showInfo = info != null && (hDp == 0 || hDp >= 390)
+        val showInfo = info != null && showInfoRow
         v.setViewVisibility(R.id.w_info, if (showInfo) View.VISIBLE else View.GONE)
         if (showInfo) {
             v.setTextViewText(R.id.w_info_tx, info)
@@ -198,7 +209,7 @@ object WidgetRender {
     }
 
     // ================= rýchle tlačidlá =================
-    fun quick(ctx: Context, loggedIn: Boolean, state: DriveState, liveKmh: Int, liveDistanceM: Double, liveSteps: Int): RemoteViews {
+    fun quick(ctx: Context, loggedIn: Boolean, state: DriveState, liveKmh: Int, liveDistanceM: Double, liveSteps: Int, todayM: Double = 0.0): RemoteViews {
         val v = RemoteViews(ctx.packageName, R.layout.widget_quick)
         v.setOnClickPendingIntent(R.id.q_root, openApp(ctx))
         val st = style(state)
@@ -209,7 +220,7 @@ object WidgetRender {
             DriveState.DRIVING -> "$liveKmh km/h · ${formatDistance(liveDistanceM)}"
             DriveState.WALKING -> "${WidgetArt.compact(liveSteps)} krokov · ${formatDistance(liveDistanceM)}"
             DriveState.CANDIDATE -> "Potvrďte alebo zrušte"
-            DriveState.IDLE -> "Ťuknite a začnite záznam"
+            DriveState.IDLE -> if (todayM > 0) "dnes ${formatDistance(todayM)}" else "dnes bez jázd"
         })
         if (!loggedIn) {
             button(v, R.id.q_btn1, R.id.q_btn1_ic, R.id.q_btn1_tx, R.drawable.ic_car, "Otvoriť", "primary", openApp(ctx))
@@ -298,11 +309,11 @@ object WidgetRender {
         v.setTextViewText(R.id.m_status, m.monthName)
         if (m.vsPct != null) {
             v.setViewVisibility(R.id.m_vs, View.VISIBLE)
-            v.setTextViewText(R.id.m_vs, (if (m.vsPct >= 0) "▲ ${m.vsPct} %" else "▼ ${-m.vsPct} %") + " km")
+            v.setTextViewText(R.id.m_vs, (if (m.vsPct >= 0) "▲ ${m.vsPct} %" else "▼ ${-m.vsPct} %") + if (m.prevMonth.isNotEmpty()) " vs. ${m.prevMonth}" else "")
             v.setInt(R.id.m_vs, "setBackgroundResource", if (m.vsPct >= 0) R.drawable.wg_chip_up else R.drawable.wg_chip_down)
         } else v.setViewVisibility(R.id.m_vs, View.GONE)
         v.setTextViewText(R.id.m1, String.format(SK, "%,.0f", m.km))
-        v.setTextViewText(R.id.m_sub, "${m.trips} ${when (m.trips) { 1 -> "jazda"; in 2..4 -> "jazdy"; else -> "jázd" }}\nvs. rovnaké dni min. mes.")
+        v.setTextViewText(R.id.m_sub, "${m.trips} ${when (m.trips) { 1 -> "jazda"; in 2..4 -> "jazdy"; else -> "jázd" }}\nza ${m.days.size} ${dni(m.days.size)}")
         v.setTextViewText(R.id.m4, String.format(SK, "%,.0f km", m.businessKm))
         v.setTextViewText(R.id.m5, WidgetArt.compact(m.steps))
         v.setTextViewText(R.id.m6, formatMoney(m.cost))

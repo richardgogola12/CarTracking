@@ -17,7 +17,7 @@
     <!-- dnes (keď nejazdíte) -->
     <LinearLayout android:id="@+id/w_hero" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp"
         android:gravity="bottom" android:orientation="horizontal">
-        <TextView android:id="@+id/w_hero_val" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="#FFFFFFFF" android:textSize="40sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" android:fontFamily="sans-serif-medium" android:letterSpacing="-0.03"/>
+        <TextView android:id="@+id/w_hero_val" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="#FFFFFFFF" android:textSize="40sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="true" android:fontFamily="sans-serif-medium" android:letterSpacing="-0.03"/>
         <TextView android:id="@+id/w_hero_unit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="km" android:textColor="#B3FFFFFF" android:textSize="15sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" android:layout_marginStart="4dp" android:layout_marginBottom="5dp"/>
         <TextView android:id="@+id/w_hero_sub" android:layout_width="0dp" android:layout_height="wrap_content" android:text="dnes autom" android:textColor="#B3FFFFFF" android:textSize="12sp" android:maxLines="2" android:ellipsize="end" android:includeFontPadding="false" android:layout_weight="1" android:gravity="end" android:layout_marginBottom="5dp"/>
     </LinearLayout>
@@ -27,7 +27,7 @@
         android:gravity="center_vertical" android:orientation="horizontal" android:visibility="gone">
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
             <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:gravity="bottom" android:orientation="horizontal">
-                <TextView android:id="@+id/w_big" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="#FFFFFFFF" android:textSize="46sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" android:fontFamily="sans-serif-medium" android:letterSpacing="-0.03"/>
+                <TextView android:id="@+id/w_big" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textColor="#FFFFFFFF" android:textSize="46sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="true" android:fontFamily="sans-serif-medium" android:letterSpacing="-0.03"/>
                 <TextView android:id="@+id/w_big_unit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="km/h" android:textColor="#B3FFFFFF" android:textSize="14sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" android:layout_marginStart="5dp" android:layout_marginBottom="6dp"/>
             </LinearLayout>
             <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:gravity="center_vertical" android:orientation="horizontal">
@@ -76,9 +76,9 @@
         <LinearLayout android:id="@+id/w_chart_box" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
             android:background="@drawable/wg_tile" android:orientation="vertical" android:padding="10dp">
             <TextView android:id="@+id/w_week_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Posledných 7 dní" android:textColor="#B3FFFFFF" android:textSize="10sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" />
-            <ImageView android:id="@+id/w_chart" android:layout_width="match_parent" android:layout_height="70dp" android:layout_marginTop="4dp" android:scaleType="fitXY" />
+            <ImageView android:id="@+id/w_chart" android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="4dp" android:scaleType="fitXY" />
         </LinearLayout>
-        <ImageView android:id="@+id/w_ring" android:layout_width="96dp" android:layout_height="96dp" android:layout_marginStart="8dp" android:scaleType="fitCenter" />
+        <ImageView android:id="@+id/w_ring" android:layout_width="86dp" android:layout_height="86dp" android:layout_marginStart="8dp" android:scaleType="fitCenter" />
     </LinearLayout>
 
     <!-- posledná jazda -->

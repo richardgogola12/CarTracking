@@ -64,7 +64,8 @@ object ExtraWidgets {
             val loggedIn = app.container.session.isLoggedIn
             val st = TrackingState.state.value; val live = TrackingState.live.value
             if (quick.isNotEmpty()) runCatching {
-                val v = WidgetRender.quick(app, loggedIn, st, live?.speedKmh?.toInt() ?: 0, live?.distanceM ?: 0.0, live?.steps ?: 0)
+                val todayKm = if (loggedIn) app.container.trips.tripsBetween(dayStart(System.currentTimeMillis()), Long.MAX_VALUE).filter { !it.isWalk }.sumOf { it.distanceM } else 0.0
+                val v = WidgetRender.quick(app, loggedIn, st, live?.speedKmh?.toInt() ?: 0, live?.distanceM ?: 0.0, live?.steps ?: 0, todayKm)
                 quick.forEach { mgr.updateAppWidget(it, v) }
             }
             if (parking.isNotEmpty()) runCatching {
@@ -116,6 +117,6 @@ object ExtraWidgets {
             (if (day == 1 || day % 5 == 0 || day == dom) "$day" else "") to (km[dayStart(ts)] ?: 0.0)
         }
         return MonthModel(MONTHS[now.get(Calendar.MONTH)], t.km, t.trips, t.cost, t.businessKm, t.steps, t.walkKm,
-            if (p.km > 0) ((t.km - p.km) / p.km * 100).roundToInt() else null, days)
+            if (p.km > 0) ((t.km - p.km) / p.km * 100).roundToInt() else null, days, MONTHS[prev.get(Calendar.MONTH)].lowercase())
     }
 }

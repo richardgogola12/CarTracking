@@ -70,20 +70,23 @@ class WidgetPreviewTest {
     )
 
     @Test fun mainWidget() {
-        render(WidgetRender.main(ctx, main(DriveState.IDLE), 360, 420, 1, WidgetRender.CHART_KM, now), 360, 420, "01-hlavny-velky")
-        render(WidgetRender.main(ctx, main(DriveState.IDLE), 360, 300, 1, WidgetRender.CHART_STEPS, now), 360, 300, "02-hlavny-stredny")
-        render(WidgetRender.main(ctx, main(DriveState.DRIVING), 360, 300, 1, WidgetRender.CHART_SPEED, now), 360, 300, "03-hlavny-jazda")
-        render(WidgetRender.main(ctx, main(DriveState.WALKING), 360, 190, 1, WidgetRender.CHART_KM, now), 360, 190, "04-hlavny-chodza-maly")
-        render(WidgetRender.main(ctx, main(DriveState.CANDIDATE), 360, 190, 1, WidgetRender.CHART_KM, now), 360, 190, "05-hlavny-overujem")
+        render(WidgetRender.main(ctx, main(DriveState.IDLE), 360, 470, 1, WidgetRender.CHART_KM, now), 360, 470, "01-hlavny-4x5")
+        render(WidgetRender.main(ctx, main(DriveState.IDLE), 360, 430, 1, WidgetRender.CHART_STEPS, now), 360, 430, "02-hlavny-4x4")
+        render(WidgetRender.main(ctx, main(DriveState.IDLE), 360, 300, 1, WidgetRender.CHART_KM, now), 360, 300, "03-hlavny-4x3")
+        render(WidgetRender.main(ctx, main(DriveState.IDLE), 360, 190, 1, WidgetRender.CHART_KM, now), 360, 190, "04-hlavny-4x2")
+        render(WidgetRender.main(ctx, main(DriveState.DRIVING), 360, 360, 1, WidgetRender.CHART_SPEED, now), 360, 360, "05-jazda-4x4")
+        render(WidgetRender.main(ctx, main(DriveState.DRIVING), 360, 190, 1, WidgetRender.CHART_KM, now), 360, 190, "06-jazda-4x2")
+        render(WidgetRender.main(ctx, main(DriveState.WALKING), 360, 300, 1, WidgetRender.CHART_KM, now), 360, 300, "07-chodza-4x3")
+        render(WidgetRender.main(ctx, main(DriveState.CANDIDATE), 360, 190, 1, WidgetRender.CHART_KM, now), 360, 190, "08-overujem-4x2")
     }
 
     @Test fun smallWidgets() {
-        render(WidgetRender.quick(ctx, true, DriveState.IDLE, 0, 0.0, 0), 300, 84, "06-tlacidla")
-        render(WidgetRender.quick(ctx, true, DriveState.DRIVING, 78, 9_400.0, 0), 300, 84, "07-tlacidla-jazda")
-        render(WidgetRender.steps(ctx, StepsModel(6_245, 8_000, 4.6, 5, 12, weekSteps), 300, 200), 300, 200, "08-kroky")
-        render(WidgetRender.parking(ctx, ParkingModel(false, "Hlavná 12, Imeľ", now - 95 * 60_000L, 47.9, 18.05, now + 38 * 60_000L), now), 360, 190, "09-parkovanie")
+        render(WidgetRender.quick(ctx, true, DriveState.IDLE, 0, 0.0, 0, 24_500.0), 300, 84, "09-tlacidla")
+        render(WidgetRender.quick(ctx, true, DriveState.DRIVING, 78, 9_400.0, 0), 300, 84, "10-tlacidla-jazda")
+        render(WidgetRender.steps(ctx, StepsModel(6_245, 8_000, 4.6, 5, 12, weekSteps), 300, 200), 300, 200, "11-kroky")
+        render(WidgetRender.parking(ctx, ParkingModel(false, "Hlavná 12, Imeľ", now - 95 * 60_000L, 47.9, 18.05, now + 38 * 60_000L), now), 360, 190, "12-parkovanie")
         val days = (1..20).map { (if (it == 1 || it % 5 == 0) "$it" else "") to listOf(13.0, 26.4, 0.0, 41.0, 8.7)[it % 5] }
-        render(WidgetRender.month(ctx, MonthModel("Október", 642.0, 38, 92.1, 214.0, 148_300, 96.4, 12, days), 360, 240), 360, 240, "10-mesiac")
-        render(WidgetRender.trip(ctx, trip, 360, 210, now), 360, 210, "11-posledna-jazda")
+        render(WidgetRender.month(ctx, MonthModel("Október", 642.0, 38, 92.1, 214.0, 148_300, 96.4, 12, days, "september"), 360, 240), 360, 240, "13-mesiac")
+        render(WidgetRender.trip(ctx, trip, 360, 210, now), 360, 210, "14-posledna-jazda")
     }
 }
