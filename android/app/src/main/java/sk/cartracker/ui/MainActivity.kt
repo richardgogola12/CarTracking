@@ -176,6 +176,7 @@ private fun AppNavigation(start: String) {
                 initialDay = it.arguments?.getLong("d")?.takeIf { d -> d > 0 })
         }
         composable("tripcheck") { sk.cartracker.ui.screens.TripCheckScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
+        composable("walkstats") { sk.cartracker.ui.screens.WalkStatsScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
         composable("analytics") { sk.cartracker.ui.screens.AnalyticsScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
         composable("routes") { sk.cartracker.ui.screens.RoutesScreen(onBack = { nav.popBackStack() }, onOpenTrip = { nav.navigate("trip/$it") }) }
         composable("trip/{id}", arguments = listOf(navArgument("id") { type = NavType.LongType })) {

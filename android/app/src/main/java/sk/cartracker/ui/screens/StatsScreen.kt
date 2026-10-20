@@ -225,6 +225,14 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
         val total = trips.sumOf { it.distanceM }
         val time = trips.sumOf { (it.endedAt ?: it.startedAt) - it.startedAt }
 
+        if (walkMode) SectionCard("Podrobný prehľad chôdze") {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Kroky po dňoch, rok v krokoch, kedy chodíte, dni v týždni, tempo, pracovný čas, série a tabuľky po dňoch, týždňoch a mesiacoch.",
+                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                Button(onClick = { onNavigate("walkstats") }) { Text("Otvoriť") }
+            }
+        }
+
         if (walkMode) {
             val stepsTotal = trips.sumOf { it.steps }
             val activeDays = trips.map { formatDate(it.startedAt) }.distinct().size

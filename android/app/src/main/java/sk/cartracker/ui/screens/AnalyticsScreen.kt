@@ -306,7 +306,7 @@ private fun scoreColor(s: Int?): Color? = when {
 @Composable private fun EmptyNote() = Text("Žiadne jazdy v období", Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
 
 @Composable
-private fun Legend(items: List<Pair<Color, String>>) {
+internal fun Legend(items: List<Pair<Color, String>>) {
     Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         items.forEach { (c, l) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -319,15 +319,15 @@ private fun Legend(items: List<Pair<Color, String>>) {
 
 // ---------------- grafy (Canvas) ----------------
 
-private const val AXIS_W = 34f   // dp – miesto pre popisy osi
+internal const val AXIS_W = 34f   // dp – miesto pre popisy osi
 
-private fun DrawScope.label(tm: TextMeasurer, text: String, x: Float, y: Float, color: Color, alignEnd: Boolean = false, center: Boolean = false, size: Int = 9) {
+internal fun DrawScope.label(tm: TextMeasurer, text: String, x: Float, y: Float, color: Color, alignEnd: Boolean = false, center: Boolean = false, size: Int = 9) {
     val r = tm.measure(text, TextStyle(fontSize = size.sp, color = color))
     val dx = when { alignEnd -> -r.size.width.toFloat(); center -> -r.size.width / 2f; else -> 0f }
     drawText(r, topLeft = Offset(x + dx, y - r.size.height / 2f))
 }
 
-private fun nice(max: Double): Double {
+internal fun nice(max: Double): Double {
     if (max <= 0) return 1.0
     val p = Math.pow(10.0, kotlin.math.floor(kotlin.math.log10(max)))
     return listOf(1.0, 2.0, 2.5, 5.0, 10.0).map { it * p }.first { it >= max }
@@ -482,14 +482,14 @@ private fun StyleChart(weeks: List<Analytics.Week>, modifier: Modifier) {
 
 // ---------------- triediteľná tabuľka ----------------
 
-private class TCol<T>(
+internal class TCol<T>(
     val title: String, val width: Dp, val start: Boolean = false, val bold: Boolean = false,
     val text: (T) -> String, val key: (T) -> Any, val color: (T) -> Color? = { null },
 )
 
 /** Tabuľka s pevným prvým stĺpcom, posúvaním do strany, triedením ťuknutím na nadpis, súčtami a exportom CSV. */
 @Composable
-private fun <T> SortableTable(
+internal fun <T> SortableTable(
     rows: List<T>, cols: List<TCol<T>>, initialSort: Int, initialDesc: Boolean, footer: List<String>? = null,
     limit: Int? = null, onRowClick: ((T) -> Unit)? = null, note: String? = null, csvName: String, rowHeight: Dp = 38.dp,
 ) {
