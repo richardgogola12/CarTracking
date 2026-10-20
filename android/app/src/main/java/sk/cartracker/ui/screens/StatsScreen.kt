@@ -379,6 +379,14 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
             }
         }
 
+        SectionCard("Analýzy") {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Vývoj za 12 mesiacov, kedy jazdíte, dĺžky jázd, štýl po týždňoch a tabuľky po mesiacoch, cieľoch a dňoch so zoraďovaním.",
+                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                Button(onClick = { onNavigate("analytics") }) { Text("Otvoriť") }
+            }
+        }
+
         if (!walkMode) SectionCard("Časté trasy") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Opakované cesty (napr. Domov → Práca): priemerný čas a kedy je najlepšie vyraziť.",

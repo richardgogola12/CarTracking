@@ -32,6 +32,7 @@ Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nasta
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
 ## Novinky vo verzii 2.0 (zostavenia 2.0.N)
+- **Analýzy aj v aplikácii** (Štatistiky → Analýzy, `ui/screens/AnalyticsScreen.kt`, výpočty `data/Analytics.kt` s testami) – rovnaké grafy (Canvas) a triediteľné tabuľky s pevným prvým stĺpcom, súčtami a CSV.
 - **Web – stránka Analýzy**: grafy vývoj za 12 mesiacov, dĺžka jázd, teplotná mapa deň × hodina, rýchlosť × vzdialenosť, štýl jazdy po týždňoch; tabuľky po mesiacoch, najčastejšie ciele, dni v týždni a štýl po týždňoch (triedenie, hľadanie, Excel/CSV/tlač, súčty).
 - **Doladenie podľa reálnych jázd (diagnostika 14.–20. 10.)** – ručná jazda sa ukončí sama po zaparkovaní; koniec jazdy = posledný pohyb (státie na konci sa oreže); jazda zo „stačí jedna podmienka“ sa ohlási až po pohnutí auta, falošné hlásenie (v noci) sa potichu zahodí; po reštarte služby systémom sa nadviaže na rozbehnutú jazdu; chôdza v budove berie vzdialenosť z krokov; názov cesty bez mena „cesta č. 1494“.
 - **Stačí jedna podmienka** (predvolené) – jazda sa zapisuje hneď, keď systém hlási „vo vozidle“, pripojí sa Bluetooth auta alebo GPS počas chôdze nameria rýchlosť auta; bez čakania na overenie 3 bodmi GPS (dá sa vrátiť v Nastavenia → Detekcia jazdy).
