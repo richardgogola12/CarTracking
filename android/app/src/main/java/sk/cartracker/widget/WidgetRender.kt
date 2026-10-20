@@ -85,9 +85,9 @@ object WidgetRender {
         val h = if (hDp <= 0) 480 else hDp
         val compact = h < 235                 // 4 × 2: bez veľkého čísla (km v prvej dlaždici), počas jazdy menšia rýchlosť
         val liveNow = m.state == DriveState.DRIVING || m.state == DriveState.WALKING
-        var used = when { compact -> 185; liveNow -> 288; else -> 212 }
+        var used = when { compact -> 180; liveNow -> 250; else -> 220 }
         val showChart = h >= used + 102; if (showChart) used += 102
-        val showTripRow = !liveNow && m.lastTrip != null && h >= used + 84; if (showTripRow) used += 84
+        val showTripRow = !liveNow && m.lastTrip != null && h >= used + 76; if (showTripRow) used += 76
         val infoText = m.reminder ?: m.parkingAddr?.let { a -> "Auto stojí: $a" + (m.parkingSince?.let { " · ${formatDuration(now - it)}" } ?: "") }
         val showInfoRow = infoText != null && h >= used + 30
 
@@ -165,7 +165,7 @@ object WidgetRender {
         val showTrip = t != null && showTripRow
         v.setViewVisibility(R.id.w_trip, if (showTrip) View.VISIBLE else View.GONE)
         if (showTrip && t != null) {
-            v.setImageViewBitmap(R.id.w_trip_map, WidgetArt.route(t.route, (64 * d).toInt(), (52 * d).toInt(), d))
+            v.setImageViewBitmap(R.id.w_trip_map, WidgetArt.route(t.route, (60 * d).toInt(), (44 * d).toInt(), d))
             v.setTextViewText(R.id.w_trip_title, "${t.from} → ${t.to}")
             v.setTextViewText(R.id.w_trip_sub, "${whenText(t.startedAt, now)} · ${formatDistance(t.km * 1000)} · ${formatDuration(t.endedAt - t.startedAt)}")
             v.setTextViewText(R.id.w_trip_badge, if (t.business) "služobná" else "súkromná")
