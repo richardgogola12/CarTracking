@@ -73,178 +73,135 @@ private fun k0(v: Number) = String.format(SKW, "%,d", v.toLong())
 private fun k1(v: Double) = String.format(SKW, "%.1f", v)
 private fun kc(v: Double) = if (v >= 10_000) String.format(SKW, "%.1fk", v / 1000) else k0(v.roundToInt())
 
-private enum class WPeriod(val label: String, val days: Int) { D7("7 dní", 7), D30("30 dní", 30), D90("90 dní", 90), YEAR("Tento rok", 0), Y12("12 mesiacov", 365) }
+/** Údaje prehľadu chôdze pre obdobie [from, to) – počíta sa raz a zdieľa medzi súhrnom a tabuľkami. */
+class WalkData(
+    val from: Long, val to: Long, val goal: Int, val walks: List<TripEntity>, val days: List<WalkAnalytics.Day>, val yearDays: List<WalkAnalytics.Day>,
+    val sum: WalkAnalytics.Summary, val hours: DoubleArray, val wdays: List<WalkAnalytics.Weekday>, val weeks: List<WalkAnalytics.Group>,
+    val months: List<WalkAnalytics.Group>, val bins: List<WalkAnalytics.Bin>, val workFrom: Int, val workTo: Int,
+)
 
-/** Podrobný prehľad chôdze – súhrn, grafy a triediteľné tabuľky. */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun WalkStatsScreen(onBack: () -> Unit, onOpenTrip: (Long) -> Unit) {
-    val c = LocalContext.current.container
-    val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
-    var period by remember { mutableStateOf(WPeriod.D30) }
-    var all by remember { mutableStateOf<List<TripEntity>?>(null) }
-    val today = remember { WalkAnalytics.dayStart(System.currentTimeMillis()) }
-    val tomorrow = remember { Calendar.getInstance().apply { timeInMillis = today; add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis }
-    val yearAgo = remember { Calendar.getInstance().apply { timeInMillis = today; add(Calendar.DAY_OF_MONTH, -364) }.timeInMillis }
-    LaunchedEffect(Unit) {
-        val jan1 = Calendar.getInstance().apply { timeInMillis = today; set(Calendar.DAY_OF_YEAR, 1) }.timeInMillis
-        all = c.trips.tripsBetween(minOf(yearAgo, jan1) - 400 * 86_400_000L, tomorrow).filter { it.isWalk }
-    }
-    val from = remember(period) {
-        when (period) {
-            WPeriod.YEAR -> Calendar.getInstance().apply { timeInMillis = today; set(Calendar.DAY_OF_YEAR, 1) }.timeInMillis
-            else -> Calendar.getInstance().apply { timeInMillis = today; add(Calendar.DAY_OF_MONTH, -(period.days - 1)) }.timeInMillis
-        }
-    }
+fun rememberWalkData(all: List<TripEntity>, from: Long, to: Long, s: AppSettings): WalkData = remember(all, from, to, s) {
+    val today = WalkAnalytics.dayStart(System.currentTimeMillis())
+    val tomorrow = Calendar.getInstance().apply { timeInMillis = today; add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
+    val end = minOf(to, tomorrow).coerceAtLeast(from + 1)
+    val yearAgo = Calendar.getInstance().apply { timeInMillis = today; add(Calendar.DAY_OF_MONTH, -364) }.timeInMillis
     val work: (Long, Long) -> Double = { a, b -> WalkAnalytics.workShare(a, b, s.workDaySet, s.workFromMin, s.workToMin) }
-    val walksAll = all.orEmpty()
-    val walks = walksAll.filter { it.startedAt in from until tomorrow }
+    val walksAll = all.filter { it.isWalk }
+    val walks = walksAll.filter { it.startedAt in from until end }
     val goal = s.dailyStepGoal
-    val days = remember(all, period, s) { WalkAnalytics.days(walks, from, tomorrow, goal, work) }
-    val yearDays = remember(all, s) { WalkAnalytics.days(walksAll.filter { it.startedAt >= yearAgo }, yearAgo, tomorrow, goal, work) }
-    val streaks = remember(all, s) { stepStreaks(dailyTotals(walksAll, walk = true), goal) }
-    val sum = WalkAnalytics.summary(walks, days, streaks.first, streaks.second)
-    val hours = remember(all, period) { WalkAnalytics.byHour(walks) }
-    val wdays = remember(days) { WalkAnalytics.weekdays(days) }
-    val weeks = remember(days) { WalkAnalytics.weeks(days) }
-    val months = remember(yearDays) { WalkAnalytics.months(yearDays) }
-    val bins = remember(all, period) { WalkAnalytics.stepBins(walks) }
+    val days = WalkAnalytics.days(walks, from, end, goal, work)
+    val yearDays = WalkAnalytics.days(walksAll.filter { it.startedAt >= yearAgo }, yearAgo, tomorrow, goal, work)
+    val streaks = stepStreaks(dailyTotals(walksAll, walk = true), goal)
+    WalkData(from, end, goal, walks, days, yearDays, WalkAnalytics.summary(walks, days, streaks.first, streaks.second), WalkAnalytics.byHour(walks),
+        WalkAnalytics.weekdays(days), WalkAnalytics.weeks(days), WalkAnalytics.months(yearDays), WalkAnalytics.stepBins(walks), s.workFromMin, s.workToMin)
+}
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Chôdza – podrobný prehľad") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Späť") } })
-    }) { pad ->
-        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(12.dp, 4.dp, 12.dp, 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item {
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    WPeriod.entries.forEach { p -> FilterChip(period == p, { period = p }, { Text(p.label) }) }
-                }
-                if (all == null) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 6.dp))
-            }
-            if (all == null) return@LazyColumn
-
-            // ---------------- súhrn ----------------
-            item {
-                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), maxItemsInEachRow = 2) {
-                    val m = Modifier.weight(1f)
-                    Kpi(m, "Kroky spolu", k0(sum.steps), "${sum.activeDays} z ${sum.days} dní aktívnych", W_BLUE)
-                    Kpi(m, "Ø krokov za deň", k0(sum.avgSteps.roundToInt()), if (goal > 0) "cieľ ${k0(goal)}" else "", W_BLUE_L)
-                    Kpi(m, "Cieľ splnený", "${sum.goalDays} ×", "${sum.goalPct.roundToInt()} % dní", W_GREEN)
-                    Kpi(m, "Séria dní s cieľom", "${sum.curStreak}", "rekord ${sum.bestStreak}", W_AMBER)
-                    Kpi(m, "Vzdialenosť", formatDistance(sum.meters), "${sum.walks} chôdzí", W_VIOLET)
-                    Kpi(m, "Čas chôdze", formatDuration(sum.ms), "Ø ${formatDuration(if (sum.days > 0) sum.ms / sum.days else 0)} za deň", W_VIOLET)
-                    Kpi(m, "Ø tempo", WalkAnalytics.paceText(sum.pace) + " min/km", sum.pace?.let { "≈ ${k1(60 / it)} km/h" } ?: "", W_ROSE)
-                    Kpi(m, "V pracovnom čase", "${sum.workPct.roundToInt()} %", "${k0(sum.workSteps)} krokov", W_GREEN)
-                    sum.bestDay?.let { b -> Kpi(m, "Najlepší deň", k0(b.steps), formatDate(b.start), W_AMBER) }
-                    sum.longest?.let { l -> Kpi(m, "Najdlhšia chôdza", k0(l.steps), "${formatDate(l.startedAt)} · ${formatDistance(l.distanceM)}", W_BLUE) }
-                }
-            }
-
-            // ---------------- grafy ----------------
-            item {
-                SectionCard("Kroky po dňoch") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        Legend(listOf(W_GREEN to "cieľ splnený", W_BLUE_L to "pod cieľom", W_AMBER to "denný cieľ ${k0(goal)}"))
-                        DayBars(days, goal, Modifier.fillMaxWidth().height(200.dp))
-                    }
-                }
-            }
-            item {
-                SectionCard("Rok v krokoch") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        YearHeat(yearDays, goal)
-                        Text("Každý štvorček je deň (stĺpec = týždeň, riadky po–ne). Čím tmavší, tým viac krokov; zelené = cieľ splnený.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-                    }
-                }
-            }
-            item {
-                SectionCard("Kedy chodíte · Ø krokov za deň podľa hodiny") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        val avg = hours.map { it / max(1, days.size) }
-                        SimpleBars(avg.mapIndexed { h, v -> (if (h % 3 == 0) "$h" else "") to v }, Modifier.fillMaxWidth().height(170.dp), W_BLUE,
-                            highlight = avg.indices.maxByOrNull { avg[it] })
-                        val peak = avg.indices.maxByOrNull { avg[it] } ?: 0
-                        Text("Najviac chodíte medzi $peak:00 a ${peak + 1}:00 (Ø ${k0(avg[peak].roundToInt())} krokov). Pracovný čas ${hmw(s.workFromMin)}–${hmw(s.workToMin)}.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-                    }
-                }
-            }
-            item {
-                SectionCard("Dni v týždni · Ø krokov") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        SimpleBars(wdays.map { listOf("Po", "Ut", "St", "Št", "Pi", "So", "Ne")[it.index] to it.avgSteps }, Modifier.fillMaxWidth().height(170.dp), W_VIOLET,
-                            highlight = wdays.indices.maxByOrNull { wdays[it].avgSteps }, goal = goal.toDouble(),
-                            top = wdays.map { if (it.days > 0) "${it.goalPct.roundToInt()} %" else "" })
-                        Text("Percentá nad stĺpcami = ako často v ten deň splníte cieľ.", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-                    }
-                }
-            }
-            if (weeks.size >= 2) item {
-                SectionCard("Vývoj po týždňoch · Ø krokov za deň a tempo") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        Legend(listOf(W_BLUE to "Ø krokov / deň", W_ROSE to "tempo (min/km)"))
-                        TrendChart(weeks, Modifier.fillMaxWidth().height(190.dp))
-                    }
-                }
-            }
-            item {
-                SectionCard("Dĺžka chôdzí (kroky)") {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        SimpleBars(bins.map { it.label to it.count.toDouble() }, Modifier.fillMaxWidth().height(160.dp), W_AMBER,
-                            top = bins.map { if (it.count > 0) "${it.stepShare.roundToInt()} %" else "" }, valueLabels = true)
-                        Text("Stĺpec = počet chôdzí, percento = podiel na všetkých krokoch. Krátke presuny (do 500 krokov) bývajú v budove.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-                    }
-                }
-            }
-
-            // ---------------- tabuľky ----------------
-            item {
-                SectionCard("Po dňoch") {
-                    val dn = SimpleDateFormat("EE d. M.", SKW)
-                    SortableTable<WalkAnalytics.Day>(days.reversed(), listOf(
-                        TCol("Deň", 92.dp, start = true, bold = true, text = { dn.format(it.start) }, key = { it.start.toDouble() }),
-                        TCol("Kroky", 72.dp, bold = true, text = { k0(it.steps) }, key = { it.steps.toDouble() }, color = { d -> if (d.goalMet) W_GREEN else null }),
-                        TCol("Cieľ", 50.dp, text = { if (goal <= 0) "" else if (it.goalMet) "✓" else "${(it.steps * 100 / goal)} %" }, key = { it.steps.toDouble() }),
-                        TCol("Km", 58.dp, text = { k1(it.meters / 1000) }, key = { it.meters }),
-                        TCol("Čas", 70.dp, text = { if (it.ms > 0) formatDuration(it.ms) else "" }, key = { it.ms.toDouble() }),
-                        TCol("Chôdzí", 58.dp, text = { k0(it.walks) }, key = { it.walks.toDouble() }),
-                        TCol("Tempo", 62.dp, text = { WalkAnalytics.paceText(it.pace) }, key = { it.pace ?: 999.0 }),
-                        TCol("V práci", 70.dp, text = { k0(it.workSteps) }, key = { it.workSteps.toDouble() }),
-                    ), initialSort = 0, initialDesc = true, limit = 14, csvName = "chodza-dni",
-                        footer = listOf("Spolu", k0(sum.steps), "${sum.goalDays}×", k1(sum.meters / 1000), formatDuration(sum.ms), k0(sum.walks), WalkAnalytics.paceText(sum.pace), k0(sum.workSteps)))
-                }
-            }
-            item {
-                SectionCard("Po týždňoch") {
-                    SortableTable<WalkAnalytics.Group>(weeks, groupCols(goal), initialSort = 0, initialDesc = true, limit = 12, rowHeight = 46.dp, csvName = "chodza-tyzdne",
-                        footer = groupFooter(weeks))
-                }
-            }
-            item {
-                SectionCard("Po mesiacoch · 12 mesiacov") {
-                    SortableTable<WalkAnalytics.Group>(months, groupCols(goal), initialSort = 0, initialDesc = true, rowHeight = 46.dp, csvName = "chodza-mesiace",
-                        footer = groupFooter(months))
-                }
-            }
-            item {
-                SectionCard("Najdlhšie chôdze") {
-                    val top = walks.sortedByDescending { it.steps }.take(50)
-                    if (top.isEmpty()) Text("Žiadna chôdza v období", Modifier.padding(16.dp)) else
-                    SortableTable<TripEntity>(top, listOf(
-                        TCol("Dátum", 96.dp, start = true, bold = true, text = { formatDate(it.startedAt) + "\n" + formatTime(it.startedAt) + "–" + formatTime(it.endedAt ?: it.startedAt) }, key = { it.startedAt.toDouble() }),
-                        TCol("Kroky", 70.dp, bold = true, text = { k0(it.steps) }, key = { it.steps.toDouble() }),
-                        TCol("Km", 58.dp, text = { k1(it.distanceM / 1000) }, key = { it.distanceM }),
-                        TCol("Čas", 70.dp, text = { formatDuration((it.endedAt ?: it.startedAt) - it.startedAt) }, key = { ((it.endedAt ?: it.startedAt) - it.startedAt).toDouble() }),
-                        TCol("Tempo", 62.dp, text = { WalkAnalytics.paceText(WalkAnalytics.pace((it.endedAt ?: it.startedAt) - it.startedAt, it.distanceM)) },
-                            key = { WalkAnalytics.pace((it.endedAt ?: it.startedAt) - it.startedAt, it.distanceM) ?: 999.0 }),
-                        TCol("Trasa", 170.dp, start = true, text = { listOfNotNull(it.startPlace ?: it.startAddress?.substringBefore(","), it.endPlace ?: it.endAddress?.substringBefore(",")).joinToString(" → ") }, key = { it.startAddress ?: "" }),
-                    ), initialSort = 1, initialDesc = true, limit = 10, rowHeight = 46.dp, onRowClick = { onOpenTrip(it.id) },
-                        note = "Ťuknutím otvoríte chôdzu s mapou.", csvName = "chodza-najdlhsie")
-                }
-            }
+/** Súhrn (10 ukazovateľov) a grafy chôdze – súčasť Štatistiky → Chôdza. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun WalkSummary(d: WalkData) {
+    val sum = d.sum; val goal = d.goal; val days = d.days
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), maxItemsInEachRow = 2) {
+        val m = Modifier.weight(1f)
+        Kpi(m, "Kroky spolu", k0(sum.steps), "${sum.activeDays} z ${sum.days} dní aktívnych", W_BLUE)
+        Kpi(m, "Ø krokov za deň", k0(sum.avgSteps.roundToInt()), if (goal > 0) "cieľ ${k0(goal)}" else "", W_BLUE_L)
+        Kpi(m, "Cieľ splnený", "${sum.goalDays} ×", "${sum.goalPct.roundToInt()} % dní", W_GREEN)
+        Kpi(m, "Séria dní s cieľom", "${sum.curStreak}", "rekord ${sum.bestStreak}", W_AMBER)
+        Kpi(m, "Vzdialenosť", formatDistance(sum.meters), "${sum.walks} chôdzí", W_VIOLET)
+        Kpi(m, "Čas chôdze", formatDuration(sum.ms), "Ø ${formatDuration(if (sum.days > 0) sum.ms / sum.days else 0)} za deň", W_VIOLET)
+        Kpi(m, "Ø tempo", WalkAnalytics.paceText(sum.pace) + " min/km", sum.pace?.let { "≈ ${k1(60 / it)} km/h" } ?: "", W_ROSE)
+        Kpi(m, "V pracovnom čase", "${sum.workPct.roundToInt()} %", "${k0(sum.workSteps)} krokov", W_GREEN)
+        sum.bestDay?.let { b -> Kpi(m, "Najlepší deň", k0(b.steps), formatDate(b.start), W_AMBER) }
+        sum.longest?.let { l -> Kpi(m, "Najdlhšia chôdza", k0(l.steps), "${formatDate(l.startedAt)} · ${formatDistance(l.distanceM)}", W_BLUE) }
+    }
+    if (days.size > 1) SectionCard("Kroky po dňoch") {
+        Column(Modifier.padding(horizontal = 12.dp)) {
+            Legend(listOf(W_GREEN to "cieľ splnený", W_BLUE_L to "pod cieľom", W_AMBER to "denný cieľ ${k0(goal)}"))
+            DayBars(days, goal, Modifier.fillMaxWidth().height(200.dp))
         }
+    }
+    SectionCard("Rok v krokoch · posledných 12 mesiacov") {
+        Column(Modifier.padding(horizontal = 12.dp)) {
+            YearHeat(d.yearDays, goal)
+            Text("Každý štvorček je deň (stĺpec = týždeň, riadky po–ne). Čím tmavší, tým viac krokov; zelené = cieľ splnený.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+        }
+    }
+    if (d.walks.isNotEmpty()) SectionCard(if (days.size > 1) "Kedy chodíte · Ø krokov za deň podľa hodiny" else "Kedy ste chodili · kroky podľa hodiny") {
+        Column(Modifier.padding(horizontal = 12.dp)) {
+            val avg = d.hours.map { it / max(1, days.size) }
+            SimpleBars(avg.mapIndexed { h, v -> (if (h % 3 == 0) "$h" else "") to v }, Modifier.fillMaxWidth().height(170.dp), W_BLUE,
+                highlight = avg.indices.maxByOrNull { avg[it] })
+            val peak = avg.indices.maxByOrNull { avg[it] } ?: 0
+            Text("Najviac medzi $peak:00 a ${peak + 1}:00 (${k0(avg[peak].roundToInt())} krokov). Pracovný čas ${hmw(d.workFrom)}–${hmw(d.workTo)}.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+        }
+    }
+    if (days.size >= 7) SectionCard("Dni v týždni · Ø krokov") {
+        Column(Modifier.padding(horizontal = 12.dp)) {
+            SimpleBars(d.wdays.map { listOf("Po", "Ut", "St", "Št", "Pi", "So", "Ne")[it.index] to it.avgSteps }, Modifier.fillMaxWidth().height(170.dp), W_VIOLET,
+                highlight = d.wdays.indices.maxByOrNull { d.wdays[it].avgSteps }, goal = goal.toDouble(),
+                top = d.wdays.map { if (it.days > 0) "${it.goalPct.roundToInt()} %" else "" })
+            Text("Percentá nad stĺpcami = ako často v ten deň splníte cieľ.", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+        }
+    }
+    if (d.weeks.size >= 2) SectionCard("Vývoj po týždňoch · Ø krokov za deň a tempo") {
+        Column(Modifier.padding(horizontal = 12.dp)) {
+            Legend(listOf(W_BLUE to "Ø krokov / deň", W_ROSE to "tempo (min/km)"))
+            TrendChart(d.weeks, Modifier.fillMaxWidth().height(190.dp))
+        }
+    }
+    if (d.walks.isNotEmpty()) SectionCard("Dĺžka chôdzí (kroky)") {
+        Column(Modifier.padding(horizontal = 12.dp)) {
+            SimpleBars(d.bins.map { it.label to it.count.toDouble() }, Modifier.fillMaxWidth().height(160.dp), W_AMBER,
+                top = d.bins.map { if (it.count > 0) "${it.stepShare.roundToInt()} %" else "" }, valueLabels = true)
+            Text("Stĺpec = počet chôdzí, percento = podiel na všetkých krokoch. Krátke presuny (do 500 krokov) bývajú v budove.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+        }
+    }
+}
+
+/** Triediteľné tabuľky chôdze: po dňoch, týždňoch, mesiacoch a najdlhšie chôdze. */
+@Composable
+fun WalkTables(d: WalkData, onNavigate: (String) -> Unit) {
+    val sum = d.sum; val goal = d.goal
+    if (d.days.size > 1) SectionCard("Po dňoch") {
+        val dn = remember { SimpleDateFormat("EE d. M.", SKW) }
+        SortableTable<WalkAnalytics.Day>(d.days.reversed(), listOf(
+            TCol("Deň", 92.dp, start = true, bold = true, text = { dn.format(it.start) }, key = { it.start.toDouble() }),
+            TCol("Kroky", 72.dp, bold = true, text = { k0(it.steps) }, key = { it.steps.toDouble() }, color = { x -> if (x.goalMet) W_GREEN else null }),
+            TCol("Cieľ", 50.dp, text = { if (goal <= 0) "" else if (it.goalMet) "✓" else "${(it.steps * 100 / goal)} %" }, key = { it.steps.toDouble() }),
+            TCol("Km", 58.dp, text = { k1(it.meters / 1000) }, key = { it.meters }),
+            TCol("Čas", 70.dp, text = { if (it.ms > 0) formatDuration(it.ms) else "" }, key = { it.ms.toDouble() }),
+            TCol("Chôdzí", 58.dp, text = { k0(it.walks) }, key = { it.walks.toDouble() }),
+            TCol("Tempo", 62.dp, text = { WalkAnalytics.paceText(it.pace) }, key = { it.pace ?: 999.0 }),
+            TCol("V práci", 70.dp, text = { k0(it.workSteps) }, key = { it.workSteps.toDouble() }),
+        ), initialSort = 0, initialDesc = true, limit = 14, csvName = "chodza-dni", onRowClick = { onNavigate("timeline?d=${it.start}") },
+            note = "Ťuknutím na deň otvoríte časovú os dňa.",
+            footer = listOf("Spolu", k0(sum.steps), "${sum.goalDays}×", k1(sum.meters / 1000), formatDuration(sum.ms), k0(sum.walks), WalkAnalytics.paceText(sum.pace), k0(sum.workSteps)))
+    }
+    if (d.weeks.size > 1) SectionCard("Po týždňoch") {
+        SortableTable<WalkAnalytics.Group>(d.weeks, groupCols(goal), initialSort = 0, initialDesc = true, limit = 12, rowHeight = 46.dp, csvName = "chodza-tyzdne",
+            footer = groupFooter(d.weeks))
+    }
+    SectionCard("Po mesiacoch · posledných 12 mesiacov") {
+        SortableTable<WalkAnalytics.Group>(d.months, groupCols(goal), initialSort = 0, initialDesc = true, rowHeight = 46.dp, csvName = "chodza-mesiace",
+            footer = groupFooter(d.months))
+    }
+    if (d.walks.isNotEmpty()) SectionCard("Najdlhšie chôdze") {
+        val top = d.walks.sortedByDescending { it.steps }.take(50)
+        SortableTable<TripEntity>(top, listOf(
+            TCol("Dátum", 96.dp, start = true, bold = true, text = { formatDate(it.startedAt) + "\n" + formatTime(it.startedAt) + "–" + formatTime(it.endedAt ?: it.startedAt) }, key = { it.startedAt.toDouble() }),
+            TCol("Kroky", 70.dp, bold = true, text = { k0(it.steps) }, key = { it.steps.toDouble() }),
+            TCol("Km", 58.dp, text = { k1(it.distanceM / 1000) }, key = { it.distanceM }),
+            TCol("Čas", 70.dp, text = { formatDuration((it.endedAt ?: it.startedAt) - it.startedAt) }, key = { ((it.endedAt ?: it.startedAt) - it.startedAt).toDouble() }),
+            TCol("Tempo", 62.dp, text = { WalkAnalytics.paceText(WalkAnalytics.pace((it.endedAt ?: it.startedAt) - it.startedAt, it.distanceM)) },
+                key = { WalkAnalytics.pace((it.endedAt ?: it.startedAt) - it.startedAt, it.distanceM) ?: 999.0 }),
+            TCol("Trasa", 170.dp, start = true, text = { listOfNotNull(it.startPlace ?: it.startAddress?.substringBefore(","), it.endPlace ?: it.endAddress?.substringBefore(",")).joinToString(" → ") }, key = { it.startAddress ?: "" }),
+        ), initialSort = 1, initialDesc = true, limit = 10, rowHeight = 46.dp, onRowClick = { onNavigate("trip/${it.id}") },
+            note = "Ťuknutím otvoríte chôdzu s mapou.", csvName = "chodza-najdlhsie")
     }
 }
 

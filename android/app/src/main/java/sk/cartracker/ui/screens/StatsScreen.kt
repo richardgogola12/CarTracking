@@ -225,35 +225,9 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
         val total = trips.sumOf { it.distanceM }
         val time = trips.sumOf { (it.endedAt ?: it.startedAt) - it.startedAt }
 
-        if (walkMode) SectionCard("Podrobný prehľad chôdze") {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Kroky po dňoch, rok v krokoch, kedy chodíte, dni v týždni, tempo, pracovný čas, série a tabuľky po dňoch, týždňoch a mesiacoch.",
-                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                Button(onClick = { onNavigate("walkstats") }) { Text("Otvoriť") }
-            }
-        }
-
-        if (walkMode) {
-            val stepsTotal = trips.sumOf { it.steps }
-            val activeDays = trips.map { formatDate(it.startedAt) }.distinct().size
-            SectionCard("Súhrn chôdze") {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(Modifier.fillMaxWidth()) {
-                        StatBox("Kroky", String.format(Locale("sk"), "%,d", stepsTotal), Modifier.weight(1f))
-                        StatBox("Vzdialenosť", formatDistance(total), Modifier.weight(1f))
-                        StatBox("Čas", formatDuration(time), Modifier.weight(1f))
-                    }
-                    Row(Modifier.fillMaxWidth()) {
-                        StatBox("Záznamov", "${trips.size}", Modifier.weight(1f))
-                        StatBox("Kroky / deň", if (activeDays > 0) "${stepsTotal / activeDays}" else "–", Modifier.weight(1f))
-                        StatBox("Tempo", if (total > 100) paceText(time / 60_000.0 / (total / 1000.0)) else "–", Modifier.weight(1f))
-                    }
-                }
-            }
-            SectionCard("Kroky") {
-                BarChart(r.buckets.map { (label, range) -> label to trips.filter { it.startedAt in range }.sumOf { it.steps }.toDouble() },
-                    Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 12.dp, vertical = 8.dp), unit = "krokov")
-            }
+        val wd = if (walkMode) rememberWalkData(all, r.from, r.to, s) else null
+        if (wd != null) {
+            WalkSummary(wd)
         } else {
             val business = trips.filter { it.category == CATEGORY_BUSINESS }.sumOf { it.distanceM }
             val liters = trips.sumOf { it.liters(vehicleMap[it.vehicleUuid], s) }
@@ -356,11 +330,11 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
         }
 
         // Kalendár aktivity (mesiac obdobia) a rekordy
-        SectionCard(if (walkMode) "Kalendár krokov" else "Kalendár jázd") {
+        if (!walkMode) SectionCard("Kalendár jázd") {
             val monthTs = if (period == Period.MONTH) r.from else minOf(System.currentTimeMillis(), r.to - 1)
             ActivityCalendar(all.filter { walkMode || vehicleFilter.isEmpty() || it.vehicleUuid == vehicleFilter || it.isWalk }, walkMode, monthTs, s.dailyStepGoal)
         }
-        RecordsCard(if (walkMode) all else all.filter { vehicleFilter.isEmpty() || it.vehicleUuid == vehicleFilter }, walkMode, s)
+        if (!walkMode) RecordsCard(all.filter { vehicleFilter.isEmpty() || it.vehicleUuid == vehicleFilter }, false, s)
 
         if (walkMode) {
             val work = remember(all, r, s) { workWalking(all, s, r.from, r.to) }
@@ -387,7 +361,7 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
             }
         }
 
-        SectionCard("Analýzy") {
+        if (!walkMode) SectionCard("Analýzy") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Vývoj za 12 mesiacov, kedy jazdíte, dĺžky jázd, štýl po týždňoch a tabuľky po mesiacoch, cieľoch a dňoch so zoraďovaním.",
                     Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
@@ -406,6 +380,7 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
         if (routes.any { it.points.isNotEmpty() }) SectionCard(if (walkMode) "Mapa chôdze" else "Mapa jázd") {
             RouteMap(routes, Modifier.fillMaxWidth().height(320.dp).padding(top = 4.dp), colorBySpeed = false, showEvents = false)
         }
+        if (wd != null) WalkTables(wd, onNavigate)
 
         if (!walkMode) SectionCard("Kniha jázd a export") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
