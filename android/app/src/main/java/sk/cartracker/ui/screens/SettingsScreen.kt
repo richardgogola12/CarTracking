@@ -197,6 +197,8 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                     "Vypnuté = najprv sa overí 3 bodmi GPS (menej falošných jázd, napr. v autobuse).", s.detectAnyCondition, enabled = s.autoDetection) { on -> update { it.copy(detectAnyCondition = on) } }
                 SliderRow("Rýchlosť potvrdzujúca auto", s.minDriveSpeedKmh, 15..50, 5, "km/h",
                     "Pod touto rýchlosťou sa pohyb nepovažuje za jazdu autom (bicykel, beh).") { v -> update { it.copy(minDriveSpeedKmh = v) } }
+                SwitchRow("Ručne spustenú jazdu ukončiť automaticky", "Keď sa auto pohlo a potom stojí (alebo ste vystúpili), jazda sa ukončí sama ako automatická – netreba ťukať Ukončiť. Vypnuté = ručnú jazdu ukončíte iba ručne.",
+                    s.manualAutoEnd) { on -> update { it.copy(manualAutoEnd = on) } }
                 if (!s.detectAnyCondition) SliderRow("Čas na potvrdenie jazdy", s.confirmTimeoutMin, 2..15, 1, "min",
                     "Ak sa rýchlosť nepotvrdí, detekcia sa potichu zruší.") { v -> update { it.copy(confirmTimeoutMin = v) } }
                 SliderRow("Ukončiť jazdu po státí", s.stopDelayMin, 2..20, 1, "min",

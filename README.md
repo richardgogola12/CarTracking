@@ -32,6 +32,7 @@ Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nasta
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
 ## Novinky vo verzii 2.0 (zostavenia 2.0.N)
+- **Doladenie podľa reálnych jázd (diagnostika 14.–20. 10.)** – ručná jazda sa ukončí sama po zaparkovaní; koniec jazdy = posledný pohyb (státie na konci sa oreže); jazda zo „stačí jedna podmienka“ sa ohlási až po pohnutí auta, falošné hlásenie (v noci) sa potichu zahodí; po reštarte služby systémom sa nadviaže na rozbehnutú jazdu; chôdza v budove berie vzdialenosť z krokov; názov cesty bez mena „cesta č. 1494“.
 - **Stačí jedna podmienka** (predvolené) – jazda sa zapisuje hneď, keď systém hlási „vo vozidle“, pripojí sa Bluetooth auta alebo GPS počas chôdze nameria rýchlosť auta; bez čakania na overenie 3 bodmi GPS (dá sa vrátiť v Nastavenia → Detekcia jazdy).
 - **Opakované upozornenie na prekročenie rýchlosti** – hneď, potom každé 3 s (nastaviteľné 0–60 s), kým je limit prekročený; po 2 meraniach pod limitom sa prekročenie ukončí a ďalšie upozorní znova hneď (`data/SpeedAlerter.kt`, testy).
 - **Verzia 2.0.N** = číslo zostavenia z GitHub Actions; APK sa volá `Trasnik-N.apk` (vydanie `build-N`).

@@ -75,7 +75,9 @@ data class AppSettings(
     val speedAlertKmh: Int = 130,         // jednotný limit, ak je rozpoznávanie typu cesty vypnuté
     val speedAlertRepeatSec: Int = 3,
     /** Spustenie jazdy: true = stačí jedna podmienka (systém „vo vozidle“, Bluetooth auta alebo rýchlosť GPS), false = overiť 3 bodmi GPS. */
-    val detectAnyCondition: Boolean = true,     // opakovanie upozornenia, kým je limit prekročený (0 = len raz)
+    val detectAnyCondition: Boolean = true,
+    /** Ručne spustenú jazdu ukončiť automaticky (státie / vystúpenie), keď sa auto už pohlo. */
+    val manualAutoEnd: Boolean = true,     // opakovanie upozornenia, kým je limit prekročený (0 = len raz)
     val roadLimits: Boolean = true,       // limit podľa typu cesty (obec / mimo obce / diaľnica)
     val useRoadSigns: Boolean = true,     // použiť limit zo značky v mape, ak je zadaný
     val speedToleranceKmh: Int = 5,
@@ -214,6 +216,7 @@ class SettingsRepository(private val context: Context) {
         val SPEED_ALERT_KMH = intPreferencesKey("speed_alert_kmh")
         val SPEED_ALERT_REPEAT = intPreferencesKey("speed_alert_repeat_sec")
         val DETECT_ANY = booleanPreferencesKey("detect_any_condition")
+        val MANUAL_AUTO_END = booleanPreferencesKey("manual_auto_end")
         val ROAD_LIMITS = booleanPreferencesKey("road_limits")
         val ROAD_SIGNS = booleanPreferencesKey("road_signs")
         val TOLERANCE = intPreferencesKey("speed_tolerance")
@@ -317,6 +320,7 @@ class SettingsRepository(private val context: Context) {
             speedAlertKmh = p[K.SPEED_ALERT_KMH] ?: d.speedAlertKmh,
             speedAlertRepeatSec = p[K.SPEED_ALERT_REPEAT] ?: d.speedAlertRepeatSec,
             detectAnyCondition = p[K.DETECT_ANY] ?: d.detectAnyCondition,
+            manualAutoEnd = p[K.MANUAL_AUTO_END] ?: d.manualAutoEnd,
             roadLimits = p[K.ROAD_LIMITS] ?: d.roadLimits,
             useRoadSigns = p[K.ROAD_SIGNS] ?: d.useRoadSigns,
             speedToleranceKmh = p[K.TOLERANCE] ?: d.speedToleranceKmh,
@@ -407,6 +411,7 @@ class SettingsRepository(private val context: Context) {
         p[K.SPEED_ALERT_KMH] = s.speedAlertKmh
         p[K.SPEED_ALERT_REPEAT] = s.speedAlertRepeatSec
         p[K.DETECT_ANY] = s.detectAnyCondition
+        p[K.MANUAL_AUTO_END] = s.manualAutoEnd
         p[K.ROAD_LIMITS] = s.roadLimits
         p[K.ROAD_SIGNS] = s.useRoadSigns
         p[K.TOLERANCE] = s.speedToleranceKmh

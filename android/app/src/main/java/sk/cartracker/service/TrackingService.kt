@@ -160,6 +160,10 @@ class TrackingService : LifecycleService() {
     // CANDIDATE
     private var source = SOURCE_AUTO
     private var manual = false
+    /** Auto sa v tejto jazde už pohlo (rýchlosť ≥ potvrdzujúca). Kým nie, ručná jazda sa sama neukončí a jazda
+     *  spustená „jednou podmienkou“ sa neohlási (žiadny zvuk ani notifikácia pri falošnom hlásení systému). */
+    private var hasMoved = false
+    private var announcePending = false
     private var candidateSince = 0L
     private var fastFixes = 0
     private val candidateBuffer = ArrayList<Location>()
@@ -268,6 +272,10 @@ class TrackingService : LifecycleService() {
             ACTION_EXIT_SIGNAL -> "vystúpenie z vozidla"; ACTION_WALK_SIGNAL -> "chôdza"; ACTION_BIKE_SIGNAL -> "bicykel"; else -> action
         } + " (stav: ${state.name})")
         val now = System.currentTimeMillis()
+        // Systém (napr. Xiaomi) mohol službu počas jazdy ukončiť a nový príkaz ju spustil nanovo →
+        // najprv nadviazať na rozbehnutú jazdu, aby nevznikla druhá jazda a prvá sa neodrezala.
+        if (action != null && state == DriveState.IDLE && trip == null && tryRecover())
+            DiagLog.log(this, DiagLog.APP, "Služba bola ukončená systémom – záznam ${if (state == DriveState.WALKING) "chôdze" else "jazdy"} obnovený")
 
         when (action) {
             ACTION_CANDIDATE -> when (state) {
@@ -290,7 +298,7 @@ class TrackingService : LifecycleService() {
             ACTION_WALK_SIGNAL -> when (state) {
                 DriveState.IDLE -> if (settings.walkActiveNow()) beginWalk(false) else shutdown()
                 DriveState.CANDIDATE -> discard("systém hlási chôdzu") { if (settings.walkActiveNow()) beginWalk(false) else shutdown() }
-                DriveState.DRIVING -> if (!manual) {
+                DriveState.DRIVING -> if (autoEndAllowed()) {
                     if (exitSignalAt == null) exitSignalAt = now
                     pendingWalk = settings.walkActiveNow()
                 }
@@ -298,19 +306,21 @@ class TrackingService : LifecycleService() {
             }
             ACTION_EXIT_SIGNAL -> when (state) {
                 DriveState.CANDIDATE -> discard("vystúpenie z vozidla / odpojené Bluetooth")
-                DriveState.DRIVING -> if (!manual && exitSignalAt == null) exitSignalAt = now
+                DriveState.DRIVING -> if (autoEndAllowed() && exitSignalAt == null) exitSignalAt = now
                 DriveState.WALKING -> Unit
                 DriveState.IDLE -> shutdown()
             }
             ACTION_BIKE_SIGNAL -> when (state) {
                 DriveState.CANDIDATE -> discard("systém hlási bicykel")
-                DriveState.DRIVING -> if (!manual && exitSignalAt == null) exitSignalAt = now
+                DriveState.DRIVING -> if (autoEndAllowed() && exitSignalAt == null) exitSignalAt = now
                 DriveState.WALKING -> if (!manual) finishTrip(lastMovingAt)
                 DriveState.IDLE -> shutdown()
             }
             ACTION_STOP -> when (state) {
                 DriveState.CANDIDATE -> discard("ručne – „Nie je to jazda“")
-                DriveState.DRIVING, DriveState.WALKING -> finishTrip(now)
+                // auto už stojí dlhšie ako 2 min (zabudnuté ukončenie) → koniec jazdy = posledný pohyb
+                DriveState.DRIVING -> finishTrip(if (hasMoved && now - lastMovingAt > 2 * 60_000L) lastMovingAt else now)
+                DriveState.WALKING -> finishTrip(now)
                 DriveState.IDLE -> shutdown()
             }
             null -> recover()
@@ -343,7 +353,7 @@ class TrackingService : LifecycleService() {
         if (settings.detectAnyCondition) {
             // Stačí jedna podmienka: systém hlási „vo vozidle“ alebo sa pripojilo Bluetooth auta → jazda sa zapisuje hneď
             DiagLog.log(this, DiagLog.CHECK, "Stačí jedna podmienka – " + (if (src == SOURCE_BLUETOOTH) "pripojené Bluetooth auta" else "systém hlási jazdu vo vozidle") + " → jazda sa zapisuje hneď")
-            confirmDriving(if (src == SOURCE_BLUETOOTH) "Bluetooth auta" else "systém hlási vo vozidle")
+            confirmDriving(if (src == SOURCE_BLUETOOTH) "Bluetooth auta" else "systém hlási vo vozidle", announce = false)
             return
         }
         DiagLog.log(this, DiagLog.CHECK, "Overujem jazdu (zdroj: ${if (src == SOURCE_BLUETOOTH) "Bluetooth" else "systém"}) – treba 3 body GPS s rýchlosťou ≥ ${settings.minDriveSpeedKmh} km/h do ${settings.confirmTimeoutMin.coerceAtLeast(1) * (if (src == SOURCE_BLUETOOTH) 2 else 1)} min")
@@ -352,18 +362,27 @@ class TrackingService : LifecycleService() {
     /** Počet rýchlych bodov GPS potrebných na potvrdenie jazdy (pri „stačí jedna podmienka“ jeden). */
     private fun fixesNeeded() = if (settings.detectAnyCondition) 1 else 3
 
-    private suspend fun confirmDriving(reason: String = "potvrdené rýchlosťou GPS") {
+    private suspend fun confirmDriving(reason: String = "potvrdené rýchlosťou GPS", announce: Boolean = true) {
         val buffered = candidateBuffer.toList()
         candidateBuffer.clear()
         startTrip(buffered.firstOrNull()?.time ?: System.currentTimeMillis(), TYPE_CAR)
+        hasMoved = (announce && !manual) || buffered.any { speedOf(it, null) >= settings.minDriveSpeedKmh }
+        announcePending = !announce
         var prev: Location? = null
         for (loc in buffered) { recordPoint(loc, speedOf(loc, prev)); prev = loc }
+        DiagLog.log(this, DiagLog.DRIVE, "Režim jazdy ZAPNUTÝ" + (if (manual) " (ručne)" else " – $reason") + (vehicleName?.let { " · $it" } ?: "") +
+            (if (announcePending) " – oznámenie, keď sa auto pohne" else ""))
+        if (!announcePending) announceStart()
+    }
+
+    /** Notifikácia a zvuk začiatku jazdy. */
+    private suspend fun announceStart() {
+        announcePending = false
         val cont = trip?.let { mergeCandidate(it) } != null
         Notifications.driveEvent(this, started = true, s = settings,
             summary = listOfNotNull(if (cont) "Pokračovanie jazdy – po skončení sa zlúči s predchádzajúcou" else null,
                 vehicleName?.let { "Vozidlo: $it" }).joinToString("\n").ifEmpty { null })
         Log.i(TAG, "Jazda potvrdená")
-        DiagLog.log(this, DiagLog.DRIVE, "Režim jazdy ZAPNUTÝ" + (if (manual) " (ručne)" else " – $reason") + (vehicleName?.let { " · $it" } ?: ""))
     }
 
     private suspend fun beginWalk(manualWalk: Boolean) {
@@ -398,6 +417,7 @@ class TrackingService : LifecycleService() {
         lastMovingAt = System.currentTimeMillis()
         exitSignalAt = null
         pendingWalk = false
+        hasMoved = false; announcePending = false
         if (type == TYPE_CAR) ParkingTimer.cancel(this)
         TrackingState.state.value = if (type == TYPE_WALK) DriveState.WALKING else DriveState.DRIVING
         publishLive(null)
@@ -406,11 +426,15 @@ class TrackingService : LifecycleService() {
 
     private suspend fun recover() {
         if (state != DriveState.IDLE) return
-        val t = dao.unfinishedTrip(userId)
-        val last = t?.let { dao.lastPoint(it.id) }
-        if (t == null || System.currentTimeMillis() - (last?.ts ?: t.startedAt) > 30 * 60_000L) {
-            closeStaleTrips(); shutdown(); return
-        }
+        if (tryRecover()) DiagLog.log(this, DiagLog.APP, "Služba reštartovaná systémom – záznam obnovený")
+        else { closeStaleTrips(); shutdown() }
+    }
+
+    /** Nadviaže na nedokončenú jazdu / chôdzu (posledný bod do 30 min). @return true = obnovené */
+    private suspend fun tryRecover(): Boolean {
+        val t = dao.unfinishedTrip(userId) ?: return false
+        val last = dao.lastPoint(t.id)
+        if (System.currentTimeMillis() - (last?.ts ?: t.startedAt) > 30 * 60_000L) return false
         trip = t
         source = t.triggerSource
         manual = t.triggerSource == SOURCE_MANUAL
@@ -429,8 +453,11 @@ class TrackingService : LifecycleService() {
         if (t.isWalk) startSteps(t.steps)
         startLocation()
         publishLive(null)
+        hasMoved = t.distanceM > 300 || t.maxSpeedKmh >= settings.minDriveSpeedKmh
+        announcePending = false
         updateNotification(force = true)
         Log.i(TAG, "Záznam obnovený po reštarte služby")
+        return true
     }
 
     private suspend fun onLocation(loc: Location) {
@@ -493,7 +520,11 @@ class TrackingService : LifecycleService() {
             if (!stepSensorActive && speed >= WALK_MOVING_KMH) lastMovingAt = now
         } else {
             if (speed >= MOVING_KMH) lastMovingAt = now
-            if (speed >= settings.minDriveSpeedKmh) exitSignalAt = null
+            if (speed >= settings.minDriveSpeedKmh && loc.accuracy <= 40f) {
+                exitSignalAt = null
+                if (!hasMoved) { hasMoved = true; DiagLog.log(this, DiagLog.DRIVE, "Auto sa pohlo (${speed.toInt()} km/h)") }
+                if (announcePending) announceStart()
+            }
             adaptGps(speed, now)
             maybeLookupRoad(loc)
             updateSignLimit(loc, speed)
@@ -556,8 +587,10 @@ class TrackingService : LifecycleService() {
      */
     private fun walkDistance(): Double {
         val bySteps = if (steps > 0) steps * settings.strideCm / 100.0 else null
-        return if (settings.walkDistanceGps) (if (distance > 0) distance else bySteps ?: 0.0)
-        else bySteps ?: distance
+        if (!settings.walkDistanceGps) return bySteps ?: distance
+        // GPS v budove / pri slabom signále nameria zlomok skutočnej vzdialenosti → vtedy platia kroky
+        if (bySteps != null && distance < bySteps * 0.5) return bySteps
+        return if (distance > 0) distance else bySteps ?: 0.0
     }
 
     /** Typ cesty sa zisťuje po ~400 m alebo každé 2 min (najviac raz za 20 s), na pozadí. */
@@ -588,7 +621,7 @@ class TrackingService : LifecycleService() {
             val prev = mapSign
             mapSign = m?.limit
             if (m != null && mapSign != prev && mapSign != null)
-                DiagLog.log(this, DiagLog.GPS, "Limit z mapy: $mapSign km/h" + (m.way.tags["name"] ?: m.way.tags["ref"])?.let { " · $it" }.orEmpty())
+                DiagLog.log(this, DiagLog.GPS, "Limit z mapy: $mapSign km/h" + (m.way.tags["name"] ?: m.way.tags["ref"]?.let { "cesta č. $it" })?.let { " · $it" }.orEmpty())
         } else mapSign = null
     }
 
@@ -666,7 +699,12 @@ class TrackingService : LifecycleService() {
                     discard("za ${settings.confirmTimeoutMin.coerceAtLeast(1) * factor} min sa nenamerali ${fixesNeeded()} body ≥ ${settings.minDriveSpeedKmh} km/h (max. ${candidateMax.toInt()} km/h)")
             }
             DriveState.DRIVING -> {
-                if (manual) { updateNotification(); return }
+                if (!autoEndAllowed()) { updateNotification(); return }
+                // jazda spustená jednou podmienkou, ale auto sa nepohlo → potichu zahodiť (falošné hlásenie systému)
+                if (announcePending && now - lastMovingAt >= settings.stopDelayMin.coerceAtLeast(1) * 60_000L) {
+                    DiagLog.log(this, DiagLog.CHECK, "Auto sa za ${settings.stopDelayMin.coerceAtLeast(1)} min nepohlo – nebola to jazda, zahodené")
+                    silentDiscardTrip(); return
+                }
                 val exit = exitSignalAt
                 when {
                     exit != null && now - exit >= EXIT_CONFIRM_MS && lastSpeed < 15 -> {
@@ -693,6 +731,17 @@ class TrackingService : LifecycleService() {
             }
             DriveState.IDLE -> Unit
         }
+    }
+
+    /** Automatické ukončenie: pri automatickej jazde vždy, pri ručnej ak je to zapnuté a auto sa už pohlo. */
+    private fun autoEndAllowed() = !manual || (settings.manualAutoEnd && hasMoved && state == DriveState.DRIVING)
+
+    /** Zmaže práve zaznamenávanú jazdu bez notifikácie a zvuku. */
+    private suspend fun silentDiscardTrip() {
+        stopLocation()
+        trip?.let { dao.deleteTrip(it.id) }
+        trip = null; announcePending = false
+        shutdown()
     }
 
     /**
@@ -731,7 +780,13 @@ class TrackingService : LifecycleService() {
         // auto: oprava podľa tachometra (kalibrácia z tankovaní), chôdza: kroky alebo GPS
         val dist = if (t.isWalk) walkDistance() else (distance + startFill) * settings.odoFactor(t.vehicleUuid)
         if (t.isWalk) calibrateStride(steps, distance)
-        val end = max(endedAt, if (t.isWalk) endedAt else (last?.ts ?: endedAt)).coerceAtLeast(t.startedAt)
+        // Auto: koniec = posledný pohyb (body zo státia po zaparkovaní sa odstránia), nie čas ukončenia
+        val lastMove = if (t.isWalk) null else pts.lastOrNull { (it.speedKmh ?: 0f) >= MOVING_KMH && (it.accuracyM ?: 99f) <= 40f }?.ts
+        val end = (if (t.isWalk) endedAt else max(endedAt, lastMove ?: (last?.ts ?: endedAt)).coerceAtMost(last?.ts ?: endedAt)).coerceAtLeast(t.startedAt)
+        if (!t.isWalk && last != null && end < last.ts - 60_000L) {
+            dao.deletePointsAfter(t0.id, end + 30_000L)
+            DiagLog.log(this, DiagLog.DRIVE, "Koniec jazdy podľa posledného pohybu: ${sk.cartracker.ui.formatTime(end)} (státie ${formatDuration(last.ts - end)} odstránené)")
+        }
         val hours = (end - t.startedAt) / 3_600_000.0
         val avg = if (hours > 0) dist / 1000.0 / hours else 0.0
         val minDist = if (t.isWalk) settings.walkMinDistanceM else settings.minTripDistanceM
@@ -800,7 +855,8 @@ class TrackingService : LifecycleService() {
             if (settings.autoSync) SyncWorker.enqueueNow(this, settings.syncWifiOnly)
         }
         if (t.isWalk) Notifications.walkEvent(this, started = false, s = settings, summary = summary)
-        else Notifications.driveEvent(this, started = false, s = settings, summary = summary, classify = classify)
+        else if (!announcePending) Notifications.driveEvent(this, started = false, s = settings, summary = summary, classify = classify)
+        announcePending = false
         Log.i(TAG, "Záznam ukončený: $summary")
         DiagLog.log(this, if (t.isWalk) DiagLog.WALK else DiagLog.DRIVE,
             (if (t.isWalk) "Chôdza ukončená" else "Režim jazdy VYPNUTÝ") + ": " + (summary ?: "kratšie ako minimum (${minDist} m) – neuložené"))

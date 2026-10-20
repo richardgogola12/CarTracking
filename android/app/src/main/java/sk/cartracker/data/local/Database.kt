@@ -290,6 +290,7 @@ interface TripDao {
     @Query("UPDATE points SET synced = 0 WHERE tripId = :tripId") suspend fun markPointsUnsynced(tripId: Long)
     @Query("UPDATE points SET event = NULL, synced = 0 WHERE id IN (:ids)") suspend fun clearPointEvents(ids: List<Long>)
     @Query("DELETE FROM points WHERE id IN (:ids) AND synced = 1") suspend fun deleteSyncedPoints(ids: List<Long>)
+    @Query("DELETE FROM points WHERE tripId = :tripId AND ts > :after") suspend fun deletePointsAfter(tripId: Long, after: Long)
     @Query("SELECT * FROM trips WHERE userId = :userId AND finished = 1 AND type = 'car' AND speedingSec > 0 AND startedAt >= :from ORDER BY startedAt DESC")
     suspend fun tripsWithSpeeding(userId: Int, from: Long): List<TripEntity>
     /** Rozdelenie jazdy: body od času [fromTs] presunie do novej jazdy. */

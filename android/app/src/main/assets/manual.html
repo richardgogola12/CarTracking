@@ -228,7 +228,7 @@ Trasník</h1>
   <li>pripojí sa <b>Bluetooth auta</b> (ak je zapnuté <i>Spustiť sledovanie po pripojení Bluetooth vozidla</i>),</li>
   <li>počas zaznamenávanej chôdze <b>GPS nameria rýchlosť auta</b> (aspoň 25 km/h, jeden presný bod s rýchlosťou z GPS) – chôdza sa ukončí a začne jazda.</li>
 </ul>
-<p>Netreba čakať na overenie, takže sa nestratí začiatok jazdy. Falošná „jazda“ (napr. v autobuse) sa dá zmazať; jazdy kratšie ako minimálna dĺžka (500 m) sa neuložia vôbec. Voľba <i>Sledovať iba keď je pripojené vozidlo</i> platí aj naďalej – vtedy sa bez Bluetooth auta jazda nespustí. Bez žiadneho signálu zo systému alebo Bluetooth GPS v pokoji nebeží (šetrí batériu), preto samotná rýchlosť jazdu spustí len počas chôdze.</p>
+<p>Netreba čakať na overenie, takže sa nestratí začiatok jazdy. <b>Notifikácia a zvuk začiatku jazdy</b> však prídu až vtedy, keď sa auto naozaj pohne (rýchlosť potvrdzujúca auto). Ak sa auto do času <i>Ukončiť jazdu po státí</i> nepohne (falošné hlásenie systému, napr. v noci pri posunutí telefónu), záznam sa potichu zahodí – bez zvuku a notifikácie. Falošná „jazda“ (napr. v autobuse) sa dá zmazať; jazdy kratšie ako minimálna dĺžka (500 m) sa neuložia vôbec. Voľba <i>Sledovať iba keď je pripojené vozidlo</i> platí aj naďalej – vtedy sa bez Bluetooth auta jazda nespustí. Bez žiadneho signálu zo systému alebo Bluetooth GPS v pokoji nebeží (šetrí batériu), preto samotná rýchlosť jazdu spustí len počas chôdze.</p>
 <p>Ak voľbu <b>Stačí jedna podmienka vypnete</b>, detekcia pracuje v dvoch krokoch: telefón najprv nahlási, že ste <i>vo vozidle</i>, a aplikácia to potom <b>overí rýchlosťou z GPS</b> (postup nižšie). Vtedy sa chôdza ani bicykel nikdy nezaznamenajú ako jazda autom. Chôdza má vlastný režim – pozri <a href="#chodza">kapitolu Sledovanie chôdze</a>.</p>
 <div class="flow">
   <div class="step"><span class="badge b-grey">1</span><div><b>Čakanie</b> – žiadna GPS, takmer nulová spotreba batérie. Systém Android sleduje typ pohybu.</div></div>
@@ -242,7 +242,9 @@ Trasník</h1>
 <ul>
   <li>Státie v kolóne alebo na semafore jazdu <b>neukončí</b> (limit je nastaviteľný).</li>
   <li>Jazdy kratšie ako <b>500 m</b> sa neukladajú (nastaviteľné).</li>
-  <li>Jazdu môžete spustiť aj ručne tlačidlom <b>Spustiť jazdu ručne</b>; takú jazdu ukončíte iba ručne.</li>
+  <li>Jazdu môžete spustiť aj ručne tlačidlom <b>Spustiť jazdu ručne</b>. Keď sa auto pohne a potom zaparkujete (státie alebo vystúpenie), <b>ručná jazda sa ukončí sama</b> – voľba <i>Ručne spustenú jazdu ukončiť automaticky</i> (predvolene zapnutá). Kým sa auto nepohne, ručná jazda sa sama neukončí.</li>
+  <li><b>Koniec jazdy = posledný pohyb auta.</b> Ak jazdu ukončíte neskôr (napr. až po 10 minútach na parkovisku), čas konca a trasa sa orežú na okamih, keď auto zastavilo – státie sa nezapočíta.</li>
+  <li>Ak systém (najmä Xiaomi, Huawei) počas jazdy ukončí službu, ďalšia udalosť na rozbehnutú jazdu nadviaže – nevznikne druhá jazda.</li>
   <li>V trvalej notifikácii počas jazdy je tlačidlo <b>Ukončiť jazdu</b>, počas overovania <b>Nie je to jazda</b>.</li>
 </ul>
 <div class="note">Autobus, vlak či taxík telefón tiež vníma ako „vozidlo“. Ak to nechcete, použite <a href="#bluetooth">Bluetooth auta</a> s voľbou <i>Sledovať iba keď je pripojené auto</i>.</div>
@@ -304,6 +306,7 @@ Trasník</h1>
     Zmena platí pre nové záznamy chôdze; už uložené ostanú bez zmeny.</li>
   <li><b>Trasa</b> sa zaznamenáva GPS v dlhšom intervale (predvolene 10 s), aby chôdza počas celého dňa šetrila batériu.</li>
   <li><b>Kalibrácia dĺžky kroku</b> – pri chôdzi vonku s dobrým GPS (aspoň 300 m a 300 krokov) aplikácia porovná vzdialenosť z GPS s počtom krokov. Po 3 takýchto chôdzach ukáže v <b>Nastavenia → Chôdza a kroky → Kalibrácia dĺžky kroku</b> vypočítanú dĺžku kroku a tlačidlo <b>Použiť</b>. Zapnutím <b>Automaticky upravovať dĺžku kroku</b> sa spresňuje sama po každej vhodnej chôdzi. Chôdza v budove (slabé GPS) sa do výpočtu nezapočíta.</li>
+  <li><b>Vzdialenosť chôdze v budove:</b> ak je zvolená vzdialenosť z GPS, ale GPS nameria menej ako polovicu vzdialenosti podľa krokov (slabý signál v budove), použije sa vzdialenosť z krokov.</li>
   <li><b>Iba v pracovnom čase</b> – zvolíte dni a čas (napr. Po–Pi 7:00–16:00). Mimo neho sa chôdza nezaznamenáva.</li>
   <li><b>Krátke presuny</b> (predvolene pod 150 m) sa neukladajú.</li>
   <li>Ak počas chôdze nasadnete do auta, chôdza sa ukončí a začne overovanie jazdy. Po vystúpení z auta zas plynule nadviaže chôdza.</li>
@@ -781,6 +784,7 @@ Trasník</h1>
   <tr><td colspan="3"><b>Automatická detekcia jazdy</b></td></tr>
   <tr><td>Automaticky sledovať jazdu</td><td>zapnuté</td><td>Hlavný vypínač automatiky.</td></tr>
   <tr><td>Spustiť po reštarte telefónu</td><td>zapnuté</td><td>Obnoví detekciu po zapnutí telefónu.</td></tr>
+  <tr><td>Ručne spustenú jazdu ukončiť automaticky</td><td>zapnuté</td><td>Ručná jazda sa ukončí sama po zaparkovaní (keď sa auto už pohlo).</td></tr>
   <tr><td>Stačí jedna podmienka</td><td>zapnuté</td><td>Jazda sa zapisuje hneď pri jazde vo vozidle (systém), pripojení Bluetooth auta alebo rýchlosti auta z GPS. Vypnuté = overenie 3 bodmi GPS.</td></tr>
   <tr><td>Rýchlosť potvrdzujúca auto</td><td>25 km/h</td><td>Nižšia rýchlosť sa nepovažuje za jazdu autom.</td></tr>
   <tr><td>Čas na potvrdenie jazdy</td><td>5 min</td><td>Pri Bluetooth spúšťači dvojnásobok.</td></tr>
