@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -531,14 +532,17 @@ private fun <T> SortableTable(
     Column {
         Row {
             // pevný prvý stĺpec
-            Column(Modifier.background(MaterialTheme.colorScheme.surface)) {
+            val edge = MaterialTheme.colorScheme.outlineVariant
+            // čiara na hrane pevného stĺpca – ostatné stĺpce sa posúvajú pod ňou
+            Column(Modifier.drawBehind { drawLine(edge, Offset(size.width, 0f), Offset(size.width, size.height), 2f) }) {
                 Box(Modifier.background(headBg)) { Header(0) }
                 shown.forEachIndexed { r, row ->
                     Box(Modifier.background(if (r % 2 == 1) zebra else Color.Transparent).then(if (onRowClick != null) Modifier.clickable { onRowClick(row) } else Modifier)) {
                         Cell(cols[0].text(row), cols[0], color = if (onRowClick != null) MaterialTheme.colorScheme.primary else null)
                     }
                 }
-                if (footer != null) { HorizontalDivider(); Cell(footer[0], cols[0], bold = true) }
+                // pozor: divider bez šírky by roztiahol pevný stĺpec na celú šírku a ostatné stĺpce by zmizli
+                if (footer != null) { HorizontalDivider(Modifier.width(cols[0].width)); Cell(footer[0], cols[0], bold = true) }
             }
             // ostatné stĺpce – posúvanie do strany
             Column(Modifier.horizontalScroll(hScroll)) {
