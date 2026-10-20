@@ -185,7 +185,7 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
         }
 
         // ---------- Detekcia jazdy ----------
-        Group("Detekcia jazdy", Icons.Filled.DirectionsCar, (if (s.autoDetection) "zapnutá" else "vypnutá") + " · od ${s.minDriveSpeedKmh} km/h · koniec po ${s.stopDelayMin} min státia · GPS ${s.gpsIntervalSec} s") {
+        Group("Detekcia jazdy", Icons.Filled.DirectionsCar, (if (s.autoDetection) "zapnutá" else "vypnutá") + (if (s.detectAnyCondition) " · stačí 1 podmienka" else " · overenie GPS") + " · od ${s.minDriveSpeedKmh} km/h · koniec po ${s.stopDelayMin} min státia · GPS ${s.gpsIntervalSec} s") {
             Sub("Automatická detekcia jazdy") {
                 SwitchRow("Automaticky sledovať jazdu autom", "Spustí sa sama, keď telefón rozpozná jazdu vo vozidle",
                     s.autoDetection) { on ->
@@ -193,9 +193,11 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                     scope.launch { if (on || s.walkTracking) ActivityDetectionManager.register(ctx) else ActivityDetectionManager.unregister(ctx) }
                 }
                 SwitchRow("Spustiť po reštarte telefónu", null, s.startOnBoot, enabled = s.autoDetection) { on -> update { it.copy(startOnBoot = on) } }
+                SwitchRow("Stačí jedna podmienka", "Jazda sa začne zapisovať hneď, keď systém hlási jazdu vo vozidle ALEBO sa pripojí Bluetooth auta ALEBO GPS nameria rýchlosť auta. " +
+                    "Vypnuté = najprv sa overí 3 bodmi GPS (menej falošných jázd, napr. v autobuse).", s.detectAnyCondition, enabled = s.autoDetection) { on -> update { it.copy(detectAnyCondition = on) } }
                 SliderRow("Rýchlosť potvrdzujúca auto", s.minDriveSpeedKmh, 15..50, 5, "km/h",
                     "Pod touto rýchlosťou sa pohyb nepovažuje za jazdu autom (bicykel, beh).") { v -> update { it.copy(minDriveSpeedKmh = v) } }
-                SliderRow("Čas na potvrdenie jazdy", s.confirmTimeoutMin, 2..15, 1, "min",
+                if (!s.detectAnyCondition) SliderRow("Čas na potvrdenie jazdy", s.confirmTimeoutMin, 2..15, 1, "min",
                     "Ak sa rýchlosť nepotvrdí, detekcia sa potichu zruší.") { v -> update { it.copy(confirmTimeoutMin = v) } }
                 SliderRow("Ukončiť jazdu po státí", s.stopDelayMin, 2..20, 1, "min",
                     "Zastavenie v kolóne alebo na semafore jazdu neukončí.") { v -> update { it.copy(stopDelayMin = v) } }
@@ -403,7 +405,10 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                 if (limitMode == 0) SliderRow("Jednotný rýchlostný limit", s.speedAlertKmh, 50..200, 10, "km/h") { v -> update { it.copy(speedAlertKmh = v) } }
                 SliderRow("Tolerancia", s.speedToleranceKmh, 0..20, 1, "km/h",
                     "O koľko môže GPS rýchlosť prekročiť limit, kým sa to počíta ako prekročenie.") { v -> update { it.copy(speedToleranceKmh = v) } }
-                SwitchRow("Upozorniť vibráciou pri prekročení", "Najviac raz za minútu", s.speedAlert) { on -> update { it.copy(speedAlert = on) } }
+                SwitchRow("Upozorniť pri prekročení", "Notifikácia, zvuk (Nastavenia → Zvuky) a vibrácia, ak sú zapnuté", s.speedAlert) { on -> update { it.copy(speedAlert = on) } }
+                SliderRow("Opakovať upozornenie každých", s.speedAlertRepeatSec, 0..60, 1, "s",
+                    "Kým je rýchlosť stále nad limitom. Keď 2 merania po sebe ukážu rýchlosť pod limitom a potom ju znova prekročíte, upozorní hneď. 0 = iba raz pri každom prekročení.",
+                    format = { if (it == 0) "iba raz" else "$it s" }) { v -> update { it.copy(speedAlertRepeatSec = v) } }
                 if (limitMode == 2) {
                     var tilesCount by remember { mutableStateOf(sk.cartracker.data.SpeedLimits.diskCount()) }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -222,7 +222,14 @@ Trasník</h1>
 <div class="tip"><b>Xiaomi, Huawei, Oppo, Samsung:</b> v systémových nastaveniach aplikácie zapnite aj <i>Automatické spustenie</i> a batériu nastavte na <i>Bez obmedzení</i>. Títo výrobcovia inak aplikácie na pozadí ukončujú.</div>
 
 <h2 id="detekcia">5. Automatická detekcia jazdy</h2>
-<p>Detekcia jazdy pracuje v dvoch krokoch: telefón najprv nahlási, že ste <i>vo vozidle</i>, a aplikácia to potom <b>overí rýchlosťou z GPS</b>. Preto sa chôdza ani bicykel nikdy nezaznamenajú ako jazda autom. Chôdza má vlastný režim – pozri <a href="#chodza">kapitolu Sledovanie chôdze</a>.</p>
+<p><b>Stačí jedna podmienka</b> (predvolené, Nastavenia → Detekcia jazdy): jazda sa začne zapisovať <b>hneď</b>, keď je splnená ktorákoľvek z podmienok:</p>
+<ul>
+  <li>systém Android hlási <b>jazdu vo vozidle</b>,</li>
+  <li>pripojí sa <b>Bluetooth auta</b> (ak je zapnuté <i>Spustiť jazdu pri pripojení</i>),</li>
+  <li>počas zaznamenávanej chôdze <b>GPS nameria rýchlosť auta</b> (aspoň 25 km/h, jeden presný bod s rýchlosťou z GPS) – chôdza sa ukončí a začne jazda.</li>
+</ul>
+<p>Netreba čakať na overenie, takže sa nestratí začiatok jazdy. Falošná „jazda“ (napr. v autobuse) sa dá zmazať; jazdy kratšie ako minimálna dĺžka (500 m) sa neuložia vôbec. Voľba <i>Sledovať iba keď je pripojené vozidlo</i> platí aj naďalej – vtedy sa bez Bluetooth auta jazda nespustí. Bez žiadneho signálu zo systému alebo Bluetooth GPS v pokoji nebeží (šetrí batériu), preto samotná rýchlosť jazdu spustí len počas chôdze.</p>
+<p>Ak voľbu <b>Stačí jedna podmienka vypnete</b>, detekcia pracuje v dvoch krokoch: telefón najprv nahlási, že ste <i>vo vozidle</i>, a aplikácia to potom <b>overí rýchlosťou z GPS</b> (postup nižšie). Vtedy sa chôdza ani bicykel nikdy nezaznamenajú ako jazda autom. Chôdza má vlastný režim – pozri <a href="#chodza">kapitolu Sledovanie chôdze</a>.</p>
 <div class="flow">
   <div class="step"><span class="badge b-grey">1</span><div><b>Čakanie</b> – žiadna GPS, takmer nulová spotreba batérie. Systém Android sleduje typ pohybu.</div></div>
   <div class="arrow">▼ systém nahlási „vo vozidle“ alebo sa pripojí Bluetooth auta</div>
@@ -421,7 +428,15 @@ Trasník</h1>
   <li>Kým nie je známy typ cesty ani limit zo značky (napr. bez internetu na začiatku jazdy), prekročenie sa nehodnotí.</li>
   <li>Mapové údaje nemusia byť všade úplné – značky v teréne majú vždy prednosť.</li>
 </ul>
-<p><b>Hodnotenie:</b> 90–100 výborná · 75–89 dobrá · 55–74 priemerná · pod 55 riziková. Pri zapnutom <i>Upozornení vibráciou</i> telefón pri prekročení limitu trikrát krátko zavibruje a zobrazí platný limit (najviac raz za minútu).</p>
+<p><b>Hodnotenie:</b> 90–100 výborná · 75–89 dobrá · 55–74 priemerná · pod 55 riziková. </p>
+<h3>Upozornenie na prekročenie rýchlosti</h3>
+<p>Zapína sa v <b>Nastavenia → Štýl jazdy a rýchlosť → Upozorniť pri prekročení</b>. Upozornenie = notifikácia s rýchlosťou a limitom, <b>zvuk</b> (Nastavenia → Zvuky → Prekročenie rýchlosti, zaznie aj v tichom režime, ak je to zapnuté) a vibrácia (ak sú vibrácie zapnuté).</p>
+<ul>
+  <li>Pri prekročení limitu (+ tolerancia) upozorní <b>hneď</b>.</li>
+  <li>Kým idete stále nad limitom, upozornenie sa <b>opakuje každé 3 sekundy</b> – interval nastavíte posuvníkom <i>Opakovať upozornenie každých</i> (1–60 s, 0 = iba raz). Opakované upozornenie má kratšiu vibráciu a notifikácia sa len aktualizuje.</li>
+  <li>Prekročenie sa skončí, až keď <b>2 merania po sebe</b> ukážu rýchlosť pod limitom (jedno meranie nestačí – GPS rýchlosť kolíše). Keď potom limit znova prekročíte, upozorní <b>hneď</b>.</li>
+  <li>Merania s nepresnou polohou alebo bez známeho limitu sa nepočítajú. Ak GPS body prichádzajú redšie (diaľnica), upozornenie sa opakuje aj medzi nimi, najviac 15 s od posledného merania.</li>
+</ul>
 <div class="note">GPS meranie nie je rovnako presné ako senzory v aute – skóre berte ako orientačné.</div>
 
 <h2 id="kniha">12. Kniha jázd a export</h2>
@@ -743,7 +758,7 @@ Trasník</h1>
   <tr><td>Jazda autom – začiatok</td><td>Stúpajúci akord</td></tr>
   <tr><td>Jazda autom – koniec</td><td>Klesajúci akord</td></tr>
   <tr><td>Chôdza – začiatok / koniec</td><td>bez zvuku</td></tr>
-  <tr><td>Prekročenie rýchlosti</td><td>Varovanie (len pri zapnutom upozornení, najviac raz za minútu)</td></tr>
+  <tr><td>Prekročenie rýchlosti</td><td>Varovanie (len pri zapnutom upozornení; hneď a potom opakovane v nastavenom intervale, predvolene 3 s)</td></tr>
   <tr><td>Parkovací lístok končí</td><td>Ding-dong</td></tr>
 </table>
 <ul>
@@ -766,6 +781,7 @@ Trasník</h1>
   <tr><td colspan="3"><b>Automatická detekcia jazdy</b></td></tr>
   <tr><td>Automaticky sledovať jazdu</td><td>zapnuté</td><td>Hlavný vypínač automatiky.</td></tr>
   <tr><td>Spustiť po reštarte telefónu</td><td>zapnuté</td><td>Obnoví detekciu po zapnutí telefónu.</td></tr>
+  <tr><td>Stačí jedna podmienka</td><td>zapnuté</td><td>Jazda sa zapisuje hneď pri jazde vo vozidle (systém), pripojení Bluetooth auta alebo rýchlosti auta z GPS. Vypnuté = overenie 3 bodmi GPS.</td></tr>
   <tr><td>Rýchlosť potvrdzujúca auto</td><td>25 km/h</td><td>Nižšia rýchlosť sa nepovažuje za jazdu autom.</td></tr>
   <tr><td>Čas na potvrdenie jazdy</td><td>5 min</td><td>Pri Bluetooth spúšťači dvojnásobok.</td></tr>
   <tr><td>Ukončiť jazdu po státí</td><td>4 min</td><td>Ako dlho môže auto stáť bez ukončenia jazdy.</td></tr>
@@ -817,7 +833,8 @@ Trasník</h1>
   <tr><td>Moje limity</td><td>žiadne</td><td>Vlastné opravy limitu z detailu jazdy (miesto + smer), majú prednosť pred mapou.</td></tr>
   <tr><td>Jednotný rýchlostný limit</td><td>130 km/h</td><td>Iba ak je limit podľa typu cesty vypnutý.</td></tr>
   <tr><td>Tolerancia</td><td>5 km/h</td><td>Rezerva pre nepresnosť GPS.</td></tr>
-  <tr><td>Upozorniť vibráciou</td><td>vypnuté</td><td>Upozornenie pri prekročení limitu.</td></tr>
+  <tr><td>Upozorniť pri prekročení</td><td>vypnuté</td><td>Notifikácia, zvuk a vibrácia pri prekročení limitu.</td></tr>
+  <tr><td>Opakovať upozornenie každých</td><td>3 s</td><td>Kým je limit prekročený; reset po 2 meraniach pod limitom. 0 = iba raz.</td></tr>
   <tr><td>Limity z mapy uložené v telefóne</td><td>–</td><td>Počet uložených úsekov (30 dní), tlačidlo Vymazať.</td></tr>
   <tr><td colspan="3"><b>Ostatné</b></td></tr>
   <tr><td>Server a synchronizácia</td><td>auto, aj mobilné dáta</td><td>Adresa API, automatické odosielanie, iba cez Wi-Fi.</td></tr>

@@ -32,6 +32,8 @@ Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nasta
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
 ## Novinky vo verzii 2.0 (zostavenia 2.0.N)
+- **Stačí jedna podmienka** (predvolené) – jazda sa zapisuje hneď, keď systém hlási „vo vozidle“, pripojí sa Bluetooth auta alebo GPS počas chôdze nameria rýchlosť auta; bez čakania na overenie 3 bodmi GPS (dá sa vrátiť v Nastavenia → Detekcia jazdy).
+- **Opakované upozornenie na prekročenie rýchlosti** – hneď, potom každé 3 s (nastaviteľné 0–60 s), kým je limit prekročený; po 2 meraniach pod limitom sa prekročenie ukončí a ďalšie upozorní znova hneď (`data/SpeedAlerter.kt`, testy).
 - **Verzia 2.0.N** = číslo zostavenia z GitHub Actions; APK sa volá `Trasnik-N.apk` (vydanie `build-N`).
 - **Aktualizácia v aplikácii** – raz denne kontrola `api.github.com/repos/richardgogola12/CarTracking/releases/latest`, notifikácia, stiahnutie APK a systémová inštalácia (`sync/AppUpdate.kt`, povolenie `REQUEST_INSTALL_PACKAGES`). Nastavenia → Pomoc a aktualizácie.
 - **Bez Esri** – mapy iba OpenStreetMap (svetlá, tmavá = prefarbená cez ColorMatrix) a OpenTopoMap, v aplikácii aj na webe. Hromadné sťahovanie oblastí je vypnuté (pravidlá OSM); prezreté dlaždice sa ukladajú na 30 dní.

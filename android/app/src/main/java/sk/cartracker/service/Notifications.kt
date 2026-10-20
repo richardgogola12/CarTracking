@@ -211,8 +211,9 @@ object Notifications {
     }
 
     /** Upozornenie na prekročenie nastavenej rýchlosti (3 krátke vibrácie). */
-    fun speedAlert(ctx: Context, speedKmh: Int, limitKmh: Int, zone: String?, s: AppSettings) {
-        if (s.vibrate) vibrateRaw(ctx, longArrayOf(0, 150, 100, 150, 100, 150))
+    fun speedAlert(ctx: Context, speedKmh: Int, limitKmh: Int, zone: String?, s: AppSettings, repeat: Boolean = false) {
+        // prvé upozornenie 3 krátke vibrácie, opakované jedna kratšia
+        if (s.vibrate) vibrateRaw(ctx, if (repeat) longArrayOf(0, 120) else longArrayOf(0, 150, 100, 150, 100, 150))
         SoundPlayer.event(ctx, SoundEvent.SPEEDING, s)
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
@@ -221,6 +222,7 @@ object Notifications {
             .setContentTitle("⚠️ Rýchlosť $speedKmh km/h")
             .setContentText("Limit $limitKmh km/h" + (zone?.let { " ($it)" } ?: ""))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setOnlyAlertOnce(repeat)
             .setTimeoutAfter(15_000)
             .setAutoCancel(true)
             .build()

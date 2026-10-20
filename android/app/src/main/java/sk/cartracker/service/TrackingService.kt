@@ -195,7 +195,10 @@ class TrackingService : LifecycleService() {
     private var speedFix: Location? = null
     private var lastEventAt = 0L
     private var wasSpeeding = false
-    private var lastSpeedAlertAt = 0L
+    /** Upozornenia na prekročenie: hneď, potom každých N s, kým trvá; reset po 2 bodoch pod limitom. */
+    private val speedAlerter = sk.cartracker.data.SpeedAlerter()
+    private var speedAlertJob: kotlinx.coroutines.Job? = null
+    private var lastSpeedKmh = 0; private var lastLimitKmh = 0; private var lastFixAt = 0L
 
     // Kroky
     private val sensorManager by lazy { getSystemService(SensorManager::class.java) }
@@ -337,10 +340,19 @@ class TrackingService : LifecycleService() {
         updateNotification(force = true)
         Log.i(TAG, "Kandidát na jazdu ($src)")
         candidateMax = 0.0
+        if (settings.detectAnyCondition) {
+            // Stačí jedna podmienka: systém hlási „vo vozidle“ alebo sa pripojilo Bluetooth auta → jazda sa zapisuje hneď
+            DiagLog.log(this, DiagLog.CHECK, "Stačí jedna podmienka – " + (if (src == SOURCE_BLUETOOTH) "pripojené Bluetooth auta" else "systém hlási jazdu vo vozidle") + " → jazda sa zapisuje hneď")
+            confirmDriving(if (src == SOURCE_BLUETOOTH) "Bluetooth auta" else "systém hlási vo vozidle")
+            return
+        }
         DiagLog.log(this, DiagLog.CHECK, "Overujem jazdu (zdroj: ${if (src == SOURCE_BLUETOOTH) "Bluetooth" else "systém"}) – treba 3 body GPS s rýchlosťou ≥ ${settings.minDriveSpeedKmh} km/h do ${settings.confirmTimeoutMin.coerceAtLeast(1) * (if (src == SOURCE_BLUETOOTH) 2 else 1)} min")
     }
 
-    private suspend fun confirmDriving() {
+    /** Počet rýchlych bodov GPS potrebných na potvrdenie jazdy (pri „stačí jedna podmienka“ jeden). */
+    private fun fixesNeeded() = if (settings.detectAnyCondition) 1 else 3
+
+    private suspend fun confirmDriving(reason: String = "potvrdené rýchlosťou GPS") {
         val buffered = candidateBuffer.toList()
         candidateBuffer.clear()
         startTrip(buffered.firstOrNull()?.time ?: System.currentTimeMillis(), TYPE_CAR)
@@ -351,7 +363,7 @@ class TrackingService : LifecycleService() {
             summary = listOfNotNull(if (cont) "Pokračovanie jazdy – po skončení sa zlúči s predchádzajúcou" else null,
                 vehicleName?.let { "Vozidlo: $it" }).joinToString("\n").ifEmpty { null })
         Log.i(TAG, "Jazda potvrdená")
-        DiagLog.log(this, DiagLog.DRIVE, "Režim jazdy ZAPNUTÝ" + (if (manual) " (ručne)" else " – potvrdené rýchlosťou GPS") + (vehicleName?.let { " · $it" } ?: ""))
+        DiagLog.log(this, DiagLog.DRIVE, "Režim jazdy ZAPNUTÝ" + (if (manual) " (ručne)" else " – $reason") + (vehicleName?.let { " · $it" } ?: ""))
     }
 
     private suspend fun beginWalk(manualWalk: Boolean) {
@@ -381,7 +393,7 @@ class TrackingService : LifecycleService() {
         trip = t.copy(id = dao.insertTrip(t))
         distance = 0.0; maxSpeed = 0.0; pointCount = 0
         lastGood = null
-        hardBrakes = 0; hardAccels = 0; speedingMs = 0L; speedFix = null; wasSpeeding = false
+        hardBrakes = 0; hardAccels = 0; speedingMs = 0L; speedFix = null; wasSpeeding = false; speedAlerter.reset()
         steps = 0; stepsOffset = 0
         lastMovingAt = System.currentTimeMillis()
         exitSignalAt = null
@@ -405,7 +417,7 @@ class TrackingService : LifecycleService() {
         distance = if (t.isWalk && t.steps > 0 && !settings.walkDistanceGps) 0.0 else t.distanceM
         maxSpeed = t.maxSpeedKmh
         hardBrakes = t.hardBrakes; hardAccels = t.hardAccels; speedingMs = t.speedingSec * 1000L
-        speedFix = null; wasSpeeding = false
+        speedFix = null; wasSpeeding = false; speedAlerter.reset()
         vehicle = container.vehicles.byUuid(t.vehicleUuid)
         vehicleName = vehicle?.label
         pointCount = dao.points(t.id).size
@@ -439,15 +451,17 @@ class TrackingService : LifecycleService() {
                 if (loc.accuracy <= 40f && speed >= settings.minDriveSpeedKmh) fastFixes++
                 candidateMax = max(candidateMax, speed)
                 val btOk = !settings.bluetoothRequired || RuntimeState.isCarBtConnected(this)
-                DiagLog.log(this, DiagLog.GPS, "${speed.toInt()} km/h, presnosť ±${loc.accuracy.toInt()} m → rýchlych bodov $fastFixes/3" +
+                DiagLog.log(this, DiagLog.GPS, "${speed.toInt()} km/h, presnosť ±${loc.accuracy.toInt()} m → rýchlych bodov $fastFixes/${fixesNeeded()}" +
                     (if (loc.accuracy > 40f) " (nepresný bod sa nepočíta)" else "") + (if (!btOk) " · čaká sa na Bluetooth auta" else ""))
-                if (fastFixes >= 3 && btOk) confirmDriving()
+                if (fastFixes >= fixesNeeded() && btOk) confirmDriving()
             }
             DriveState.DRIVING -> recordPoint(loc, speed)
             DriveState.WALKING -> {
                 // Rýchlosť auta počas „chôdze“ → nastúpil do vozidla
-                if (loc.accuracy <= 30f && speed >= settings.minDriveSpeedKmh) fastFixes++ else if (speed < 10) fastFixes = 0
-                if (fastFixes >= 3 && settings.autoDetection && !manual) {
+                // jeden bod stačí len s rýchlosťou meranou GPS (nie z rozdielu polôh – skok polohy by spustil jazdu)
+                if (loc.accuracy <= 30f && speed >= settings.minDriveSpeedKmh && (!settings.detectAnyCondition || hasDoppler(loc))) fastFixes++
+                else if (speed < 10) fastFixes = 0
+                if (fastFixes >= fixesNeeded() && settings.autoDetection && !manual) {
                     finishTrip(lastMovingAt) { beginCandidate(SOURCE_AUTO) }
                     return
                 }
@@ -595,6 +609,19 @@ class TrackingService : LifecycleService() {
         return speedLimitFor(zone, sign, vehicle, settings)
     }
 
+    /** Opakuje upozornenie aj medzi bodmi GPS (ak prídu redšie ako interval), kým trvá prekročenie. */
+    private fun startSpeedAlertTicker() {
+        speedAlertJob = lifecycleScope.launch {
+            while (speedAlerter.active && trip != null) {
+                kotlinx.coroutines.delay(500)
+                val now = System.currentTimeMillis()
+                if (now - lastFixAt > 15_000) continue            // bez čerstvej polohy neopakovať
+                if (settings.speedAlert && speedAlerter.onTick(now))
+                    Notifications.speedAlert(this@TrackingService, lastSpeedKmh, lastLimitKmh, currentZone()?.label, settings, repeat = true)
+            }
+        }
+    }
+
     /** Prudké brzdenie / zrýchlenie z rozdielu GPS rýchlostí, prekročenie nastaveného limitu. */
     private fun detectEvent(loc: Location, speedKmh: Double): String? {
         if (!settings.drivingEvents) return null
@@ -605,13 +632,15 @@ class TrackingService : LifecycleService() {
         val speeding = limit != null && speedKmh > limit + settings.speedToleranceKmh && loc.accuracy <= 30f
         val prev = speedFix
         if (speeding && prev != null) speedingMs += (now - prev.time).coerceIn(0, 10_000)
-        if (speeding && !wasSpeeding) {
-            event = DriveEvent.SPEEDING
-            if (settings.speedAlert && System.currentTimeMillis() - lastSpeedAlertAt > 60_000) {
-                lastSpeedAlertAt = System.currentTimeMillis()
-                Notifications.speedAlert(this, speedKmh.toInt(), limit ?: 0, currentZone()?.label, settings)
-            }
-        }
+        // nepresný bod alebo neznámy limit nič nemení (nepreruší ani nezačne prekročenie)
+        val known = limit != null && loc.accuracy <= 30f
+        val wall = System.currentTimeMillis()
+        speedAlerter.intervalMs = settings.speedAlertRepeatSec.coerceAtLeast(0) * 1000L
+        val r = speedAlerter.onFix(if (known) speeding else null, wall)
+        if (known) { lastSpeedKmh = speedKmh.toInt(); lastLimitKmh = limit ?: 0; lastFixAt = wall }
+        if (r.newEpisode) event = DriveEvent.SPEEDING
+        if (r.alert && settings.speedAlert) Notifications.speedAlert(this, lastSpeedKmh, lastLimitKmh, currentZone()?.label, settings, repeat = !r.newEpisode)
+        if (speedAlerter.active && settings.speedAlert && speedAlertJob?.isActive != true) startSpeedAlertTicker()
         wasSpeeding = speeding
 
         if (loc.hasSpeed() && loc.accuracy <= 25f) {
@@ -634,7 +663,7 @@ class TrackingService : LifecycleService() {
             DriveState.CANDIDATE -> {
                 val factor = if (source == SOURCE_BLUETOOTH) 2 else 1
                 if (now - candidateSince > settings.confirmTimeoutMin.coerceAtLeast(1) * 60_000L * factor)
-                    discard("za ${settings.confirmTimeoutMin.coerceAtLeast(1) * factor} min sa nenamerali 3 body ≥ ${settings.minDriveSpeedKmh} km/h (max. ${candidateMax.toInt()} km/h)")
+                    discard("za ${settings.confirmTimeoutMin.coerceAtLeast(1) * factor} min sa nenamerali ${fixesNeeded()} body ≥ ${settings.minDriveSpeedKmh} km/h (max. ${candidateMax.toInt()} km/h)")
             }
             DriveState.DRIVING -> {
                 if (manual) { updateNotification(); return }

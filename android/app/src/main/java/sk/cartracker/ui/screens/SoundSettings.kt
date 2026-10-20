@@ -76,7 +76,7 @@ fun SoundSettingsBody(s: AppSettings, update: ((AppSettings) -> AppSettings) -> 
             IconButton(onClick = { preview(id) }, enabled = id != SoundBank.NONE) { Icon(Icons.Filled.PlayArrow, "Prehrať") }
         }
     }
-    Text("Prekročenie rýchlosti zaznie len pri zapnutom upozornení (Štýl jazdy a rýchlosť), najviac raz za minútu. Zvuky chôdze sú predvolene vypnuté.",
+    Text("Prekročenie rýchlosti zaznie len pri zapnutom upozornení (Štýl jazdy a rýchlosť) – hneď a potom opakovane v nastavenom intervale (predvolene 3 s), kým je limit prekročený. Zvuky chôdze sú predvolene vypnuté.",
         Modifier.padding(horizontal = 16.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
     picking?.let { e ->
