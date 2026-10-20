@@ -357,7 +357,7 @@ window.addEventListener("afterprint", () => { for (const k in tables) if (printL
 //  Smerovanie
 // =====================================================================
 const PAGES = {
-  prehlad: ["Dashboard", pageDashboard], jazdy: ["Jazdy a chôdza", pageTrips], mapa: ["Mapa", pageMap],
+  prehlad: ["Dashboard", pageDashboard], analyzy: ["Analýzy", pageAnalytics], jazdy: ["Jazdy a chôdza", pageTrips], mapa: ["Mapa", pageMap],
   den: ["Časová os dňa", pageDay], kniha: ["Kniha jázd", pageLogbook], nahrady: ["Cestovné náhrady", pageReimb],
   vozidla: ["Vozidlá a tankovanie", pageVehicles], trasy: ["Časté trasy", pageRoutes], chodza: ["Chôdza a kroky", pageWalk],
   miesta: ["Miesta", pagePlaces], ucet: ["Účet a server", pageAccount],
@@ -611,6 +611,203 @@ function pageTrips() {
   const redraw = () => g?.draw();
   $("tt").onchange = (e) => { TS.type = e.target.value; redraw(); };
   $("tc").onchange = (e) => { TS.cat = e.target.value; redraw(); };
+}
+
+
+// =====================================================================
+//  Analýzy – trend 12 mesiacov, kedy jazdíte (teplotná mapa), dĺžky jázd, rýchlosť × vzdialenosť,
+//  štýl po týždňoch; tabuľky po mesiacoch, cieľoch, dňoch v týždni a týždňoch (všetky s triedením)
+// =====================================================================
+const DOW = ["Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok", "Sobota", "Nedeľa"];
+const dowOf = (ts) => (new Date(ts).getDay() + 6) % 7;
+/** Pondelok týždňa (ms) a označenie „t. 42 / 2026“. */
+function weekOf(ts) {
+  const d = new Date(sod(ts)); d.setDate(d.getDate() - dowOf(+d));
+  const th = new Date(d); th.setDate(th.getDate() + 3);              // ISO: týždeň patrí roku, v ktorom je jeho štvrtok
+  const y = th.getFullYear(), jan4 = new Date(y, 0, 4);
+  const w = 1 + Math.round(((+th - +jan4) / DAY - 3 + (jan4.getDay() + 6) % 7) / 7);
+  return { a: +d, label: `t. ${w} / ${y}`, range: dtShort(+d) + "–" + dtShort(+d + 6 * DAY) };
+}
+const wavg = (arr, f, w) => { const W = sum(arr, w); return W > 0 ? sum(arr, t => f(t) * w(t)) / W : null; };
+const scoreAvg = (arr) => { const sc = arr.filter(t => t.score != null); const v = wavg(sc, t => t.score, t => Math.max(t.distance_m, 1)); return v == null ? null : Math.round(v); };
+const scoreBadge = (v) => v == null ? "" : `<span class="badge rounded-pill ${v >= 85 ? "text-bg-success" : v >= 70 ? "text-bg-warning" : "text-bg-danger"}">${v}</span>`;
+const LEN_BINS = [[0, 2, "do 2 km"], [2, 5, "2–5 km"], [5, 10, "5–10 km"], [10, 20, "10–20 km"], [20, 50, "20–50 km"], [50, 100, "50–100 km"], [100, 1e9, "nad 100 km"]];
+
+async function pageAnalytics() {
+  // 12 mesiacov končiacich mesiacom, v ktorom končí zvolené obdobie
+  const endD = new Date(S.range.to - 1), mEnd = new Date(endD.getFullYear(), endD.getMonth() + 1, 1), mStart = new Date(mEnd.getFullYear(), mEnd.getMonth() - 12, 1);
+  const key = +mStart + "-" + +mEnd;
+  if (S.yearKey !== key) { loading(true); try { S.yearTrips = await fetchTrips(+mStart, +mEnd); S.yearKey = key; } finally { loading(false); } }
+  const yCars = carTrips(S.yearTrips), yWalks = walkTrips(S.yearTrips), cars = carTrips(), walks = walkTrips();
+  const months = Array.from({ length: 12 }, (_, i) => { const a = new Date(mStart.getFullYear(), mStart.getMonth() + i, 1), z = new Date(a.getFullYear(), a.getMonth() + 1, 1);
+    return { a: +a, z: +z, label: a.toLocaleDateString("sk-SK", { month: "short", year: "2-digit" }), long: a.toLocaleDateString("sk-SK", { month: "long", year: "numeric" }) }; });
+  const yTitle = months[0].long + " – " + months[11].long;
+
+  $("content").innerHTML = printHead("Analýzy") + `<div class="row g-3">
+    ${card("Vývoj za 12 mesiacov", `<div class="chart-box lg"><canvas id="anTrend"></canvas></div>`, { col: "col-xl-8", sub: yTitle })}
+    ${card("Dĺžka jázd", cars.length ? `<div class="chart-box lg"><canvas id="anLen"></canvas></div>` : empty("rulers", "Žiadne jazdy v období"), { col: "col-xl-4", sub: "počet jázd a podiel km · " + esc(S.range.title) })}
+    ${card("Kedy jazdíte", cars.length ? `<div id="anHeat"></div>` : empty("calendar3", "Žiadne jazdy v období"), { col: "col-xl-7", sub: "km podľa dňa a hodiny začiatku · " + esc(S.range.title) })}
+    ${card("Rýchlosť × vzdialenosť", cars.length ? `<div class="chart-box lg"><canvas id="anScatter"></canvas></div>` : empty("graph-up", "Žiadne jazdy v období"), { col: "col-xl-5", sub: "každá bodka = jazda, ťuknite pre detail" })}
+    ${card("Štýl jazdy po týždňoch", `<div class="chart-box"><canvas id="anStyle"></canvas></div>`, { sub: "skóre a udalosti na 100 km · " + yTitle })}
+    ${card("Prehľad po mesiacoch", `<div id="anMonths"></div>`, { sub: yTitle })}
+    ${card("Najčastejšie ciele", `<div id="anDest"></div>`, { col: "col-xl-7", sub: esc(S.range.title) })}
+    ${card("Dni v týždni", `<div id="anDow"></div>`, { col: "col-xl-5", sub: esc(S.range.title) })}
+    ${card("Štýl jazdy po týždňoch – tabuľka", `<div id="anWeeks"></div>`, { sub: yTitle })}
+  </div>`;
+
+  // ---- graf 1: 12 mesiacov – služobné / súkromné km, náklady, kroky
+  const inM = (arr, m) => arr.filter(t => t.started_at >= m.a && t.started_at < m.z);
+  chart("anTrend", { type: "bar", data: { labels: months.map(m => m.label), datasets: [
+      { label: "Služobné km", data: months.map(m => +(sum(inM(yCars, m).filter(t => t.category === "business"), t => t.distance_m) / 1000).toFixed(1)), backgroundColor: C.biz, borderRadius: 6, stack: "km" },
+      { label: "Súkromné km", data: months.map(m => +(sum(inM(yCars, m).filter(t => t.category !== "business"), t => t.distance_m) / 1000).toFixed(1)), backgroundColor: C.car, borderRadius: 6, stack: "km" },
+      { label: "Náklady €", type: "line", data: months.map(m => +sum(inM(yCars, m), cost).toFixed(2)), borderColor: C.amber, backgroundColor: C.amber, tension: .35, yAxisID: "y2", pointRadius: 3 },
+      { label: "Kroky (tis.)", type: "line", data: months.map(m => +(sum(inM(yWalks, m), t => t.steps) / 1000).toFixed(1)), borderColor: C.walk, backgroundColor: C.walk, borderDash: [5, 4], tension: .35, yAxisID: "y3", pointRadius: 2, hidden: !yWalks.length },
+    ] },
+    options: { interaction: { mode: "index", intersect: false }, scales: {
+      x: { stacked: true, grid: { display: false } }, y: { stacked: true, title: { display: true, text: "km" } },
+      y2: { position: "right", grid: { display: false }, title: { display: true, text: "€" } }, y3: { display: false } } } });
+
+  // ---- graf 2: dĺžky jázd – počet (stĺpce) a podiel na km (čiara)
+  if (cars.length) {
+    const totalKm = sum(cars, t => t.distance_m) || 1;
+    const bins = LEN_BINS.map(([a, z, l]) => { const g = cars.filter(t => t.distance_m / 1000 >= a && t.distance_m / 1000 < z); return { l, n: g.length, share: sum(g, t => t.distance_m) / totalKm * 100 }; });
+    chart("anLen", { type: "bar", data: { labels: bins.map(b => b.l), datasets: [
+        { label: "Počet jázd", data: bins.map(b => b.n), backgroundColor: C.cyan, borderRadius: 6 },
+        { label: "% najazdených km", type: "line", data: bins.map(b => +b.share.toFixed(1)), borderColor: C.rose, backgroundColor: C.rose, yAxisID: "y2", tension: .3 } ] },
+      options: { interaction: { mode: "index", intersect: false }, scales: { x: { grid: { display: false } }, y: { ticks: { precision: 0 }, title: { display: true, text: "jazdy" } },
+        y2: { position: "right", min: 0, max: 100, grid: { display: false }, ticks: { callback: v => v + " %" } } } } });
+  }
+
+  // ---- graf 3: teplotná mapa deň × hodina (km)
+  if (cars.length) {
+    const H = Array.from({ length: 7 }, () => Array(24).fill(0)), N = Array.from({ length: 7 }, () => Array(24).fill(0));
+    cars.forEach(t => { const d = new Date(t.started_at); H[dowOf(t.started_at)][d.getHours()] += t.distance_m / 1000; N[dowOf(t.started_at)][d.getHours()]++; });
+    const max = Math.max(...H.flat(), 0.1);
+    $("anHeat").innerHTML = `<div class="heat-wrap"><div class="heat">
+      <div></div>${Array.from({ length: 24 }, (_, h) => `<div class="hh">${h % 3 === 0 ? h : ""}</div>`).join("")}
+      ${H.map((row, d) => `<div class="hd">${DOW[d].slice(0, 2)}</div>` + row.map((v, h) => {
+        const a = v > 0 ? 0.15 + 0.85 * v / max : 0;
+        return `<div class="hc" style="--a:${a.toFixed(3)}" title="${DOW[d]} ${h}:00–${h}:59 · ${N[d][h]} jázd · ${nf(v, 1)} km"></div>`; }).join("")).join("")}
+    </div><div class="heat-legend small text-body-secondary"><span>menej</span><span class="hl"></span><span>viac km</span>
+      <span class="ms-auto">najviac: ${(() => { let b = [0, 0]; H.forEach((r, d) => r.forEach((v, h) => { if (v > H[b[0]][b[1]]) b = [d, h]; })); return `${DOW[b[0]]} ${b[1]}:00 (${nf(H[b[0]][b[1]], 1)} km)`; })()}</span></div></div>`;
+  }
+
+  // ---- graf 4: Ø rýchlosť × vzdialenosť
+  if (cars.length) {
+    const pt = (t) => ({ x: Math.max(0.1, +(t.distance_m / 1000).toFixed(2)), y: Math.round(t.avg_speed_kmh), t });
+    chart("anScatter", { type: "scatter", data: { datasets: [
+        { label: "Služobné", data: cars.filter(t => t.category === "business").map(pt), backgroundColor: C.biz + "cc", pointRadius: 5, pointHoverRadius: 8 },
+        { label: "Súkromné", data: cars.filter(t => t.category !== "business").map(pt), backgroundColor: C.car + "cc", pointRadius: 5, pointHoverRadius: 8 } ] },
+      options: { scales: { x: cars.some(t => t.distance_m > 50000)
+          ? { type: "logarithmic", title: { display: true, text: "km (logaritmická os)" }, ticks: { callback: (v) => [0.1, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000].includes(+v) ? v : "" } }
+          : { type: "linear", min: 0, title: { display: true, text: "km" } }, y: { min: 0, title: { display: true, text: "Ø km/h" } } },
+        plugins: { tooltip: { callbacks: { label: (c) => { const t = c.raw.t; return ` ${dt(t.started_at)} ${tm(t.started_at)} · ${nf(c.raw.x, 1)} km · Ø ${c.raw.y} km/h · ${routeText(t)}`; } } } },
+        onClick: (_e, el, ch) => { if (el.length) openTrip(ch.data.datasets[el[0].datasetIndex].data[el[0].index].t.uuid); },
+        onHover: (e, el) => { e.native.target.style.cursor = el.length ? "pointer" : "default"; } } });
+  }
+
+  // ---- týždne (spoločné pre graf 5 a tabuľku 4)
+  const wk = {};
+  yCars.forEach(t => { const w = weekOf(t.started_at); (wk[w.a] ||= { ...w, list: [] }).list.push(t); });
+  const weeks = Object.values(wk).sort((a, b) => a.a - b.a).map(w => {
+    const k = sum(w.list, t => t.distance_m) / 1000, ms = sum(w.list, tripMs), sp = sum(w.list, t => t.speeding_sec);
+    return { ...w, n: w.list.length, km: k, ms, brakes: sum(w.list, t => t.hard_brakes), accels: sum(w.list, t => t.hard_accels),
+      per100: k > 0 ? (sum(w.list, t => t.hard_brakes + t.hard_accels)) / k * 100 : 0, sp, spPct: ms > 0 ? sp * 1000 / ms * 100 : 0, score: scoreAvg(w.list),
+      maxSpeed: Math.max(0, ...w.list.map(t => t.max_speed_kmh)) };
+  });
+  chart("anStyle", { type: "bar", data: { labels: weeks.map(w => w.label.replace(/ \/ \d+$/, "")), datasets: [
+      { label: "Skóre", type: "line", data: weeks.map(w => w.score), borderColor: C.car, backgroundColor: C.car, tension: .3, yAxisID: "y", spanGaps: true, pointRadius: weeks.length > 20 ? 1.5 : 3 },
+      { label: "Prudké udalosti / 100 km", data: weeks.map(w => +w.per100.toFixed(1)), backgroundColor: C.rose + "99", borderRadius: 4, yAxisID: "y2" },
+      { label: "% času nad limitom", data: weeks.map(w => +w.spPct.toFixed(1)), backgroundColor: C.amber + "99", borderRadius: 4, yAxisID: "y2" } ] },
+    options: { interaction: { mode: "index", intersect: false }, scales: { x: { grid: { display: false } }, y: { min: 0, max: 100, title: { display: true, text: "skóre" } },
+      y2: { position: "right", min: 0, grid: { display: false }, title: { display: true, text: "na 100 km / %" } } } } });
+
+  // ---- tabuľka 1: po mesiacoch
+  const mRows = months.map(m => {
+    const c = inM(yCars, m), w = inM(yWalks, m), k = sum(c, t => t.distance_m) / 1000, ms = sum(c, tripMs);
+    return { ...m, n: c.length, km: k, biz: sum(c.filter(t => t.category === "business"), t => t.distance_m) / 1000, ms,
+      avg: ms > 0 ? k / (ms / 3.6e6) : 0, per: c.length ? k / c.length : 0, l: sum(c, liters), eur: sum(c, cost), score: scoreAvg(c),
+      steps: sum(w, t => t.steps), days: new Set(c.map(t => sod(t.started_at))).size };
+  });
+  grid("anMonths", mRows, [
+    { t: "Mesiac", pri: 1, cls: "text-nowrap fw-semibold", d: r => esc(r.long), s: r => r.a, x: r => r.long },
+    { t: "Jazdy", pri: 3, cls: "text-end", d: r => int(r.n), s: r => r.n, x: r => r.n },
+    { t: "Km", pri: 2, cls: "text-end fw-semibold", d: r => nf(r.km, 1), s: r => r.km, x: r => +r.km.toFixed(1) },
+    { t: "Služobné km", pri: 5, cls: "text-end", d: r => nf(r.biz, 1) + (r.km ? ` <span class="small text-body-secondary">${Math.round(r.biz / r.km * 100)} %</span>` : ""), s: r => r.biz, x: r => +r.biz.toFixed(1) },
+    { t: "Súkromné km", pri: 9, cls: "text-end", d: r => nf(r.km - r.biz, 1), s: r => r.km - r.biz, x: r => +(r.km - r.biz).toFixed(1) },
+    { t: "Dni s jazdou", pri: 12, cls: "text-end", d: r => int(r.days), s: r => r.days, x: r => r.days },
+    { t: "Za volantom", pri: 7, cls: "text-end text-nowrap", d: r => durH(r.ms), s: r => r.ms, x: r => +(r.ms / 3.6e6).toFixed(1) },
+    { t: "Ø km/h", pri: 10, cls: "text-end", d: r => r.ms ? int(r.avg) : "", s: r => r.avg, x: r => Math.round(r.avg) },
+    { t: "Ø km / jazda", pri: 11, cls: "text-end", d: r => r.n ? nf(r.per, 1) : "", s: r => r.per, x: r => +r.per.toFixed(1) },
+    { t: "Palivo l", pri: 13, cls: "text-end", d: r => nf(r.l, 1), s: r => r.l, x: r => +r.l.toFixed(1) },
+    { t: "Náklady", pri: 4, cls: "text-end text-nowrap", d: r => eur(r.eur), s: r => r.eur, x: r => +r.eur.toFixed(2) },
+    { t: "Ø skóre", pri: 8, cls: "text-end", d: r => scoreBadge(r.score), s: r => r.score ?? -1, x: r => r.score ?? "" },
+    { t: "Kroky", pri: 6, cls: "text-end", d: r => int(r.steps), s: r => r.steps, x: r => r.steps },
+  ], { order: [[1, "desc"]], pageLength: 12, rowTrip: false, file: "mesiace-" + yTitle, title: "Prehľad po mesiacoch – " + yTitle,
+    foot: (r) => ["Spolu", int(sum(r, x => x.n)), nf(sum(r, x => x.km), 1), nf(sum(r, x => x.biz), 1), nf(sum(r, x => x.km - x.biz), 1), int(sum(r, x => x.days)),
+      durH(sum(r, x => x.ms)), "", "", nf(sum(r, x => x.l), 1), eur(sum(r, x => x.eur)), "", int(sum(r, x => x.steps))] });
+
+  // ---- tabuľka 2: najčastejšie ciele (podľa miesta, inak ulice a obce)
+  const dest = {};
+  cars.forEach(t => { const k = placeShort(t.end_place, t.end_address); if (k === "—") return; (dest[k] ||= []).push(t); });
+  const dRows = Object.entries(dest).map(([name, l]) => {
+    const n = l.length, k = sum(l, t => t.distance_m) / 1000, last = Math.max(...l.map(t => t.started_at));
+    const hrs = l.map(t => { const d = new Date(t.ended_at || t.started_at); return d.getHours() * 60 + d.getMinutes(); });
+    return { name, isPlace: !!l[0].end_place, n, km: k, per: k / n, ms: sum(l, tripMs) / n, biz: l.filter(t => t.category === "business").length / n * 100,
+      eur: sum(l, cost), last, arr: Math.round(sum(hrs, x => x) / n), lastUuid: l.find(t => t.started_at === last)?.uuid };
+  });
+  grid("anDest", dRows, [
+    { t: "Cieľ", pri: 1, d: r => `${r.isPlace ? '<i class="bi bi-geo-alt-fill text-primary me-1"></i>' : ""}<span class="fw-semibold">${esc(r.name)}</span>`, x: r => r.name },
+    { t: "Návštevy", pri: 2, cls: "text-end fw-semibold", d: r => int(r.n), s: r => r.n, x: r => r.n },
+    { t: "Km spolu", pri: 4, cls: "text-end", d: r => nf(r.km, 1), s: r => r.km, x: r => +r.km.toFixed(1) },
+    { t: "Ø km", pri: 6, cls: "text-end", d: r => nf(r.per, 1), s: r => r.per, x: r => +r.per.toFixed(1) },
+    { t: "Ø trvanie", pri: 7, cls: "text-end text-nowrap", d: r => dur(r.ms), s: r => r.ms, x: r => Math.round(r.ms / 60000) },
+    { t: "Ø príchod", pri: 8, cls: "text-end", d: r => `${Math.floor(r.arr / 60)}:${String(r.arr % 60).padStart(2, "0")}`, s: r => r.arr },
+    { t: "Služobne", pri: 9, cls: "text-end", d: r => Math.round(r.biz) + " %", s: r => r.biz, x: r => Math.round(r.biz) },
+    { t: "Náklady", pri: 5, cls: "text-end text-nowrap", d: r => eur(r.eur), s: r => r.eur, x: r => +r.eur.toFixed(2) },
+    { t: "Naposledy", pri: 3, cls: "text-end text-nowrap", d: r => `<a href="#" data-last="${r.lastUuid}">${dt(r.last)}</a>`, s: r => r.last, x: r => dt(r.last) },
+  ], { order: [[2, "desc"]], pageLength: 10, rowTrip: false, file: "ciele-" + S.range.title, title: "Najčastejšie ciele – " + S.range.title,
+    foot: (r) => [`${r.length} cieľov`, int(sum(r, x => x.n)), nf(sum(r, x => x.km), 1), "", "", "", "", eur(sum(r, x => x.eur)), ""] });
+  $("anDest").addEventListener("click", (e) => { const a = e.target.closest("[data-last]"); if (a) { e.preventDefault(); openTrip(a.dataset.last); } });
+
+  // ---- tabuľka 3: dni v týždni
+  const nWeeks = Math.max(1, Math.round((S.range.to - S.range.from) / (7 * DAY)));
+  const dRows2 = DOW.map((name, i) => {
+    const c = cars.filter(t => dowOf(t.started_at) === i), w = walks.filter(t => dowOf(t.started_at) === i);
+    const k = sum(c, t => t.distance_m) / 1000, first = {};
+    c.forEach(t => { const d = sod(t.started_at); first[d] = Math.min(first[d] ?? 1e15, t.started_at); });
+    const firsts = Object.values(first).map(ts => { const d = new Date(ts); return d.getHours() * 60 + d.getMinutes(); });
+    return { i, name, n: c.length, km: k, per: c.length ? k / c.length : 0, ms: sum(c, tripMs), biz: sum(c.filter(t => t.category === "business"), t => t.distance_m) / 1000,
+      dep: firsts.length ? Math.round(sum(firsts, x => x) / firsts.length) : null, score: scoreAvg(c), steps: sum(w, t => t.steps), eur: sum(c, cost) };
+  });
+  grid("anDow", dRows2, [
+    { t: "Deň", pri: 1, cls: "fw-semibold", d: r => r.name, s: r => r.i, x: r => r.name },
+    { t: "Jazdy", pri: 3, cls: "text-end", d: r => int(r.n), s: r => r.n, x: r => r.n },
+    { t: "Km", pri: 2, cls: "text-end fw-semibold", d: r => nf(r.km, 1), s: r => r.km, x: r => +r.km.toFixed(1) },
+    { t: "Ø km / deň", pri: 6, cls: "text-end", d: r => nf(r.km / nWeeks, 1), s: r => r.km, x: r => +(r.km / nWeeks).toFixed(1) },
+    { t: "Ø jazda", pri: 7, cls: "text-end", d: r => r.n ? nf(r.per, 1) + " km" : "", s: r => r.per, x: r => +r.per.toFixed(1) },
+    { t: "Za volantom", pri: 8, cls: "text-end text-nowrap", d: r => durH(r.ms), s: r => r.ms, x: r => +(r.ms / 3.6e6).toFixed(1) },
+    { t: "Služobné km", pri: 10, cls: "text-end", d: r => nf(r.biz, 1), s: r => r.biz, x: r => +r.biz.toFixed(1) },
+    { t: "Ø prvý odchod", pri: 5, cls: "text-end", d: r => r.dep == null ? "" : `${Math.floor(r.dep / 60)}:${String(r.dep % 60).padStart(2, "0")}`, s: r => r.dep ?? 9999 },
+    { t: "Ø skóre", pri: 9, cls: "text-end", d: r => scoreBadge(r.score), s: r => r.score ?? -1, x: r => r.score ?? "" },
+    { t: "Kroky", pri: 4, cls: "text-end", d: r => int(r.steps), s: r => r.steps, x: r => r.steps },
+  ], { order: [[1, "asc"]], paging: false, search: false, rowTrip: false, sm: true, file: "dni-" + S.range.title, title: "Dni v týždni – " + S.range.title,
+    foot: (r) => ["Spolu", int(sum(r, x => x.n)), nf(sum(r, x => x.km), 1), "", "", durH(sum(r, x => x.ms)), nf(sum(r, x => x.biz), 1), "", "", int(sum(r, x => x.steps))] });
+
+  // ---- tabuľka 4: štýl jazdy po týždňoch
+  grid("anWeeks", weeks, [
+    { t: "Týždeň", pri: 1, cls: "text-nowrap", d: r => `<div class="fw-semibold">${r.label}</div><div class="small text-body-secondary">${r.range}</div>`, s: r => r.a, x: r => r.label + " " + r.range },
+    { t: "Jazdy", pri: 4, cls: "text-end", d: r => int(r.n), s: r => r.n, x: r => r.n },
+    { t: "Km", pri: 3, cls: "text-end fw-semibold", d: r => nf(r.km, 1), s: r => r.km, x: r => +r.km.toFixed(1) },
+    { t: "Brzdenia", pri: 6, cls: "text-end", d: r => int(r.brakes), s: r => r.brakes, x: r => r.brakes },
+    { t: "Zrýchlenia", pri: 7, cls: "text-end", d: r => int(r.accels), s: r => r.accels, x: r => r.accels },
+    { t: "Udalosti / 100 km", pri: 5, cls: "text-end", d: r => nf(r.per100, 1), s: r => r.per100, x: r => +r.per100.toFixed(1) },
+    { t: "Nad limitom", pri: 8, cls: "text-end text-nowrap", d: r => dur(r.sp * 1000) + ` <span class="small text-body-secondary">${nf(r.spPct, 1)} %</span>`, s: r => r.spPct, x: r => Math.round(r.sp / 60) },
+    { t: "Max km/h", pri: 9, cls: "text-end", d: r => int(r.maxSpeed), s: r => r.maxSpeed, x: r => Math.round(r.maxSpeed) },
+    { t: "Ø skóre", pri: 2, cls: "text-end", d: r => scoreBadge(r.score), s: r => r.score ?? -1, x: r => r.score ?? "" },
+  ], { order: [[1, "desc"]], pageLength: 10, rowTrip: false, file: "styl-tyzdne-" + yTitle, title: "Štýl jazdy po týždňoch – " + yTitle,
+    foot: (r) => [`${r.length} týždňov`, int(sum(r, x => x.n)), nf(sum(r, x => x.km), 1), int(sum(r, x => x.brakes)), int(sum(r, x => x.accels)),
+      nf(sum(r, x => x.km) ? sum(r, x => x.brakes + x.accels) / sum(r, x => x.km) * 100 : 0, 1), dur(sum(r, x => x.sp) * 1000), "", ""] });
 }
 
 // =====================================================================
@@ -1038,7 +1235,7 @@ document.querySelectorAll("#periodSeg button").forEach(b => b.onclick = () => {
 $("prev").onclick = () => { S.offset--; render(); };
 $("next").onclick = () => { if (S.offset < 0) { S.offset++; render(); } };
 $("vehicleSel").onchange = (e) => { S.vehicle = e.target.value; LS.set("ct_vehicle", S.vehicle); render(); };
-$("reload").onclick = async () => { for (const k in pointCache) delete pointCache[k]; S.loadedKey = ""; await loadBase().catch(() => {}); render(); toast("Údaje obnovené"); };
+$("reload").onclick = async () => { for (const k in pointCache) delete pointCache[k]; S.loadedKey = ""; S.yearKey = ""; await loadBase().catch(() => {}); render(); toast("Údaje obnovené"); };
 
 async function start() {
   $("login").classList.add("d-none"); $("app").classList.remove("d-none");

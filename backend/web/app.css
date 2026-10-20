@@ -241,3 +241,14 @@ table.dataTable td.dtr-control { width: 22px; padding-right: 0 !important; }
 
 /* tmavá mapa OpenStreetMap – obrátené farby, voda ostane modrá */
 .leaflet-tile-pane .tiles-dark { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); }
+
+/* Analýzy – teplotná mapa deň × hodina */
+.heat-wrap { overflow-x: auto; }
+.heat { display: grid; grid-template-columns: 30px repeat(24, minmax(14px, 1fr)); gap: 3px; min-width: 480px; }
+.heat .hh { font-size: .68rem; color: var(--ct-muted); text-align: center; }
+.heat .hd { font-size: .75rem; font-weight: 600; color: var(--ct-muted); display: flex; align-items: center; }
+.heat .hc { aspect-ratio: 1; border-radius: 4px; background: var(--ct-grid); position: relative; }
+.heat .hc::after { content: ""; position: absolute; inset: 0; border-radius: 4px; background: #16a34a; opacity: var(--a); }
+.heat-legend { display: flex; align-items: center; gap: 8px; margin-top: 10px; min-width: 480px; }
+.heat-legend .hl { width: 90px; height: 10px; border-radius: 5px; background: linear-gradient(90deg, rgba(22,163,74,.15), #16a34a); }
+@media print { .heat .hc::after { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
