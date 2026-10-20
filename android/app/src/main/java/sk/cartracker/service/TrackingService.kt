@@ -116,6 +116,8 @@ class TrackingService : LifecycleService() {
         const val SOURCE_AUTO = "auto"
         const val SOURCE_BLUETOOTH = "bluetooth"
         const val SOURCE_MANUAL = "manual"
+        /** Dočasný záznam s bodmi, ktoré prevezme nasledujúca jazda / chôdza (nikdy sa neobnovuje ani nezobrazuje). */
+        const val SOURCE_HANDOVER = "handover"
 
         private const val MOVING_KMH = 8.0          // nad touto rýchlosťou sa auto "hýbe"
         private const val WALK_MOVING_KMH = 2.5     // chôdza bez krokomera
@@ -212,6 +214,18 @@ class TrackingService : LifecycleService() {
     private var steps = 0
     private var candidateMax = 0.0
     private var stepSensorActive = false
+    // Krokomer počas jazdy: koľko krokov od zastavenia auta (chôdza po zaparkovaní začne už od auta)
+    private var carStepListener: SensorEventListener? = null
+    private var carCounter = -1f
+    private var counterAtMove = -1f
+
+    /**
+     * Odovzdanie medzi chôdzou a jazdou: body po konci jedného záznamu (chôdza → nastupovanie a rozjazd,
+     * jazda → odchod od auta) sa presunú do dočasného záznamu [holder] a nový záznam ich prevezme –
+     * začne tam a vtedy, kde skončil predchádzajúci, takže sa nestratia metre ani kilometre.
+     */
+    private class Handover(val holder: Long, val type: String, val at: Long, val lat: Double?, val lng: Double?, val steps: Int, val created: Long)
+    private var handover: Handover? = null
 
     private var locationActive = false
     // Úspora batérie: interval GPS podľa situácie (normálne / diaľnica / státie)
@@ -280,19 +294,19 @@ class TrackingService : LifecycleService() {
         when (action) {
             ACTION_CANDIDATE -> when (state) {
                 DriveState.IDLE -> beginCandidate(src)
-                DriveState.WALKING -> finishTrip(now) { beginCandidate(src) }   // z chôdze nastúpil do auta
+                DriveState.WALKING -> finishTrip(lastMovingAt, TYPE_CAR) { beginCandidate(src) }   // z chôdze nastúpil do auta (koniec chôdze = posledný krok)
                 else -> { exitSignalAt = null; pendingWalk = false }             // znova v aute
             }
             ACTION_MANUAL_START -> when (state) {
                 DriveState.IDLE -> manualCar()
                 DriveState.CANDIDATE -> { manual = true; source = SOURCE_MANUAL; confirmDriving() }
                 DriveState.DRIVING -> manual = true
-                DriveState.WALKING -> finishTrip(now) { manualCar() }
+                DriveState.WALKING -> finishTrip(now, TYPE_CAR) { manualCar() }
             }
             ACTION_MANUAL_WALK -> when (state) {
                 DriveState.IDLE -> beginWalk(manualWalk = true)
                 DriveState.CANDIDATE -> discard("ručne spustená chôdza") { beginWalk(manualWalk = true) }
-                DriveState.DRIVING -> finishTrip(now) { beginWalk(manualWalk = true) }
+                DriveState.DRIVING -> finishTrip(now, TYPE_WALK) { beginWalk(manualWalk = true) }
                 DriveState.WALKING -> manual = true
             }
             ACTION_WALK_SIGNAL -> when (state) {
@@ -366,8 +380,8 @@ class TrackingService : LifecycleService() {
         val buffered = candidateBuffer.toList()
         candidateBuffer.clear()
         startTrip(buffered.firstOrNull()?.time ?: System.currentTimeMillis(), TYPE_CAR)
-        hasMoved = (announce && !manual) || buffered.any { speedOf(it, null) >= settings.minDriveSpeedKmh }
-        announcePending = !announce
+        hasMoved = hasMoved || (announce && !manual) || buffered.any { speedOf(it, null) >= settings.minDriveSpeedKmh }
+        announcePending = !announce && !hasMoved
         var prev: Location? = null
         for (loc in buffered) { recordPoint(loc, speedOf(loc, prev)); prev = loc }
         DiagLog.log(this, DiagLog.DRIVE, "Režim jazdy ZAPNUTÝ" + (if (manual) " (ručne)" else " – $reason") + (vehicleName?.let { " · $it" } ?: "") +
@@ -391,7 +405,7 @@ class TrackingService : LifecycleService() {
         source = if (manualWalk) SOURCE_MANUAL else SOURCE_AUTO
         stopLocation()
         startTrip(System.currentTimeMillis(), TYPE_WALK)
-        startSteps(0)
+        startSteps(steps)   // kroky od zaparkovania auta (odovzdanie z jazdy), inak 0
         startLocation()
         Notifications.walkEvent(this, started = true, s = settings)
         Log.i(TAG, "Chôdza začala")
@@ -404,8 +418,11 @@ class TrackingService : LifecycleService() {
         vehicleName = vehicle?.label
         roadInfo = null; roadLookupLoc = null; roadLookupAt = 0L
         TrackingState.zoneOverride.value = null
+        val h = handover?.takeIf { it.type == type && System.currentTimeMillis() - it.created < 20 * 60_000L }
+        handover = null
         val t = TripEntity(
-            uuid = UUID.randomUUID().toString(), userId = userId, startedAt = startedAt,
+            uuid = UUID.randomUUID().toString(), userId = userId, startedAt = if (h != null) min(startedAt, h.at) else startedAt,
+            startLat = h?.lat, startLng = h?.lng,
             triggerSource = source, type = type, vehicleUuid = vehicle?.uuid,
             category = if (type == TYPE_CAR) settings.defaultCategory else CATEGORY_PRIVATE,
         )
@@ -418,11 +435,62 @@ class TrackingService : LifecycleService() {
         exitSignalAt = null
         pendingWalk = false
         hasMoved = false; announcePending = false
-        if (type == TYPE_CAR) ParkingTimer.cancel(this)
+        stopCarSteps()
+        if (type == TYPE_CAR) { ParkingTimer.cancel(this); startCarSteps() }
+        if (h != null) takeOver(h, type, startedAt)
         TrackingState.state.value = if (type == TYPE_WALK) DriveState.WALKING else DriveState.DRIVING
         publishLive(null)
         updateNotification(force = true)
     }
+
+    /** Nový záznam prevezme body z odovzdania – začiatok = koniec predchádzajúceho záznamu. */
+    private suspend fun takeOver(h: Handover, type: String, detectedAt: Long) {
+        var t = trip ?: return
+        dao.movePoints(listOf(h.holder), t.id)
+        dao.deleteTrip(h.holder)
+        val pts = dao.points(t.id)
+        // bez prevzatých bodov: začiatok ostáva čas rozpoznania, len poloha nadväzuje na predchádzajúci záznam
+        if (pts.isEmpty() && type == TYPE_CAR && t.startedAt != detectedAt) { t = t.copy(startedAt = detectedAt); trip = t }
+        val walk = type == TYPE_WALK
+        var prev: PointEntity? = null
+        for (p in pts) {
+            if ((p.accuracyM ?: 99f) > (if (walk) 25f else 35f)) continue
+            if (prev != null) {
+                val r = FloatArray(1); Location.distanceBetween(prev.lat, prev.lng, p.lat, p.lng, r)
+                if (!walk || (r[0] >= 8f && (p.speedKmh ?: 0f) < 15f)) distance += r[0]
+            }
+            prev = p
+            if (!walk && (p.speedKmh ?: 0f) < 300f) maxSpeed = max(maxSpeed, (p.speedKmh ?: 0f).toDouble())
+            if (!walk && (p.speedKmh ?: 0f) >= settings.minDriveSpeedKmh) hasMoved = true
+        }
+        pointCount = pts.size
+        prev?.let { lastGood = Location("handover").apply { latitude = it.lat; longitude = it.lng; accuracy = it.accuracyM ?: 10f; time = it.ts } }
+        if (walk) steps = h.steps
+        trip = t.copy(distanceM = if (walk) currentDistance() else distance, maxSpeedKmh = maxSpeed, steps = steps)
+        dao.updateTrip(trip!!)
+        DiagLog.log(this, if (walk) DiagLog.WALK else DiagLog.DRIVE, (if (walk) "Chôdza nadväzuje na jazdu" else "Jazda nadväzuje na chôdzu") +
+            " – začiatok ${sk.cartracker.ui.formatTime(h.at)}, prevzatých ${pts.size} bodov (${distance.toInt()} m)" + (if (walk && h.steps > 0) ", ${h.steps} krokov od zaparkovania" else ""))
+    }
+
+    private fun startCarSteps() {
+        val sensor = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) return
+        carCounter = -1f; counterAtMove = -1f
+        val l = object : SensorEventListener {
+            override fun onSensorChanged(e: SensorEvent) { carCounter = e.values[0]; if (counterAtMove < 0) counterAtMove = carCounter }
+            override fun onAccuracyChanged(s: Sensor?, a: Int) = Unit
+        }
+        if (sensorManager?.registerListener(l, sensor, SensorManager.SENSOR_DELAY_NORMAL) == true) carStepListener = l
+    }
+
+    private fun stopCarSteps() {
+        carStepListener?.let { sensorManager?.unregisterListener(it) }
+        carStepListener = null
+    }
+
+    /** Kroky od chvíle, keď sa auto naposledy hýbalo (vystúpil a odchádza pešo). */
+    private fun carStepsSinceStop() = if (carCounter >= 0 && counterAtMove >= 0) (carCounter - counterAtMove).toInt().coerceAtLeast(0) else 0
 
     private suspend fun recover() {
         if (state != DriveState.IDLE) return
@@ -432,7 +500,7 @@ class TrackingService : LifecycleService() {
 
     /** Nadviaže na nedokončenú jazdu / chôdzu (posledný bod do 30 min). @return true = obnovené */
     private suspend fun tryRecover(): Boolean {
-        val t = dao.unfinishedTrip(userId) ?: return false
+        val t = dao.unfinishedTrips(userId).filter { it.triggerSource != SOURCE_HANDOVER }.maxByOrNull { it.startedAt } ?: return false
         val last = dao.lastPoint(t.id)
         if (System.currentTimeMillis() - (last?.ts ?: t.startedAt) > 30 * 60_000L) return false
         trip = t
@@ -489,7 +557,7 @@ class TrackingService : LifecycleService() {
                 if (loc.accuracy <= 30f && speed >= settings.minDriveSpeedKmh && (!settings.detectAnyCondition || hasDoppler(loc))) fastFixes++
                 else if (speed < 10) fastFixes = 0
                 if (fastFixes >= fixesNeeded() && settings.autoDetection && !manual) {
-                    finishTrip(lastMovingAt) { beginCandidate(SOURCE_AUTO) }
+                    finishTrip(lastMovingAt, TYPE_CAR) { beginCandidate(SOURCE_AUTO) }
                     return
                 }
                 recordPoint(loc, speed)
@@ -509,7 +577,8 @@ class TrackingService : LifecycleService() {
             if (prev == null) lastGood = loc
             else if (t.isWalk) {
                 val d = prev.distanceTo(loc)
-                if (!(d < max(8f, loc.accuracy) && speed < 5.0)) { distance += d; lastGood = loc } // ignoruj GPS "tancovanie" na mieste
+                // ignoruj GPS "tancovanie" na mieste a úseky rýchlosťou vozidla (nastupovanie, rozjazd)
+                if (!(d < max(8f, loc.accuracy) && speed < 5.0)) { if (speed < 15.0) distance += d; lastGood = loc }
             } else carStep(prev, loc, speed)?.let { d -> distance += d; lastGood = loc }
             // max. rýchlosť iba z Dopplerovej rýchlosti GPS (z rozdielu polôh by skok GPS dal nezmysel)
             if (!t.isWalk && hasDoppler(loc) && speed < 300) maxSpeed = max(maxSpeed, speed)
@@ -519,7 +588,7 @@ class TrackingService : LifecycleService() {
         if (t.isWalk) {
             if (!stepSensorActive && speed >= WALK_MOVING_KMH) lastMovingAt = now
         } else {
-            if (speed >= MOVING_KMH) lastMovingAt = now
+            if (speed >= MOVING_KMH) { lastMovingAt = now; if (carCounter >= 0) counterAtMove = carCounter }
             if (speed >= settings.minDriveSpeedKmh && loc.accuracy <= 40f) {
                 exitSignalAt = null
                 if (!hasMoved) { hasMoved = true; DiagLog.log(this, DiagLog.DRIVE, "Auto sa pohlo (${speed.toInt()} km/h)") }
@@ -748,13 +817,33 @@ class TrackingService : LifecycleService() {
      * Uloží jazdu/chôdzu. [then] = čo spustiť hneď potom (napr. chôdza po jazde);
      * bez neho sa služba ukončí.
      */
-    private suspend fun finishTrip(endedAt: Long, then: (suspend () -> Unit)? = null) {
+    private suspend fun finishTrip(endedAt0: Long, nextType: String? = null, then: (suspend () -> Unit)? = null) {
+        val stepsAfterStop = if (trip?.isWalk == false) carStepsSinceStop() else 0
         stopLocation()
         stopSteps()
+        stopCarSteps()
         val t0 = trip ?: run { if (then != null) then() else shutdown(); return }
         trip = null
+        handover = null
+        var endedAt = endedAt0
+        var pts = dao.points(t0.id)
+        // Chôdza → auto: koniec chôdze je posledný pomalý bod pred rozjazdom (úsek rýchlosťou auta patrí jazde)
+        if (t0.isWalk && nextType == TYPE_CAR) {
+            var i = pts.lastIndex
+            while (i >= 0 && (pts[i].speedKmh ?: 0f) >= 8f) i--
+            if (i in 0 until pts.lastIndex) endedAt = min(endedAt, pts[i].ts)
+            endedAt = endedAt.coerceAtLeast(t0.startedAt)
+        }
+        // Body po konci chôdze (nastupovanie, rozjazd) odovzdať jazde hneď – nech nepatria chôdzi
+        if (t0.isWalk && nextType == TYPE_CAR && pts.any { it.ts > endedAt }) {
+            val endP = pts.lastOrNull { it.ts <= endedAt }
+            makeHandover(t0, endedAt, endP?.lat, endP?.lng, 0)
+            pts = pts.filter { it.ts <= endedAt }
+        } else if (t0.isWalk && nextType == TYPE_CAR) {
+            val endP = pts.lastOrNull()
+            makeHandover(t0, endedAt, endP?.lat, endP?.lng, 0)
+        }
         // Začiatok a koniec z najpresnejších bodov (prvý bod býva nepresný) – podľa nich adresa, miesta a zlučovanie
-        val pts = dao.points(t0.id)
         val bestStart = Geo.bestStart(pts)
         val last = Geo.bestEnd(pts) ?: dao.lastPoint(t0.id)
         var t = if (bestStart != null) t0.copy(startLat = bestStart.lat, startLng = bestStart.lng) else t0
@@ -783,7 +872,14 @@ class TrackingService : LifecycleService() {
         // Auto: koniec = posledný pohyb (body zo státia po zaparkovaní sa odstránia), nie čas ukončenia
         val lastMove = if (t.isWalk) null else pts.lastOrNull { (it.speedKmh ?: 0f) >= MOVING_KMH && (it.accuracyM ?: 99f) <= 40f }?.ts
         val end = (if (t.isWalk) endedAt else max(endedAt, lastMove ?: (last?.ts ?: endedAt)).coerceAtMost(last?.ts ?: endedAt)).coerceAtLeast(t.startedAt)
-        if (!t.isWalk && last != null && end < last.ts - 60_000L) {
+        // Auto → chôdza: po zaparkovaní pokračuje chôdza od auta (ručne, systém hlási chôdzu, alebo kroky od zastavenia)
+        val walkFollows = !t.isWalk && (nextType == TYPE_WALK ||
+            (then == null && settings.autoDetection && settings.walkActiveNow() && (pendingWalk || stepsAfterStop >= 30)))
+        val carEnd = if (t.isWalk) last else pts.lastOrNull { it.ts <= end + 30_000L && (it.accuracyM ?: 99f) <= 40f } ?: last
+        if (walkFollows) {
+            makeHandover(t0, end + 30_000L, carEnd?.lat, carEnd?.lng, stepsAfterStop, at = end)
+            if (stepsAfterStop > 0) DiagLog.log(this, DiagLog.WALK, "Od zaparkovania $stepsAfterStop krokov – chôdza začne pri aute")
+        } else if (!t.isWalk && last != null && end < last.ts - 60_000L) {
             dao.deletePointsAfter(t0.id, end + 30_000L)
             DiagLog.log(this, DiagLog.DRIVE, "Koniec jazdy podľa posledného pohybu: ${sk.cartracker.ui.formatTime(end)} (státie ${formatDuration(last.ts - end)} odstránené)")
         }
@@ -801,7 +897,7 @@ class TrackingService : LifecycleService() {
             summary = if (t.isWalk) null else "Jazda bola kratšia ako $minDist m – neuložená"
         } else {
             val startAddr = if (!settings.detectAddresses) null else parkedAddr ?: t.startLat?.let { la -> t.startLng?.let { lo -> Geo.address(this, la, lo) } }
-            val endAddr = if (settings.detectAddresses && last != null) Geo.address(this, last.lat, last.lng) else null
+            val endAddr = if (settings.detectAddresses && carEnd != null) Geo.address(this, carEnd.lat, carEnd.lng) else null
             var saved = if (t.isWalk) {
                 t.copy(
                     endedAt = end, distanceM = dist, avgSpeedKmh = avg, steps = steps,
@@ -812,7 +908,7 @@ class TrackingService : LifecycleService() {
                 val speedingSec = (speedingMs / 1000).toInt()
                 t.copy(
                     endedAt = end, distanceM = dist, maxSpeedKmh = maxSpeed, avgSpeedKmh = avg,
-                    endLat = last?.lat, endLng = last?.lng, finished = true,
+                    endLat = carEnd?.lat, endLng = carEnd?.lng, finished = true,
                     startAddress = startAddr, endAddress = endAddr,
                     score = if (settings.drivingEvents) DrivingScore.compute(dist, end - t.startedAt, hardBrakes, hardAccels, speedingSec) else null,
                     hardBrakes = hardBrakes, hardAccels = hardAccels, speedingSec = speedingSec,
@@ -842,7 +938,7 @@ class TrackingService : LifecycleService() {
             if (t.isWalk) {
                 summary = prefix + "${String.format(Locale("sk"), "%,d", saved.steps)} krokov · ${formatDistance(saved.distanceM)} · ${formatDuration(total)}"
             } else {
-                if (last != null) RuntimeState.setParking(this, last.lat, last.lng, end, endAddr)
+                if (carEnd != null) RuntimeState.setParking(this, carEnd.lat, carEnd.lng, end, endAddr)
                 val vehicle = container.vehicles.byUuid(saved.vehicleUuid)
                 summary = buildString {
                     append(prefix)
@@ -862,9 +958,18 @@ class TrackingService : LifecycleService() {
             (if (t.isWalk) "Chôdza ukončená" else "Režim jazdy VYPNUTÝ") + ": " + (summary ?: "kratšie ako minimum (${minDist} m) – neuložené"))
 
         val walkNext: suspend () -> Unit = { beginWalk(false) }
-        val next = then ?: (if (!t.isWalk && pendingWalk && settings.walkActiveNow()) walkNext else null)
+        val next = then ?: (if (walkFollows) walkNext else null)
         pendingWalk = false
         if (next != null) next() else shutdown()
+    }
+
+    /** Body záznamu [t] po čase [after] presunie do dočasného záznamu, ktorý prevezme nasledujúca jazda / chôdza. */
+    private suspend fun makeHandover(t: TripEntity, after: Long, lat: Double?, lng: Double?, steps: Int, at: Long = after) {
+        val holder = TripEntity(uuid = UUID.randomUUID().toString(), userId = userId, startedAt = at, triggerSource = SOURCE_HANDOVER,
+            type = if (t.isWalk) TYPE_CAR else TYPE_WALK, category = CATEGORY_PRIVATE)
+        val id = dao.insertTrip(holder)
+        dao.movePointsFrom(t.id, id, after + 1)
+        handover = Handover(id, holder.type, at, lat, lng, steps, System.currentTimeMillis())
     }
 
     /**
@@ -914,7 +1019,8 @@ class TrackingService : LifecycleService() {
     /** Uzavrie záznamy, ktoré ostali otvorené (pád appky, vybitá batéria). */
     private suspend fun closeStaleTrips() {
         for (t in dao.unfinishedTrips(userId)) {
-            if (t.id == trip?.id) continue
+            if (t.id == trip?.id || t.id == handover?.holder) continue
+            if (t.triggerSource == SOURCE_HANDOVER) { dao.deleteTrip(t.id); continue }
             val last = dao.lastPoint(t.id)
             val minDist = if (t.isWalk) settings.walkMinDistanceM else settings.minTripDistanceM
             if (last == null || t.distanceM < minDist) dao.deleteTrip(t.id)
