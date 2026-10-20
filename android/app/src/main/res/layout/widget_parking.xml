@@ -1,35 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Parkovanie: kde stojí auto, ako dlho, parkovací lístok -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/p_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="@drawable/widget_bg_idle" android:orientation="vertical" android:padding="12dp">
+    android:background="@drawable/wg_bg_idle" android:orientation="vertical" android:padding="14dp">
+
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-        <TextView android:layout_width="34dp" android:layout_height="34dp" android:background="@drawable/widget_tile"
-            android:gravity="center" android:text="P" android:textColor="#FFFFFFFF" android:textSize="20sp" android:textStyle="bold" />
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:layout_marginStart="10dp" android:orientation="vertical">
-            <TextView android:id="@+id/p_addr" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:ellipsize="end" android:maxLines="2" android:text="Žiadne parkovanie" android:textColor="#FFFFFFFF"
-                android:textSize="14sp" android:textStyle="bold" />
-            <TextView android:id="@+id/p_since" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:maxLines="1" android:textColor="#B3FFFFFF" android:textSize="12sp" />
+        <LinearLayout android:id="@+id/p_pill" android:layout_width="wrap_content" android:layout_height="26dp" android:background="@drawable/wg_pill"
+            android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="10dp" android:paddingEnd="11dp">
+            <ImageView android:id="@+id/p_pill_ic" android:layout_width="13dp" android:layout_height="13dp" android:src="@drawable/ic_parking" android:tint="#FFFFFFFF" android:scaleType="fitCenter" />
+            <TextView android:id="@+id/p_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Parkovanie" android:textColor="#FFFFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" android:fontFamily="sans-serif-medium" android:layout_marginStart="6dp"/>
+        </LinearLayout>
+        <TextView android:id="@+id/p_since" android:layout_width="0dp" android:layout_height="wrap_content" android:text="" android:textColor="#80FFFFFF" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" android:layout_weight="1" android:gravity="end" android:layout_marginStart="8dp"/>
+    </LinearLayout>
+    <TextView android:id="@+id/p_addr" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="" android:textColor="#FFFFFFFF" android:textSize="18sp" android:maxLines="2" android:ellipsize="end" android:includeFontPadding="false" android:fontFamily="sans-serif-medium" android:layout_marginTop="10dp"/>
+    <LinearLayout android:id="@+id/p_ticket" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+        android:background="@drawable/wg_tile" android:gravity="center_vertical" android:orientation="horizontal" android:padding="8dp" android:visibility="gone">
+        <ImageView android:id="@+id/p_ticket_ic" android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/ic_w_ticket" android:tint="#FFFBBF24" android:scaleType="fitCenter" />
+        <TextView android:id="@+id/p_ticket_txt" android:layout_width="0dp" android:layout_height="wrap_content" android:text="" android:textColor="#B3FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" android:layout_marginStart="6dp" android:layout_weight="1"/>
+        <Chronometer android:id="@+id/p_chrono" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFFFF"
+            android:textSize="18sp" android:fontFamily="sans-serif-medium" />
+    </LinearLayout>
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:orientation="horizontal">
+        <LinearLayout android:id="@+id/p_find" android:layout_width="0dp" android:layout_weight="1" android:layout_height="40dp" android:background="@drawable/wg_btn_primary"
+            android:gravity="center" android:orientation="horizontal" android:paddingStart="10dp" android:paddingEnd="10dp">
+            <ImageView android:id="@+id/p_find_ic" android:layout_width="18dp" android:layout_height="18dp" android:src="@drawable/ic_w_nav" android:tint="#FF0B1220" android:scaleType="fitCenter" />
+            <TextView android:id="@+id/p_find_tx" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Navigovať k autu" android:textColor="#FF0B1220" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" android:fontFamily="sans-serif-medium" android:layout_marginStart="6dp"/>
+        </LinearLayout>
+        <FrameLayout android:layout_width="8dp" android:layout_height="1dp" />
+        <LinearLayout android:id="@+id/p_open" android:layout_width="wrap_content" android:layout_height="40dp" android:background="@drawable/wg_btn_secondary"
+            android:gravity="center" android:orientation="horizontal" android:paddingStart="10dp" android:paddingEnd="10dp">
+            <ImageView android:id="@+id/p_open_ic" android:layout_width="18dp" android:layout_height="18dp" android:src="@drawable/ic_w_ticket" android:tint="#FFFFFFFF" android:scaleType="fitCenter" />
+            <TextView android:id="@+id/p_open_tx" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Lístok" android:textColor="#FFFFFFFF" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false" android:fontFamily="sans-serif-medium" android:layout_marginStart="6dp"/>
         </LinearLayout>
     </LinearLayout>
-    <LinearLayout android:id="@+id/p_ticket" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="8dp" android:background="@drawable/widget_tile" android:gravity="center_vertical"
-        android:orientation="horizontal" android:padding="8dp" android:visibility="gone">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎫" android:textSize="16sp" />
-        <TextView android:id="@+id/p_ticket_txt" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:layout_marginStart="6dp" android:maxLines="1" android:textColor="#FFFFFFFF" android:textSize="13sp" />
-        <Chronometer android:id="@+id/p_chrono" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:textColor="#FFFFFFFF" android:textSize="15sp" android:textStyle="bold" />
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal">
-        <TextView android:id="@+id/p_find" android:layout_width="0dp" android:layout_height="36dp" android:layout_weight="1"
-            android:layout_marginEnd="6dp" android:background="@drawable/widget_btn" android:gravity="center"
-            android:text="🧭 Nájsť auto" android:textColor="#FFFFFFFF" android:textSize="13sp" android:textStyle="bold" />
-        <TextView android:id="@+id/p_open" android:layout_width="0dp" android:layout_height="36dp" android:layout_weight="1"
-            android:background="@drawable/widget_btn" android:gravity="center"
-            android:text="🎫 Lístok" android:textColor="#FFFFFFFF" android:textSize="13sp" android:textStyle="bold" />
-    </LinearLayout>
+
 </LinearLayout>

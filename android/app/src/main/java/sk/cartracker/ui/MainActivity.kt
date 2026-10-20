@@ -92,6 +92,7 @@ class MainActivity : FragmentActivity() {
                         .onFailure { toast("Nenašla sa aplikácia s mapou") }
                 }
             }
+            "TRIP" -> i.getLongExtra("trip_id", 0L).takeIf { it > 0 }?.let { pendingRoute.value = "trip/$it" }
             "LOGBOOK_PDF" -> lifecycleScope.launch {
                 androidx.core.app.NotificationManagerCompat.from(this@MainActivity).cancel(51)
                 if (!MonthlyLogbook.print(this@MainActivity)) toast("Minulý mesiac nie sú žiadne jazdy autom")

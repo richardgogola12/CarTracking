@@ -46,7 +46,7 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
     lint { checkReleaseBuilds = false; abortOnError = false }
-    testOptions { unitTests.isReturnDefaultValues = true }
+    testOptions { unitTests.isReturnDefaultValues = true; unitTests.isIncludeAndroidResources = true }
 }
 
 dependencies {
@@ -91,4 +91,7 @@ dependencies {
     // Testy výpočtov (km, limity, účel jazdy) – bežia pri každom builde na GitHube
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+    // náhľady widgetov vykreslené v CI (Robolectric, natívna grafika)
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test:core:1.6.1")
 }

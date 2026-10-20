@@ -59,6 +59,18 @@ jobs:
           name: Trasnik-apk
           path: android/app/build/outputs/apk/release/Trasnik-${{ github.run_number }}.apk
 
+      # Náhľady widgetov (vykreslené testom) – samostatné predbežné vydanie, nie je to aktualizácia aplikácie
+      - name: Publish widget previews
+        if: github.event_name != 'pull_request' && hashFiles('android/app/build/widget-previews/*.png') != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: widget-previews
+          name: Náhľady widgetov
+          prerelease: true
+          make_latest: false
+          body: Obrázky widgetov vykreslené automatickým testom (Robolectric) pri poslednom zostavení – na kontrolu dizajnu.
+          files: android/app/build/widget-previews/*.png
+
       # Release = APK stiahnuteľné priamo do telefónu (bez prihlásenia a rozbaľovania zip)
       - name: Publish release
         if: github.event_name != 'pull_request'

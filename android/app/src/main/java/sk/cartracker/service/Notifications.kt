@@ -270,6 +270,8 @@ class CategoryActionReceiver : BroadcastReceiver() {
         const val ACTION = "sk.cartracker.action.SET_CATEGORY"
         const val EXTRA_UUID = "uuid"
         const val EXTRA_CATEGORY = "category"
+        /** z widgetu – bez notifikácie, iba prekreslenie widgetov */
+        const val EXTRA_SILENT = "silent"
     }
 
     override fun onReceive(ctx: Context, intent: Intent) {
@@ -287,8 +289,10 @@ class CategoryActionReceiver : BroadcastReceiver() {
                 c.settings.update { sk.cartracker.data.TripClassifier.learn(it, t, cat) }
                 val s = c.settings.current()
                 if (s.autoSync) sk.cartracker.sync.SyncWorker.enqueueNow(app, s.syncWifiOnly)
-                sk.cartracker.data.DiagLog.log(app, sk.cartracker.data.DiagLog.APP, "Účel jazdy z notifikácie: ${Notifications.categoryLabel(cat)}")
-                Notifications.classified(app, "✓ Jazda je ${Notifications.categoryLabel(cat).lowercase()}" + if (s.learnCategory) " – zapamätané pre túto trasu" else "")
+                sk.cartracker.data.DiagLog.log(app, sk.cartracker.data.DiagLog.APP, (if (intent.getBooleanExtra(EXTRA_SILENT, false)) "Účel jazdy z widgetu: " else "Účel jazdy z notifikácie: ") + "${Notifications.categoryLabel(cat)}")
+                if (!intent.getBooleanExtra(EXTRA_SILENT, false))
+                    Notifications.classified(app, "✓ Jazda je ${Notifications.categoryLabel(cat).lowercase()}" + if (s.learnCategory) " – zapamätané pre túto trasu" else "")
+                sk.cartracker.widget.CarWidget.updateAll(app)
             } finally { pending.finish() }
         }
     }
