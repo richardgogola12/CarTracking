@@ -295,6 +295,7 @@ Trasník</h1>
 <div class="note">Pri prechode z verzie 1.1 sa prvé vozidlo vytvorí automaticky z pôvodných nastavení a priradia sa mu všetky doterajšie jazdy.</div>
 
 <h2 id="chodza">8. Sledovanie chôdze</h2>
+<div class="tip"><b>Celodenné kroky:</b> Trasník číta krokomer telefónu <b>celý deň</b> – každý krok, aj doma, v kancelárii a pri krátkych presunoch, ktoré sa ako chôdza neukladajú (rovnako ako Samsung Health alebo Google Fit). Krokomer počíta hardvér telefónu stále; aplikácia si ho prečíta každých ~15 min (počas chôdze a jazdy priebežne) a kroky zapíše po hodinách. Za každý deň platí väčšie z čísel <i>kroky zo zaznamenaných chôdzí</i> a <i>krokomer celý deň</i>; vzdialenosť = zaznamenané chôdze + kroky mimo nich × dĺžka kroku. Čas, tempo a trasy sú iba zo zaznamenaných chôdzí. Potrebné je povolenie <b>Fyzická aktivita</b>. Celodenné kroky sa počítajú od nainštalovania tejto verzie, staršie dni obsahujú iba zaznamenané chôdze.</div>
 <p>Keď telefón rozpozná chôdzu (alebo beh), aplikácia začne zaznamenávať <b>kroky, vzdialenosť a trasu</b>. Záznam sa ukončí, keď niekoľko minút neurobíte žiadny krok.</p>
 <ul>
   <li><b>Kroky</b> sa počítajú krokomerom telefónu vždy.</li>
@@ -506,6 +507,7 @@ Trasník</h1>
 <h3>Chôdza – všetko na jednom mieste</h3>
 <p><b>Štatistiky → prepínač Chôdza</b>. Obdobie volíte rovnako ako pri aute (<i>Deň / Týždeň / Mesiac / Rok</i>, šípky ‹ › a ťuknutie na názov pre kalendár). Na webe je to isté na stránke <b>Štatistiky</b> (prepínač Chôdza).</p>
 <ul>
+  <li><b>Kroky a vzdialenosť sú za celý deň</b> (krokomer telefónu, pozri kapitolu Sledovanie chôdze), nie iba za zaznamenané chôdze.</li>
   <li><b>Súhrn (10 ukazovateľov)</b> – kroky spolu, Ø krokov za deň, dni so splneným cieľom (aj v %), aktuálna a najdlhšia séria, vzdialenosť, čas chôdze, priemerné tempo (min/km), podiel krokov v pracovnom čase, najlepší deň a najdlhšia chôdza.</li>
   <li><b>Kroky po dňoch</b> – stĺpec za každý deň, čiarkovaná čiara = denný cieľ, zelené = cieľ splnený.</li>
   <li><b>Rok v krokoch</b> – mriežka posledných 12 mesiacov, čím tmavšia, tým viac krokov.</li>
@@ -981,6 +983,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>migrate_v6.sql</code></td><td>Prechod na verziu 1.6 (sadzba náhrady €/km, zdieľané vozidlá).</td></tr>
   <tr><td><code>migrate_v7.sql</code></td><td>Prechod na verziu 1.7 (nastavenia na serveri, Bluetooth adresa vozidla – obnova na novom telefóne).</td></tr>
   <tr><td><code>migrate_v8.sql</code></td><td>Prechod na verziu 2.0 (ochrana prihlásenia – tabuľka pokusov, výdavky na auto). Bez nej server funguje, len bez obmedzenia pokusov.</td></tr>
+  <tr><td><code>migrate_v10.sql</code></td><td>Celodenné kroky z krokomera po hodinách (tabuľka <code>CarTracking_step_hours</code>) – na webe a pri obnove na novom telefóne. Bez nej web ukazuje iba zaznamenané chôdze.</td></tr>
   <tr><td><code>migrate_v9.sql</code></td><td>Prihlásenie webu z telefónu cez QR kód (tabuľka <code>CarTracking_pairings</code>). Bez nej funguje prihlásenie e-mailom a heslom.</td></tr>
 </table>
 <h3>31.3 Tabuľky</h3>
@@ -1002,6 +1005,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON car_tracking.* TO 'car_tracking'@'localh
   <tr><td><code>POST /register</code></td><td>Registrácia → token</td></tr>
   <tr><td><code>POST /login</code></td><td>Prihlásenie → token</td></tr>
   <tr><td><code>POST /logout</code></td><td>Zrušenie tokenu</td></tr>
+  <tr><td><code>POST /steps/sync</code>, <code>GET /steps?from=&amp;to=</code></td><td>Celodenné kroky po hodinách: <code>{"hours":[{"hour","steps"}]}</code> (hour = začiatok hodiny v ms; väčšia hodnota sa nikdy neprepíše menšou)</td></tr>
   <tr><td><code>POST /pair/start</code></td><td>Web: nový QR / 6-miestny kód na prihlásenie (bez tokenu, platí 5 min, max. 60 za hodinu z jednej IP)</td></tr>
   <tr><td><code>GET /pair/status?code=</code></td><td>Web: čaká na potvrdenie – <i>pending</i>, <i>expired</i> alebo <i>approved</i> s tokenom (vydá sa iba raz)</td></tr>
   <tr><td><code>POST /pair/info</code>, <code>/pair/approve</code></td><td>Aplikácia (prihlásená): kto žiada o prihlásenie a jeho schválenie; telo <code>{"code"}</code> alebo <code>{"short"}</code></td></tr>

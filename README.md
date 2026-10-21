@@ -32,6 +32,7 @@ Autobus či vlak systém tiež hlási ako „vo vozidle“. Ak to vadí, v Nasta
 a zapnite **„Sledovať iba keď je pripojené auto“**.
 
 ## Novinky vo verzii 2.0 (zostavenia 2.0.N)
+- **Celodenné kroky z krokomera** – `data/StepCounter.kt` číta `TYPE_STEP_COUNTER` (každých 15 min `StepWorker`, počas chôdze/jazdy priebežne), rozdiel pripíše do hodín (tabuľka `step_hours`, Room v8), synchronizuje na server (`POST /steps/sync`, `GET /steps`, databáza `backend/migrate_v10.sql`). Štatistiky, Prehľad, widgety, mesačné zhrnutie aj web berú za deň väčšie z (chôdze, krokomer); km mimo chôdzí = kroky × dĺžka kroku, tempo iba zo zaznamenaných chôdzí. Test `StepCounterTest`.
 - **Chôdza ↔ jazda bez straty začiatku** – pri prechode sa body po konci jedného záznamu (nastupovanie a rozjazd, resp. odchod od auta) presunú do dočasného záznamu (`triggerSource = handover`) a nový záznam ich prevezme: jazda začne pri poslednom kroku chôdze, chôdza v čase a na mieste zaparkovania aj s krokmi od zastavenia (krokomer beží počas jazdy). `TrackingService.makeHandover / takeOver`.
 - **Prihlásenie webu telefónom (QR kód)** – web na záložke *Telefónom* ukáže QR kód a 6-miestny kód; v aplikácii **Nastavenia → Účet → Prihlásiť web (QR kód)** (čítačka Google Play `play-services-code-scanner`, bez povolenia fotoaparátu) alebo *Prihlásiť web kódom*. Pred schválením aplikácia ukáže prehliadač a IP. Odkaz `trasnik://pair?c=…&api=…` otvorí aplikáciu aj z bežného fotoaparátu. Kód platí 5 min, jednorazovo; web sa prihlási sám (kontrola každé 2 s). Server: `/pair/*`, databáza `backend/migrate_v9.sql`. Kód: `ui/screens/WebPairing.kt`, test `WebPairTest`.
 - **Chôdza na jednom mieste** – Štatistiky → Chôdza obsahuje celý prehľad (`ui/screens/WalkOverview.kt`, výpočty `data/WalkAnalytics.kt` s testami) pre zvolené obdobie Deň/Týždeň/Mesiac/Rok: 10 ukazovateľov, grafy krokov po dňoch, rok v krokoch, hodiny dňa, dni v týždni, vývoj tempa, dĺžky chôdzí, pracovný výkaz, mapa a tabuľky po dňoch, týždňoch, mesiacoch a najdlhšie chôdze (triedenie, súčty, CSV). Web Štatistiky → Chôdza ukazuje to isté.
@@ -152,7 +153,7 @@ adresa servera, automatická synchronizácia, iba cez Wi-Fi · odtlačok prsta �
    Webový dashboard: celý priečinok `backend/web` (3 súbory) skopírujte vedľa neho (`htdocs/cartracking/web`) – otvorí sa na `https://SERVER/cartracking/web/`.
 4. Apache potrebuje `mod_rewrite` (súbor `.htaccess` je priložený). Pre nginx:
    `location /cartracking/api/ { try_files $uri /cartracking/api/index.php$is_args$args; }`
-5. Prihlásenie webu z telefónu (QR) potrebuje tabuľku z `backend/migrate_v9.sql` (nová inštalácia ju má v `schema.sql`).
+5. Prihlásenie webu z telefónu (QR) potrebuje tabuľku z `backend/migrate_v9.sql`, celodenné kroky `backend/migrate_v10.sql` (nová inštalácia ich má v `schema.sql`).
 6. Test: `curl -X POST http://SERVER/cartracking/api/login -d '{"email":"a@b.sk","password":"x"}'` → JSON s chybou = API beží.
 
 > Aplikácia aj webový prehľad vyžadujú **HTTPS** (nešifrované spojenie aplikácia odmietne).
@@ -210,6 +211,8 @@ android/app/src/main/java/sk/cartracker/
 | POST | /register | `{name,email,password}` → `{token,user}` |
 | POST | /login | `{email,password}` → `{token,user}` |
 | POST | /logout | zruší token |
+| POST | /steps/sync | celodenné kroky po hodinách `{"hours":[{"hour","steps"}]}` |
+| GET | /steps?from=&to= | celodenné kroky po hodinách |
 | POST | /pair/start | web: nový QR / 6-miestny kód (bez tokenu, 5 min) |
 | GET | /pair/status?code= | web: pending / expired / approved + token (iba raz) |
 | POST | /pair/info, /pair/approve | aplikácia: kto žiada a schválenie (`{"code"}` alebo `{"short"}`) |
