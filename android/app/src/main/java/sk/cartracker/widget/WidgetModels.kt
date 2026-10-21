@@ -33,6 +33,8 @@ data class MainModel(
 
 data class StepsModel(
     val steps: Int, val goal: Int, val km: Double, val streak: Int, val best: Int, val week: List<Pair<String, Double>>,
+    /** Celodenné kroky: koľko z nich je zo zaznamenaných chôdzí, dnešné kroky po hodinách a kedy sa krokomer prečítal. */
+    val walkSteps: Int = steps, val hours: List<Pair<String, Double>> = emptyList(), val readAt: Long = 0,
 )
 
 data class ParkingModel(

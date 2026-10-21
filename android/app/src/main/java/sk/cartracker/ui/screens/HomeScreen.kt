@@ -61,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -87,6 +88,7 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
     val c = ctx.container
     val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
     val dailySteps by remember { c.steps.daily() }.collectAsStateWithLifecycle(emptyMap())
+    val stepHours by remember { c.steps.hours() }.collectAsStateWithLifecycle(emptyList())
     val state by TrackingState.state.collectAsState()
     val live by TrackingState.live.collectAsState()
     val trips by remember { c.trips.trips() }.collectAsStateWithLifecycle(emptyList())
@@ -381,6 +383,22 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
                         StatBox("Dnes", formatDistance(todayM), Modifier.weight(1f))
                         StatBox("Tento týždeň", formatDistance(weekM), Modifier.weight(1f))
                     }
+                    // celodenné kroky: cieľ, rozdelenie chôdze / mimo chôdze a kroky po hodinách
+                    if (s.allDaySteps) {
+                        val dayStartNow = sk.cartracker.data.StepCounter.dayStart(System.currentTimeMillis())
+                        val perHour = IntArray(24).also { arr -> stepHours.filter { it.hour >= dayStartNow }.forEach { h ->
+                            arr[java.util.Calendar.getInstance().apply { timeInMillis = h.hour }.get(java.util.Calendar.HOUR_OF_DAY)] += h.steps } }
+                        val goal = s.dailyStepGoal.coerceAtLeast(1)
+                        androidx.compose.material3.LinearProgressIndicator(progress = { (allSteps.toFloat() / goal).coerceAtMost(1f) }, modifier = Modifier.fillMaxWidth().height(6.dp),
+                            color = if (allSteps >= goal) Color(0xFF16A34A) else MaterialTheme.colorScheme.primary)
+                        Text("${(allSteps * 100 / goal)} % denného cieľa ${String.format(java.util.Locale("sk"), "%,d", goal)} · v chôdzach ${String.format(java.util.Locale("sk"), "%,d", wSteps)}" +
+                            " · mimo chôdzí ${String.format(java.util.Locale("sk"), "%,d", (allSteps - wSteps).coerceAtLeast(0))}",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (perHour.any { it > 0 }) HourStepBars(perHour, Modifier.fillMaxWidth().height(56.dp))
+                        val read = remember(dailySteps) { sk.cartracker.data.StepCounter.lastRead(ctx) }
+                        if (read > 0) Text("Kroky po hodinách (krokomer) · prečítané ${sk.cartracker.ui.formatTime(read)}", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
@@ -474,4 +492,25 @@ private fun ParkingTicketDialog(current: Long?, onDismiss: () -> Unit, onSet: (L
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Zrušiť") } },
     )
+}
+
+/** Malý graf dnešných krokov po hodinách (0–23), aktuálna hodina zvýraznená. */
+@Composable
+private fun HourStepBars(perHour: IntArray, modifier: Modifier) {
+    val base = MaterialTheme.colorScheme.primary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val tm = androidx.compose.ui.text.rememberTextMeasurer()
+    val nowH = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    androidx.compose.foundation.Canvas(modifier) {
+        val labelH = 12.dp.toPx(); val h = size.height - labelH
+        val slot = size.width / 24f; val bw = slot * 0.62f
+        val max = (perHour.maxOrNull() ?: 1).coerceAtLeast(1)
+        perHour.forEachIndexed { i, v ->
+            val bh = v.toFloat() / max * h
+            if (v > 0) drawRoundRect(if (i == nowH) base else base.copy(alpha = 0.45f), androidx.compose.ui.geometry.Offset(i * slot + (slot - bw) / 2, h - bh),
+                androidx.compose.ui.geometry.Size(bw, bh.coerceAtLeast(2f)), androidx.compose.ui.geometry.CornerRadius(bw / 3))
+            if (i % 6 == 0) drawText(tm, "$i", androidx.compose.ui.geometry.Offset(i * slot, h + 1.dp.toPx()),
+                style = androidx.compose.ui.text.TextStyle(color = muted, fontSize = androidx.compose.ui.unit.TextUnit(9f, androidx.compose.ui.unit.TextUnitType.Sp)))
+        }
+    }
 }

@@ -43,6 +43,11 @@ object StepCounter {
     private val mutex = Mutex()
     private const val HOUR = 3_600_000L
 
+    /** Kedy sa krokomer naposledy prečítal / kroky odoslali na server (0 = nikdy). */
+    fun lastRead(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("ts", 0L)
+    fun lastSync(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("synced_at", 0L)
+    internal fun setLastSync(ctx: Context, at: Long) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("synced_at", at).apply()
+
     fun available(ctx: Context): Boolean {
         val sm = ctx.getSystemService(SensorManager::class.java) ?: return false
         if (sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) == null) return false
@@ -77,6 +82,7 @@ object StepCounter {
     suspend fun feed(ctx: Context, counter: Float, lastStepAt: Long = System.currentTimeMillis()) = mutex.withLock {
         val c = ctx.container
         val uid = c.session.user()?.id ?: return@withLock
+        if (!c.settings.current().allDaySteps) return@withLock
         val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
         val boot = now - SystemClock.elapsedRealtime()
@@ -132,7 +138,7 @@ object StepCounter {
 }
 
 /** Uložené kroky po hodinách a ich synchronizácia so serverom. */
-class StepRepository(private val db: AppDatabase, private val api: ApiProvider, private val session: SessionStore) {
+class StepRepository(private val ctx: Context, private val db: AppDatabase, private val api: ApiProvider, private val session: SessionStore) {
     private val dao = db.stepDao()
 
     fun hours(): Flow<List<StepHourEntity>> = session.user()?.let { dao.observe(it.id) } ?: emptyFlow()
@@ -144,7 +150,7 @@ class StepRepository(private val db: AppDatabase, private val api: ApiProvider, 
         val u = session.user()?.id ?: return@withContext
         repeat(10) {
             val rows = dao.unsynced(u)
-            if (rows.isEmpty()) return@withContext
+            if (rows.isEmpty()) { StepCounter.setLastSync(ctx, System.currentTimeMillis()); return@withContext }
             for (chunk in rows.chunked(500)) {
                 api.get().syncSteps(StepSyncRequest(chunk.map { StepHourDto(it.hour, it.steps) }))
                 chunk.forEach { dao.markSynced(u, it.hour, it.steps) }

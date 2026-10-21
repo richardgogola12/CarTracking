@@ -37,7 +37,7 @@ class AppContainer(ctx: Context) {
     val expenses = sk.cartracker.data.ExpenseRepository(db, session)
     val reminders = ReminderRepository(db, session, trips, vehicles)
     val items = ItemsSync(db, api, session)
-    val steps = sk.cartracker.data.StepRepository(db, api, session)
+    val steps = sk.cartracker.data.StepRepository(ctx, db, api, session)
 }
 
 class CarTrackerApp : Application() {
@@ -66,8 +66,11 @@ class CarTrackerApp : Application() {
         sk.cartracker.sync.ReminderWorker.schedule(this)
         sk.cartracker.sync.UpdateWorker.schedule(this)
         sk.cartracker.sync.PointThinning.schedule(this)
-        sk.cartracker.sync.StepWorker.schedule(this)
-        appScope.launch { runCatching { sk.cartracker.data.StepCounter.sample(this@CarTrackerApp) } }
+        appScope.launch {
+            val st = container.settings.current()
+            sk.cartracker.sync.StepWorker.schedule(this@CarTrackerApp, st.allDaySteps, st.stepReadMin)
+            runCatching { sk.cartracker.data.StepCounter.sample(this@CarTrackerApp) }
+        }
         sk.cartracker.widget.CarWidget.updateAll(this)
 
         // Widgety sa obnovia pri každej zmene jázd (úprava, zmazanie, zlúčenie, synchronizácia…) a po polnoci

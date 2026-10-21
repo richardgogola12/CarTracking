@@ -104,7 +104,11 @@ object ExtraWidgets {
             val day = Calendar.getInstance().apply { timeInMillis = today; add(Calendar.DAY_OF_MONTH, -back) }
             names[day.get(Calendar.DAY_OF_WEEK) - 1] to (totals[dayStart(day.timeInMillis)] ?: 0.0)
         }
-        return StepsModel((totals[today] ?: 0.0).toInt(), s.dailyStepGoal, kmToday / 1000, streak, best, week)
+        val todayHours = runCatching { c.steps.between(today, today + 86_400_000L) }.getOrDefault(emptyList())
+        val perHour = DoubleArray(24).also { arr -> todayHours.forEach { h -> arr[Calendar.getInstance().apply { timeInMillis = h.hour }.get(Calendar.HOUR_OF_DAY)] += h.steps.toDouble() } }
+        val hours = if (s.allDaySteps) perHour.mapIndexed { i, v -> (if (i % 6 == 0) "$i" else "") to v } else emptyList()
+        return StepsModel((totals[today] ?: 0.0).toInt(), s.dailyStepGoal, kmToday / 1000, streak, best, week,
+            walkSteps = walkStepsToday, hours = hours, readAt = if (s.allDaySteps) sk.cartracker.data.StepCounter.lastRead(ctx) else 0)
     }
 
     private suspend fun monthModel(ctx: Context): MonthModel {

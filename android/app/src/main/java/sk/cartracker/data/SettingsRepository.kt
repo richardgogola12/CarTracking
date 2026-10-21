@@ -92,6 +92,14 @@ data class AppSettings(
     val workFromMin: Int = 7 * 60,
     val workToMin: Int = 16 * 60,
     val strideCm: Int = 75,
+    /** Celodenné kroky z krokomera (aj mimo zaznamenanej chôdze). */
+    val allDaySteps: Boolean = true,
+    /** Ako často čítať krokomer na pozadí (min, najmenej 15 – limit Androidu). */
+    val stepReadMin: Int = 15,
+    /** Počas chôdze a jazdy zapisovať kroky každých N s. */
+    val stepLiveSec: Int = 60,
+    /** Ako často odosielať celodenné kroky na server (min). */
+    val stepSyncMin: Int = 60,
     /** Vzdialenosť chôdze: false = z krokov (aj v budove), true = z GPS (presnejšie vonku). */
     val walkDistanceGps: Boolean = false,
     val walkStopMin: Int = 3,
@@ -228,6 +236,10 @@ class SettingsRepository(private val context: Context) {
         val WORK_FROM = intPreferencesKey("work_from_min")
         val WORK_TO = intPreferencesKey("work_to_min")
         val STRIDE = intPreferencesKey("stride_cm")
+        val ALLDAY_STEPS = booleanPreferencesKey("all_day_steps")
+        val STEP_READ = intPreferencesKey("step_read_min")
+        val STEP_LIVE = intPreferencesKey("step_live_sec")
+        val STEP_SYNC = intPreferencesKey("step_sync_min")
         val WALK_DIST_GPS = booleanPreferencesKey("walk_distance_gps")
         val WALK_STOP = intPreferencesKey("walk_stop_min")
         val WALK_MIN = intPreferencesKey("walk_min_distance")
@@ -332,6 +344,10 @@ class SettingsRepository(private val context: Context) {
             workFromMin = p[K.WORK_FROM] ?: d.workFromMin,
             workToMin = p[K.WORK_TO] ?: d.workToMin,
             strideCm = p[K.STRIDE] ?: d.strideCm,
+            allDaySteps = p[K.ALLDAY_STEPS] ?: d.allDaySteps,
+            stepReadMin = p[K.STEP_READ] ?: d.stepReadMin,
+            stepLiveSec = p[K.STEP_LIVE] ?: d.stepLiveSec,
+            stepSyncMin = p[K.STEP_SYNC] ?: d.stepSyncMin,
             walkDistanceGps = p[K.WALK_DIST_GPS] ?: d.walkDistanceGps,
             walkStopMin = p[K.WALK_STOP] ?: d.walkStopMin,
             walkMinDistanceM = p[K.WALK_MIN] ?: d.walkMinDistanceM,
@@ -423,6 +439,10 @@ class SettingsRepository(private val context: Context) {
         p[K.WORK_FROM] = s.workFromMin
         p[K.WORK_TO] = s.workToMin
         p[K.STRIDE] = s.strideCm
+        p[K.ALLDAY_STEPS] = s.allDaySteps
+        p[K.STEP_READ] = s.stepReadMin
+        p[K.STEP_LIVE] = s.stepLiveSec
+        p[K.STEP_SYNC] = s.stepSyncMin
         p[K.WALK_DIST_GPS] = s.walkDistanceGps
         p[K.WALK_STOP] = s.walkStopMin
         p[K.WALK_MIN] = s.walkMinDistanceM

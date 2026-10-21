@@ -15,20 +15,27 @@ class StepWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     override suspend fun doWork(): Result {
         val c = applicationContext.container
         if (!c.session.isLoggedIn) return Result.success()
+        val s = c.settings.current()
+        if (!s.allDaySteps) return Result.success()
         runCatching { StepCounter.sample(applicationContext) }
-        val p = applicationContext.getSharedPreferences("step_counter", Context.MODE_PRIVATE)
-        val now = System.currentTimeMillis()
-        if (now - p.getLong("synced_at", 0L) > 55 * 60_000L && c.settings.current().autoSync) {
-            if (runCatching { c.steps.sync() }.isSuccess) p.edit().putLong("synced_at", now).apply()
-        }
+        // odoslanie na server podľa nastaveného intervalu (s rezervou 5 min, worker nebeží presne)
+        if (System.currentTimeMillis() - StepCounter.lastSync(applicationContext) > (s.stepSyncMin.coerceAtLeast(15) - 5) * 60_000L && s.autoSync)
+            runCatching { c.steps.sync() }
         WidgetHook.update(applicationContext)
         return Result.success()
     }
 
     companion object {
-        fun schedule(ctx: Context) {
-            val req = PeriodicWorkRequestBuilder<StepWorker>(15, TimeUnit.MINUTES).build()
-            WorkManager.getInstance(ctx).enqueueUniquePeriodicWork("steps", ExistingPeriodicWorkPolicy.KEEP, req)
+        /** Naplánuje čítanie krokomera každých [minutes] min (Android dovolí najmenej 15), alebo ho zruší. */
+        fun schedule(ctx: Context, enabled: Boolean, minutes: Int) {
+            val wm = WorkManager.getInstance(ctx)
+            if (!enabled) { wm.cancelUniqueWork("steps"); return }
+            val p = ctx.getSharedPreferences("step_counter", Context.MODE_PRIVATE)
+            val m = minutes.coerceAtLeast(15)
+            // pri zmene intervalu plán nahradiť, inak ponechať (nech sa pri každom štarte nereštartuje)
+            val policy = if (p.getInt("scheduled_min", -1) == m) ExistingPeriodicWorkPolicy.KEEP else ExistingPeriodicWorkPolicy.UPDATE
+            wm.enqueueUniquePeriodicWork("steps", policy, PeriodicWorkRequestBuilder<StepWorker>(m.toLong(), TimeUnit.MINUTES).build())
+            p.edit().putInt("scheduled_min", m).apply()
         }
     }
 }

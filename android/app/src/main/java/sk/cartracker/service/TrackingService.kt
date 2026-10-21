@@ -488,7 +488,7 @@ class TrackingService : LifecycleService() {
     private var lastDailyFeed = 0L
     private fun feedDaily(v: Float) {
         val now = System.currentTimeMillis()
-        if (now - lastDailyFeed < 60_000L) return
+        if (!settings.allDaySteps || now - lastDailyFeed < settings.stepLiveSec.coerceIn(10, 600) * 1000L) return
         lastDailyFeed = now
         lifecycleScope.launch { runCatching { sk.cartracker.data.StepCounter.feed(this@TrackingService, v) } }
     }

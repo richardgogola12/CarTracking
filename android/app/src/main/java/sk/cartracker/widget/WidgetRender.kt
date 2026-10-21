@@ -264,6 +264,18 @@ object WidgetRender {
             v.setViewVisibility(R.id.s_streak, View.VISIBLE)
             v.setTextViewText(R.id.s_streak, if (m.streak > 0) "🔥 ${m.streak} ${dni(m.streak)}" else "rekord ${m.best} ${dni(m.best)}")
         } else v.setViewVisibility(R.id.s_streak, View.GONE)
+        // celodenné kroky: koľko v chôdzach a mimo nich, kedy sa krokomer prečítal
+        val other = (m.steps - m.walkSteps).coerceAtLeast(0)
+        val split = listOfNotNull(
+            if (m.hours.isNotEmpty()) "chôdze ${WidgetArt.compact(m.walkSteps)} · inak ${WidgetArt.compact(other)}" else null,
+            if (m.readAt > 0) "⟳ " + java.text.SimpleDateFormat("HH:mm", SK).format(java.util.Date(m.readAt)) else null,
+        ).joinToString("   ")
+        v.setViewVisibility(R.id.s_split, if (split.isEmpty()) View.GONE else View.VISIBLE)
+        v.setTextViewText(R.id.s_split, split)
+        val showHours = m.hours.any { it.second > 0 } && (hDp == 0 || hDp >= 230)
+        v.setViewVisibility(R.id.s_hours, if (showHours) View.VISIBLE else View.GONE)
+        if (showHours) v.setImageViewBitmap(R.id.s_hours, WidgetArt.bars(m.hours, ((wDp - 28).coerceAtLeast(140) * d).toInt(), (56 * d).toInt(), d,
+            WidgetArt.BLUE, WidgetArt.BLUE_L) { "" })
         val showWeek = hDp == 0 || hDp >= 150
         v.setViewVisibility(R.id.s_week, if (showWeek) View.VISIBLE else View.GONE)
         if (showWeek) v.setImageViewBitmap(R.id.s_week, WidgetArt.bars(m.week, ((wDp - 28).coerceAtLeast(140) * d).toInt(),

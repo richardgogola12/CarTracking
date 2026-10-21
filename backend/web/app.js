@@ -451,6 +451,8 @@ async function pageDashboard() {
     ${kpi("briefcase", "ico-violet", "Služobne", km(biz), biz, sum(pcars.filter(t => t.category === "business"), t => t.distance_m))}
     ${kpi("person-walking", "ico-rose", "Kroky", int(steps), steps, pSteps)}
 
+    ${stepsTodayCard()}
+
     ${card("Kilometre v čase", `<div class="chart-box lg"><canvas id="chKm"></canvas></div>`, { col: "col-xl-8", sub: "služobné / súkromné" })}
     ${card("Podľa vozidiel", S.vehicles.length ? `<div class="chart-box lg"><canvas id="chVeh"></canvas></div>` : empty("car-front", "Žiadne vozidlá"), { col: "col-md-5 col-xl-4" })}
 
@@ -465,6 +467,7 @@ async function pageDashboard() {
     ${card("Pripomienky", remindersBlock(reminders), { col: "col-md-12 col-xl-4", tools: '<a class="btn btn-sm btn-outline-secondary" href="#/vozidla">Vozidlá</a>' })}
   </div>`;
   bindTripLinks();
+  drawStepsToday();
 
   // km v čase – služobné / súkromné, kroky ako čiara
   chart("chKm", { type: "bar", data: { labels: b.map(x => x.label), datasets: [
@@ -1419,12 +1422,44 @@ function pagePlaces() {
 // =====================================================================
 //  Účet
 // =====================================================================
+// ---- Kroky dnes: celodenné kroky z krokomera po hodinách (Dashboard) ----
+function stepsTodayData() {
+  const today = sod(Date.now()), goal = +S.settings.dailyStepGoal || 8000;
+  const hrs = (S.stepHours || []).filter(h => h.hour >= today && h.hour < addDays(today, 1));
+  const per = Array(24).fill(0); hrs.forEach(h => per[new Date(h.hour).getHours()] += h.steps);
+  const walks = S.offset === 0 ? walkTrips().filter(t => t.started_at >= today) : [];
+  const ws = sum(walks, t => t.steps), all = Math.max(ws, sum(per, x => x));
+  const last = hrs.length ? Math.max(...hrs.map(h => h.hour)) : null;
+  return { per, ws, all, goal, last, m: sum(walks, t => t.distance_m) + (all - ws) * strideM() };
+}
+function stepsTodayCard() {
+  if (S.settings.allDaySteps === false) return "";
+  const d = stepsTodayData(), pct = Math.min(100, Math.round(d.all / d.goal * 100));
+  return card("Kroky dnes", `<div class="row g-3 align-items-center">
+    <div class="col-md-4"><div class="d-flex align-items-baseline gap-2"><span class="fs-2 fw-bold">${int(d.all)}</span><span class="text-body-secondary">krokov · ${km(d.m, 2)}</span></div>
+      <div class="progress my-2" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" style="height:8px"><div class="progress-bar ${d.all >= d.goal ? "bg-success" : ""}" style="width:${pct}%"></div></div>
+      <div class="small text-body-secondary">${pct} % denného cieľa ${int(d.goal)}<br>v zaznamenaných chôdzach <b>${int(d.ws)}</b> · mimo chôdzí <b>${int(Math.max(0, d.all - d.ws))}</b>${d.last != null ? `<br>krokomer odoslaný z telefónu za hodinu ${new Date(d.last).getHours()}:00` : ""}</div></div>
+    <div class="col-md-8"><div class="chart-box sm"><canvas id="chStepsToday"></canvas></div></div></div>`,
+    { sub: "celý deň z krokomera telefónu, po hodinách", tools: '<a class="btn btn-sm btn-outline-secondary" href="#/statistiky?m=chodza">Štatistiky chôdze</a>' });
+}
+function drawStepsToday() {
+  if (!$("chStepsToday")) return;
+  const d = stepsTodayData(), nowH = new Date().getHours();
+  chart("chStepsToday", { type: "bar", data: { labels: d.per.map((_, h) => h + ":00"), datasets: [{ label: "Kroky", data: d.per,
+    backgroundColor: d.per.map((_, h) => h === nowH ? C.walk : C.walk + "88"), borderRadius: 4 }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } } } } });
+}
+
 async function pageAccount() {
   const st = await api("backup/status").catch(() => null);
+  await ensureSteps();
   const s = S.settings;
   const rows = [["Automatická detekcia", s.autoDetection === false ? "vypnutá" : "zapnutá"], ["Rýchlosť potvrdzujúca auto", (s.minDriveSpeedKmh ?? "–") + " km/h"],
     ["Ukončiť po státí", (s.stopDelayMin ?? "–") + " min"], ["Sledovanie chôdze", s.walkTracking === false ? "vypnuté" : "zapnuté"], ["Vzdialenosť chôdze", s.walkDistanceGps ? "z GPS" : "z krokov"],
-    ["Dĺžka kroku", (s.strideCm ?? "–") + " cm"], ["Denný cieľ krokov", int(s.dailyStepGoal || 8000)], ["Synchronizácia", s.autoSync === false ? "ručne" : "automaticky" + (s.syncWifiOnly ? " (iba Wi-Fi)" : "")]];
+    ["Dĺžka kroku", (s.strideCm ?? "–") + " cm"], ["Denný cieľ krokov", int(s.dailyStepGoal || 8000)],
+    ["Celodenné kroky", s.allDaySteps === false ? "vypnuté" : "zapnuté"], ["Čítať krokomer každých", (s.stepReadMin ?? 15) + " min"],
+    ["Počas chôdze / jazdy", "každých " + (s.stepLiveSec ?? 60) + " s"], ["Kroky na server", "každých " + ((s.stepSyncMin ?? 60) >= 60 ? nf((s.stepSyncMin ?? 60) / 60, (s.stepSyncMin ?? 60) % 60 ? 1 : 0) + " h" : (s.stepSyncMin) + " min")],
+    ["Posledné kroky na serveri", S.stepHours?.length ? dt(Math.max(...S.stepHours.map(h => h.hour))) + " " + new Date(Math.max(...S.stepHours.map(h => h.hour))).getHours() + ":00" : "zatiaľ žiadne"], ["Synchronizácia", s.autoSync === false ? "ručne" : "automaticky" + (s.syncWifiOnly ? " (iba Wi-Fi)" : "")]];
   $("content").innerHTML = `<div class="row g-3">
     ${card("Účet", `<div class="d-flex align-items-center gap-3 mb-3"><div class="brand-logo"><i class="bi bi-person-fill"></i></div><div><div class="fw-bold fs-5">${esc(S.user?.name || "")}</div><div class="text-body-secondary">${esc(S.user?.email || "")}</div></div></div>
       <div class="small text-body-secondary mb-1">Server API</div><div class="mb-3"><code>${esc(S.api)}</code></div>

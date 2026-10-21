@@ -265,6 +265,39 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                     format = { String.format(java.util.Locale("sk"), "%,d krokov", it) }) { v -> update { it.copy(dailyStepGoal = v) } }
             }
 
+            Sub("Celodenné kroky (krokomer telefónu)") {
+                SwitchRow("Počítať kroky celý deň", "Každý krok – aj doma, v práci a pri krátkych presunoch (ako Samsung Health / Google Fit), nielen zaznamenané chôdze",
+                    s.allDaySteps) { on -> update { it.copy(allDaySteps = on) }; sk.cartracker.sync.StepWorker.schedule(ctx, on, s.stepReadMin) }
+                if (s.allDaySteps) {
+                    SliderRow("Čítať krokomer každých", s.stepReadMin, 15..120, 15, "min",
+                        "Na pozadí. Kratší interval = presnejšie rozdelenie krokov do hodín (spotreba batérie je zanedbateľná). Android dovolí najmenej 15 min.") { v ->
+                        update { it.copy(stepReadMin = v) }; sk.cartracker.sync.StepWorker.schedule(ctx, true, v) }
+                    SliderRow("Počas chôdze a jazdy zapisovať každých", s.stepLiveSec, 10..300, 10, "s",
+                        "Kým beží záznam, kroky sa zapisujú priebežne – Prehľad a widget sú aktuálnejšie.") { v -> update { it.copy(stepLiveSec = v) } }
+                    SliderRow("Odosielať na server každých", s.stepSyncMin, 15..1440, 15, "",
+                        "Pre web a obnovu na novom telefóne. Odosiela sa aj pri bežnej synchronizácii jázd.",
+                        format = { if (it < 60) "$it min" else if (it % 60 == 0) "${it / 60} h" else "${it / 60} h ${it % 60} min" }) { v -> update { it.copy(stepSyncMin = v) } }
+                    var tick by remember { mutableStateOf(0) }
+                    val daily by remember { c.steps.daily() }.collectAsStateWithLifecycle(emptyMap())
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val read = remember(tick, daily) { sk.cartracker.data.StepCounter.lastRead(ctx) }
+                        val sync = remember(tick, daily) { sk.cartracker.data.StepCounter.lastSync(ctx) }
+                        val today = daily[sk.cartracker.data.StepCounter.dayStart(System.currentTimeMillis())] ?: 0
+                        Text(if (!sk.cartracker.data.StepCounter.available(ctx)) "⚠ Krokomer nie je dostupný alebo chýba povolenie Fyzická aktivita (Povolenia)."
+                            else "Dnes z krokomera: ${String.format(java.util.Locale("sk"), "%,d", today)} krokov · prečítané " +
+                                (if (read > 0) sk.cartracker.ui.formatDateTime(read) else "zatiaľ nie") + " · na serveri " + (if (sync > 0) sk.cartracker.ui.formatDateTime(sync) else "zatiaľ nie"),
+                            style = MaterialTheme.typography.bodySmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { scope.launch { sk.cartracker.data.StepCounter.sample(ctx); tick++; sk.cartracker.sync.WidgetHook.update(ctx) } }) { Text("Prečítať teraz") }
+                            OutlinedButton(onClick = { scope.launch {
+                                message = runCatching { c.steps.sync() }.fold({ "Kroky odoslané na server." }, { c.api.errorMessage(it) }); tick++ } }) { Text("Odoslať teraz") }
+                        }
+                        Text("Prvé čítanie po zapnutí je východisko – započítajú sa kroky od tej chvíle.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
             Sub("Kalibrácia dĺžky kroku podľa GPS") {
                 val est = s.strideFromGpsCm
                 Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

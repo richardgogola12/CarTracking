@@ -84,6 +84,8 @@ class WidgetPreviewTest {
         render(WidgetRender.quick(ctx, true, DriveState.IDLE, 0, 0.0, 0, 24_500.0), 300, 84, "09-tlacidla")
         render(WidgetRender.quick(ctx, true, DriveState.DRIVING, 78, 9_400.0, 0), 300, 84, "10-tlacidla-jazda")
         render(WidgetRender.steps(ctx, StepsModel(6_245, 8_000, 4.6, 5, 12, weekSteps), 300, 200), 300, 200, "11-kroky")
+        val hrs = listOf(0, 0, 0, 0, 0, 0, 120, 640, 900, 310, 260, 480, 820, 300, 200, 250, 700, 1100, 450, 300, 120, 0, 0, 0).mapIndexed { i, v -> (if (i % 6 == 0) "$i" else "") to v.toDouble() }
+        render(WidgetRender.steps(ctx, StepsModel(8_950, 8_000, 6.4, 6, 12, weekSteps, walkSteps = 4_120, hours = hrs, readAt = 1_792_000_000_000L), 300, 260), 300, 260, "11-kroky-celodenne")
         render(WidgetRender.parking(ctx, ParkingModel(false, "Hlavná 12, Imeľ", now - 95 * 60_000L, 47.9, 18.05, now + 38 * 60_000L), now), 360, 190, "12-parkovanie")
         val days = (1..20).map { (if (it == 1 || it % 5 == 0) "$it" else "") to listOf(13.0, 26.4, 0.0, 41.0, 8.7)[it % 5] }
         render(WidgetRender.month(ctx, MonthModel("Október", 642.0, 38, 92.1, 214.0, 148_300, 96.4, 12, days, "september"), 360, 240), 360, 240, "13-mesiac")
