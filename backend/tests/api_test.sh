@@ -160,6 +160,15 @@ echo "$H" | grep -qi '^x-content-type-options: nosniff' || fail "chýba X-Conten
 echo "$H" | grep -qi '^cache-control: no-store' || fail "chýba Cache-Control"
 echo "OK  bezpečnostné hlavičky"
 
+# Celodenné kroky po hodinách
+H1=1792000800000; H2=$((H1 + 3600000))
+check "kroky – odoslanie" 200 "$(req "${AUTH[@]}" -X POST "$API/steps/sync" -d "{\"hours\":[{\"hour\":$H1,\"steps\":420},{\"hour\":$H2,\"steps\":1300},{\"hour\":5,\"steps\":9}]}")"
+echo "$LAST" | grep -q '"synced":2' || fail "kroky: $LAST"
+check "kroky – menej neprepíše viac" 200 "$(req "${AUTH[@]}" -X POST "$API/steps/sync" -d "{\"hours\":[{\"hour\":$H1,\"steps\":100}]}")"
+check "kroky – načítanie" 200 "$(req "${AUTH[@]}" "$API/steps?from=$H1&to=$((H2 + 1))")"
+echo "$LAST" | python3 -c 'import sys,json;h=json.load(sys.stdin)["hours"];assert [x["steps"] for x in h]==[420,1300],h' || fail "kroky nesedia: $LAST"
+echo "OK  celodenné kroky"
+
 # Prihlásenie webu cez QR kód
 check "QR – začiatok" 200 "$(req -X POST "$API/pair/start" -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0) Chrome/130.0')"
 PCODE=$(echo "$LAST" | python3 -c 'import sys,json;print(json.load(sys.stdin)["code"])'); PSHORT=$(echo "$LAST" | python3 -c 'import sys,json;print(json.load(sys.stdin)["short"])')

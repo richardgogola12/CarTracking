@@ -521,6 +521,34 @@ if ($method === 'POST' && $path === '/items/sync') {
     respond(200, ['synced' => $synced]);
 }
 
+// Celodenné kroky z krokomera po hodinách: POST /steps/sync {hours:[{hour, steps}]}, GET /steps?from=&to=
+if ($method === 'POST' && $path === '/steps/sync') {
+    $hours = body()['hours'] ?? null;
+    if (!is_array($hours)) fail(422, 'Chýba pole hours');
+    if (count($hours) > 2000) fail(413, 'Príliš veľa hodín v jednej požiadavke');
+    try {
+        $st = $pdo->prepare('INSERT INTO CarTracking_step_hours (user_id, hour_ts, steps) VALUES (?, ?, ?)
+                             ON DUPLICATE KEY UPDATE steps = GREATEST(steps, VALUES(steps))');
+        $n = 0;
+        foreach ($hours as $h) {
+            $ts = (int)($h['hour'] ?? 0); $steps = (int)($h['steps'] ?? -1);
+            if ($ts < 946684800000 || $ts > (time() + 2 * 86400) * 1000 || $steps < 0 || $steps > 60000) continue;
+            $st->execute([$uid, $ts, $steps]); $n++;
+        }
+    } catch (PDOException $e) { fail(503, 'Celodenné kroky nie sú na serveri zapnuté (spustite migrate_v10.sql)'); }
+    respond(200, ['synced' => $n]);
+}
+
+if ($method === 'GET' && $path === '/steps') {
+    $from = (int)($_GET['from'] ?? 0); $to = (int)($_GET['to'] ?? PHP_INT_MAX);
+    try {
+        $st = $pdo->prepare('SELECT hour_ts AS hour, steps FROM CarTracking_step_hours WHERE user_id = ? AND hour_ts >= ? AND hour_ts < ? ORDER BY hour_ts');
+        $st->execute([$uid, $from, $to]);
+        $rows = array_map(fn($r) => ['hour' => (int)$r['hour'], 'steps' => (int)$r['steps']], $st->fetchAll());
+    } catch (PDOException $e) { $rows = []; }
+    respond(200, ['hours' => $rows]);
+}
+
 if ($method === 'GET' && $path === '/items') {
     $kind = (string)($_GET['kind'] ?? '');
     $sql = 'SELECT kind, uuid, data, updated_at, deleted FROM CarTracking_items WHERE user_id = ?';

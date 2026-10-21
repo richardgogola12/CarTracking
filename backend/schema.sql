@@ -149,3 +149,12 @@ CREATE TABLE IF NOT EXISTS CarTracking_pairings (
     INDEX idx_pair_short (short_code, expires_at),
     CONSTRAINT CarTracking_fk_pair_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- Celodenné kroky z krokomera telefónu po hodinách (v2.0, migrate_v10.sql)
+CREATE TABLE IF NOT EXISTS CarTracking_step_hours (
+    user_id INT UNSIGNED    NOT NULL,
+    hour_ts BIGINT UNSIGNED NOT NULL COMMENT 'začiatok hodiny (ms)',
+    steps   INT UNSIGNED    NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, hour_ts),
+    CONSTRAINT CarTracking_fk_steps_user FOREIGN KEY (user_id) REFERENCES CarTracking_users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

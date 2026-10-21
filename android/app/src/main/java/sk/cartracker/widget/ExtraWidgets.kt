@@ -92,7 +92,12 @@ object ExtraWidgets {
         val live = TrackingState.live.value
         val walking = TrackingState.state.value == DriveState.WALKING && live != null
         if (walking) totals[today] = (totals[today] ?: 0.0) + live!!.steps
-        val kmToday = trips.filter { it.isWalk && it.startedAt >= today }.sumOf { it.distanceM } + (if (walking) live!!.distanceM else 0.0)
+        val walkStepsToday = (totals[today] ?: 0.0).toInt()
+        // celodenné kroky z krokomera (aj mimo zaznamenaných chôdzí)
+        val daily = runCatching { c.steps.dailyBetween(today - 400 * 86_400_000L, Long.MAX_VALUE) }.getOrDefault(emptyMap())
+        totals.putAll(sk.cartracker.data.StepCounter.merge(totals, daily))
+        val kmToday = sk.cartracker.data.StepCounter.dayMeters(walkStepsToday,
+            trips.filter { it.isWalk && it.startedAt >= today }.sumOf { it.distanceM } + (if (walking) live!!.distanceM else 0.0), (totals[today] ?: 0.0).toInt(), s.strideCm)
         val (streak, best) = stepStreaks(totals, s.dailyStepGoal)
         val names = listOf("Ne", "Po", "Ut", "St", "Št", "Pi", "So")
         val week = (6 downTo 0).map { back ->

@@ -78,10 +78,15 @@ class WalkData(
     val from: Long, val to: Long, val goal: Int, val walks: List<TripEntity>, val days: List<WalkAnalytics.Day>, val yearDays: List<WalkAnalytics.Day>,
     val sum: WalkAnalytics.Summary, val hours: DoubleArray, val wdays: List<WalkAnalytics.Weekday>, val weeks: List<WalkAnalytics.Group>,
     val months: List<WalkAnalytics.Group>, val bins: List<WalkAnalytics.Bin>, val workFrom: Int, val workTo: Int,
+    /** Od kedy sa počítajú celodenné kroky z krokomera (null = ešte nie). */
+    val dailySince: Long? = null,
 )
 
 @Composable
-fun rememberWalkData(all: List<TripEntity>, from: Long, to: Long, s: AppSettings): WalkData = remember(all, from, to, s) {
+fun rememberWalkData(all: List<TripEntity>, from: Long, to: Long, s: AppSettings,
+                     stepHours: List<sk.cartracker.data.local.StepHourEntity> = emptyList()): WalkData = remember(all, from, to, s, stepHours) {
+    val hourly = stepHours.associate { it.hour to it.steps }
+    val stride = s.strideCm / 100.0
     val today = WalkAnalytics.dayStart(System.currentTimeMillis())
     val tomorrow = Calendar.getInstance().apply { timeInMillis = today; add(Calendar.DAY_OF_MONTH, 1) }.timeInMillis
     val end = minOf(to, tomorrow).coerceAtLeast(from + 1)
@@ -90,11 +95,12 @@ fun rememberWalkData(all: List<TripEntity>, from: Long, to: Long, s: AppSettings
     val walksAll = all.filter { it.isWalk }
     val walks = walksAll.filter { it.startedAt in from until end }
     val goal = s.dailyStepGoal
-    val days = WalkAnalytics.days(walks, from, end, goal, work)
-    val yearDays = WalkAnalytics.days(walksAll.filter { it.startedAt >= yearAgo }, yearAgo, tomorrow, goal, work)
-    val streaks = stepStreaks(dailyTotals(walksAll, walk = true), goal)
-    WalkData(from, end, goal, walks, days, yearDays, WalkAnalytics.summary(walks, days, streaks.first, streaks.second), WalkAnalytics.byHour(walks),
-        WalkAnalytics.weekdays(days), WalkAnalytics.weeks(days), WalkAnalytics.months(yearDays), WalkAnalytics.stepBins(walks), s.workFromMin, s.workToMin)
+    val days = WalkAnalytics.days(walks, from, end, goal, hourly, stride, work)
+    val yearDays = WalkAnalytics.days(walksAll.filter { it.startedAt >= yearAgo }, yearAgo, tomorrow, goal, hourly, stride, work)
+    val streaks = stepStreaks(sk.cartracker.data.StepCounter.merge(dailyTotals(walksAll, walk = true), sk.cartracker.data.StepCounter.byDay(stepHours)), goal)
+    WalkData(from, end, goal, walks, days, yearDays, WalkAnalytics.summary(walks, days, streaks.first, streaks.second), WalkAnalytics.byHour(walks, hourly.filterKeys { it in from until end }),
+        WalkAnalytics.weekdays(days), WalkAnalytics.weeks(days), WalkAnalytics.months(yearDays), WalkAnalytics.stepBins(walks), s.workFromMin, s.workToMin,
+        stepHours.minOfOrNull { it.hour })
 }
 
 /** Súhrn (10 ukazovateľov) a grafy chôdze – súčasť Štatistiky → Chôdza. */
@@ -115,6 +121,10 @@ fun WalkSummary(d: WalkData) {
         sum.bestDay?.let { b -> Kpi(m, "Najlepší deň", k0(b.steps), formatDate(b.start), W_AMBER) }
         sum.longest?.let { l -> Kpi(m, "Najdlhšia chôdza", k0(l.steps), "${formatDate(l.startedAt)} · ${formatDistance(l.distanceM)}", W_BLUE) }
     }
+    Text(d.dailySince?.let { "Kroky a vzdialenosť za celý deň z krokomera telefónu (od ${formatDate(it)}) – aj doma a pri krátkych presunoch. " +
+        "Čas, tempo a trasy sú zo zaznamenaných chôdzí. Vzdialenosť mimo chôdzí = kroky × dĺžka kroku." }
+        ?: "Celodenné kroky z krokomera sa začnú počítať od teraz (potrebné povolenie Fyzická aktivita). Staršie dni obsahujú iba zaznamenané chôdze.",
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (days.size > 1) SectionCard("Kroky po dňoch") {
         Column(Modifier.padding(horizontal = 12.dp)) {
             Legend(listOf(W_GREEN to "cieľ splnený", W_BLUE_L to "pod cieľom", W_AMBER to "denný cieľ ${k0(goal)}"))
@@ -128,7 +138,7 @@ fun WalkSummary(d: WalkData) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
         }
     }
-    if (d.walks.isNotEmpty()) SectionCard(if (days.size > 1) "Kedy chodíte · Ø krokov za deň podľa hodiny" else "Kedy ste chodili · kroky podľa hodiny") {
+    if (d.hours.sum() > 0) SectionCard(if (days.size > 1) "Kedy chodíte · Ø krokov za deň podľa hodiny" else "Kedy ste chodili · kroky podľa hodiny") {
         Column(Modifier.padding(horizontal = 12.dp)) {
             val avg = d.hours.map { it / max(1, days.size) }
             SimpleBars(avg.mapIndexed { h, v -> (if (h % 3 == 0) "$h" else "") to v }, Modifier.fillMaxWidth().height(170.dp), W_BLUE,

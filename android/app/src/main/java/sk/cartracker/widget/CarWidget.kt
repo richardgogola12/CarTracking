@@ -129,6 +129,9 @@ class CarWidget : AppWidgetProvider() {
                 liveCost = active?.cost(live.distanceM) ?: s.fuelCost(live.distanceM)
             }
             if (state == DriveState.WALKING && live != null) steps += live.steps
+            // celodenné kroky z krokomera (aj mimo zaznamenaných chôdzí)
+            val daily = runCatching { c.steps.dailyBetween(dayStart - 6 * 86_400_000L, Long.MAX_VALUE) }.getOrDefault(emptyMap())
+            steps = maxOf(steps, daily[dayStart] ?: 0)
             fun series(walk: Boolean) = (6 downTo 0).map { back ->
                 val from = dayStart - back * 86_400_000L; val to = from + 86_400_000L
                 val name = Calendar.getInstance().apply { timeInMillis = from }.get(Calendar.DAY_OF_WEEK).let { DAY_NAMES[it - 1] }
@@ -137,6 +140,7 @@ class CarWidget : AppWidgetProvider() {
                     if (!walk && state == DriveState.DRIVING) v += live.distanceM / 1000.0
                     if (walk && state == DriveState.WALKING) v += live.steps
                 }
+                if (walk) v = maxOf(v, (daily[from] ?: 0).toDouble())
                 name to v
             }
             val speedTrip = runCatching { c.trips.currentOrLastCarTrip(state == DriveState.DRIVING) }.getOrNull()

@@ -431,10 +431,13 @@ window.addEventListener("hashchange", route);
 //  Dashboard
 // =====================================================================
 async function pageDashboard() {
+  await ensureSteps(prevFrom());
+  if (S.page !== "prehlad") return;
   const cars = carTrips(), pcars = carTrips(S.prevTrips), walks = walkTrips(), pwalks = walkTrips(S.prevTrips);
   const kmCur = sum(cars, t => t.distance_m), kmPrev = sum(pcars, t => t.distance_m);
   const biz = sum(cars.filter(t => t.category === "business"), t => t.distance_m);
-  const steps = sum(walks, t => t.steps), pSteps = sum(pwalks, t => t.steps);
+  // kroky celý deň (krokomer) – väčšie z chôdzí a krokomera za každý deň
+  const steps = stepTotals(walks, S.range.from, S.range.to).steps, pSteps = stepTotals(pwalks, prevFrom(), S.range.from).steps;
   const time = sum(cars, tripMs), pTime = sum(pcars, tripMs);
   const costs = sum(cars, cost), pCosts = sum(pcars, cost);
   const reminders = S.items.reminder.filter(r => !r.done);
@@ -467,7 +470,7 @@ async function pageDashboard() {
   chart("chKm", { type: "bar", data: { labels: b.map(x => x.label), datasets: [
       { label: "Služobné km", data: b.map(x => sum(cars.filter(t => t.category === "business" && t.started_at >= x.a && t.started_at < x.z), t => t.distance_m) / 1000), backgroundColor: C.biz, borderRadius: 6, stack: "km" },
       { label: "Súkromné km", data: b.map(x => sum(cars.filter(t => t.category !== "business" && t.started_at >= x.a && t.started_at < x.z), t => t.distance_m) / 1000), backgroundColor: C.car, borderRadius: 6, stack: "km" },
-      { label: "Kroky (tis.)", type: "line", data: b.map(x => sum(walks.filter(t => t.started_at >= x.a && t.started_at < x.z), t => t.steps) / 1000), borderColor: C.walk, backgroundColor: C.walk, tension: .35, pointRadius: 0, yAxisID: "y2" },
+      { label: "Kroky (tis.)", type: "line", data: b.map(x => stepTotals(walks.filter(t => t.started_at >= x.a && t.started_at < x.z), x.a, x.z).steps / 1000), borderColor: C.walk, backgroundColor: C.walk, tension: .35, pointRadius: 0, yAxisID: "y2" },
     ] },
     options: { interaction: { mode: "index", intersect: false }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, title: { display: true, text: "km" } },
       y2: { position: "right", grid: { display: false }, title: { display: true, text: "tis. krokov" } } } } });
@@ -1210,21 +1213,45 @@ function workShare(a, b, w) {
   }
   return inside / (b - a);
 }
+// ---- celodenné kroky z krokomera telefónu (po hodinách, aplikácia ich posiela na server) ----
+async function ensureSteps(from) {
+  const today = sod(Date.now()), want = Math.min(from ?? Infinity, addDays(today, -400));
+  if (S.stepKey === today && S.stepFrom <= want) return S.stepHours;
+  S.stepHours = await api(`steps?from=${want}&to=${addDays(today, 2)}`).then(r => r.hours.map(h => ({ hour: +h.hour, steps: +h.steps }))).catch(() => []);
+  S.stepKey = today; S.stepFrom = want;
+  return S.stepHours;
+}
+const hoursByDay = (hours) => { const o = {}; (hours || []).forEach(h => (o[sod(h.hour)] ||= []).push(h)); return o; };
+const prevFrom = () => computeRange(S.period, S.offset - 1).from;
+const strideM = () => (+S.settings.strideCm || 75) / 100;
+/** Kroky a km za obdobie: za každý deň väčšie z (zaznamenané chôdze, krokomer celý deň). */
+function stepTotals(walks, from, to) {
+  const hd = hoursByDay(S.stepHours), wd = {}; walks.forEach(t => (wd[sod(t.started_at)] ||= []).push(t));
+  let steps = 0, m = 0;
+  new Set([...Object.keys(wd), ...Object.keys(hd)].map(Number)).forEach(d => { if (d < sod(from) || d >= to) return;
+    const l = wd[d] || [], ws = sum(l, t => t.steps), all = Math.max(ws, sum(hd[d] || [], h => h.steps));
+    steps += all; m += sum(l, t => t.distance_m) + (all - ws) * strideM(); });
+  return { steps, m };
+}
 function walkDays(walks, from, to, goal, w) {
   const by = {}; walks.forEach(t => (by[sod(t.started_at)] ||= []).push(t));
+  const hd = hoursByDay(S.stepHours);
   const out = [];
   for (let d = sod(from); d < to; d = addDays(d, 1)) {
-    const l = by[d] || [], steps = sum(l, t => t.steps), m = sum(l, t => t.distance_m), ms = sum(l, tripMs);
-    out.push({ d, steps, m, ms, n: l.length, work: Math.round(sum(l, t => t.steps * workShare(t.started_at, t.ended_at || t.started_at, w))),
-      goal: goal > 0 && steps >= goal, pace: pace(ms, m) });
+    const l = by[d] || [], ws = sum(l, t => t.steps), wm = sum(l, t => t.distance_m), ms = sum(l, tripMs);
+    const hrs = hd[d] || [], all = sum(hrs, h => h.steps);
+    const fromHours = all > ws, steps = fromHours ? all : ws;
+    out.push({ d, steps, m: wm + (steps - ws) * strideM(), wm, ms, n: l.length, hrs: fromHours ? hrs : null,
+      work: Math.round(fromHours ? sum(hrs, h => h.steps * workShare(h.hour, h.hour + 3.6e6, w)) : sum(l, t => t.steps * workShare(t.started_at, t.ended_at || t.started_at, w))),
+      goal: goal > 0 && steps >= goal, pace: pace(ms, wm) });
   }
   return out;
 }
 function walkGroups(days, keyOf, labelOf) {
   const g = {}; days.forEach(x => (g[keyOf(x.d)] ||= []).push(x));
-  return Object.entries(g).map(([k, l]) => { const steps = sum(l, x => x.steps), m = sum(l, x => x.m), ms = sum(l, x => x.ms);
+  return Object.entries(g).map(([k, l]) => { const steps = sum(l, x => x.steps), m = sum(l, x => x.m), ms = sum(l, x => x.ms), wm = sum(l, x => x.wm);
     return { k: +k, ...labelOf(+k, l), days: l.length, steps, m, ms, n: sum(l, x => x.n), goalDays: l.filter(x => x.goal).length,
-      best: Math.max(0, ...l.map(x => x.steps)), work: sum(l, x => x.work), avg: steps / l.length, pace: pace(ms, m) }; }).sort((a, b) => a.k - b.k);
+      best: Math.max(0, ...l.map(x => x.steps)), work: sum(l, x => x.work), avg: steps / l.length, pace: pace(ms, wm) }; }).sort((a, b) => a.k - b.k);
 }
 const weekKey = (d) => addDays(d, -dowOf(d));
 function isoWeek(ts) { const d = new Date(ts); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
@@ -1236,11 +1263,13 @@ async function pageWalk() {
   const today = sod(Date.now()), tomorrow = addDays(today, 1), yearAgo = addDays(today, -364);
   const to = Math.min(S.range.to, tomorrow), from = S.range.from;
   if (S.walkYearKey !== today) { loading(true); try { S.walkYear = await fetchTrips(yearAgo, tomorrow, "walk").catch(() => []); S.walkYearKey = today; } finally { loading(false); } }
+  await ensureSteps(S.range.from);
   if (S.page !== "statistiky") return;
   const walks = walkTrips().filter(t => t.started_at < to), pw = walkTrips(S.prevTrips);
   const days = walkDays(walks, from, to, goal, w), yDays = walkDays(S.walkYear.map(normTrip), yearAgo, tomorrow, goal, w);
   const steps = sum(days, x => x.steps), dist = sum(days, x => x.m), time = sum(days, x => x.ms), work = sum(days, x => x.work);
-  const active = days.filter(x => x.steps > 0).length, goalDays = days.filter(x => x.goal).length, p = pace(time, dist);
+  const active = days.filter(x => x.steps > 0).length, goalDays = days.filter(x => x.goal).length, p = pace(time, sum(days, x => x.wm));
+  const pTot = stepTotals(pw, prevFrom(), S.range.from), since = S.stepHours.length ? Math.min(...S.stepHours.map(h => h.hour)) : null;
   // série: z celého roka
   let best = 0, run = 0; yDays.forEach(x => { run = x.goal ? run + 1 : 0; best = Math.max(best, run); });
   let cur = 0; for (let i = yDays.length - 1; i >= 0; i--) { if (yDays[i].goal) cur++; else if (i < yDays.length - 1) break; }
@@ -1251,20 +1280,21 @@ async function pageWalk() {
   const hm = (m) => Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0");
 
   $("content").innerHTML = printHead("Štatistiky – chôdza") + `<div class="row g-3">
-    ${kpi("person-walking", "ico-blue", "Kroky spolu", int(steps), steps, sum(pw, t => t.steps))}
+    ${kpi("person-walking", "ico-blue", "Kroky spolu", int(steps), steps, pTot.steps)}
     ${kpi("calendar-day", "ico-cyan", "Ø krokov za deň", int(days.length ? steps / days.length : 0))}
     ${kpi("bullseye", "ico-green", "Cieľ splnený", `${goalDays}× <small class="text-body-secondary fs-6">${days.length ? Math.round(goalDays / days.length * 100) : 0} % dní</small>`)}
     ${kpi("fire", "ico-amber", "Séria dní s cieľom", `${cur} <small class="text-body-secondary fs-6">rekord ${best}</small>`)}
-    ${kpi("geo", "ico-violet", "Vzdialenosť", km(dist, 1), dist, sum(pw, t => t.distance_m))}
+    ${kpi("geo", "ico-violet", "Vzdialenosť", km(dist, 1), dist, pTot.m)}
     ${kpi("stopwatch", "ico-violet", "Čas chôdze", durH(time), time, sum(pw, tripMs))}
     ${kpi("speedometer2", "ico-rose", "Ø tempo", p ? paceTxt(p) + " min/km" : "–")}
     ${kpi("briefcase", "ico-green", "V pracovnom čase", (steps ? Math.round(work / steps * 100) : 0) + " %")}
     ${kpi("trophy", "ico-amber", "Najlepší deň", bestDay ? `${int(bestDay.steps)} <small class="text-body-secondary fs-6">${dt(bestDay.d)}</small>` : "–")}
     ${kpi("signpost-2", "ico-blue", "Najdlhšia chôdza", longest ? `${int(longest.steps)} <small class="text-body-secondary fs-6">${dt(longest.started_at)}</small>` : "–")}
-    <div class="col-12 small text-body-secondary">${active} z ${days.length} dní aktívnych · ${walks.length} chôdzí · denný cieľ ${int(goal)} krokov · pracovný čas ${hm(w.from)}–${hm(w.to)}</div>
+    <div class="col-12 small text-body-secondary">${active} z ${days.length} dní aktívnych · ${walks.length} chôdzí · denný cieľ ${int(goal)} krokov · pracovný čas ${hm(w.from)}–${hm(w.to)}<br>
+      ${since ? `Kroky a vzdialenosť za celý deň z krokomera telefónu (od ${dt(since)}) – aj doma a pri krátkych presunoch; čas, tempo a trasy sú zo zaznamenaných chôdzí. Vzdialenosť mimo chôdzí = kroky × dĺžka kroku (${int(strideM() * 100)} cm).` : "Celodenné kroky z krokomera sa zobrazia, keď ich aktualizovaná aplikácia odošle na server. Zatiaľ iba zaznamenané chôdze."}</div>
     ${card("Kroky po dňoch", `<div class="chart-box lg"><canvas id="wDaysCh"></canvas></div>`, { sub: "zelené = cieľ splnený · čiarkovaná čiara = denný cieľ" })}
     ${card("Rok v krokoch", `<div id="heat"></div>`, { sub: "posledných 12 mesiacov · orámované = splnený cieľ" })}
-    ${card("Kedy chodíte", walks.length ? `<div class="chart-box"><canvas id="wHourCh"></canvas></div>` : empty("clock", "Žiadna chôdza v období"), { col: "col-xl-6", sub: "Ø krokov za deň podľa hodiny" })}
+    ${card("Kedy chodíte", steps ? `<div class="chart-box"><canvas id="wHourCh"></canvas></div>` : empty("clock", "Žiadna chôdza v období"), { col: "col-xl-6", sub: "Ø krokov za deň podľa hodiny" })}
     ${card("Dni v týždni", `<div class="chart-box"><canvas id="wDowCh"></canvas></div>`, { col: "col-xl-6", sub: "Ø krokov · v popise % dní so splneným cieľom" })}
     ${card("Vývoj po týždňoch", weeks.length > 1 ? `<div class="chart-box"><canvas id="wTrendCh"></canvas></div>` : empty("graph-up", "Treba aspoň 2 týždne – zvoľte Mesiac alebo Rok"), { col: "col-xl-7", sub: "Ø krokov za deň a tempo" })}
     ${card("Dĺžka chôdzí", walks.length ? `<div class="chart-box"><canvas id="wBinCh"></canvas></div>` : empty("rulers", "Žiadna chôdza v období"), { col: "col-xl-5", sub: "počet chôdzí a podiel krokov" })}
@@ -1279,9 +1309,10 @@ async function pageWalk() {
     { label: "Kroky", data: days.map(x => x.steps), backgroundColor: days.map(x => x.goal ? C.car : C.walk), borderRadius: 4 },
     { label: "Cieľ", type: "line", data: days.map(() => goal), borderColor: C.amber, borderDash: [6, 4], pointRadius: 0 }] },
     options: { scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } } } } });
-  if (walks.length) {
-    const hours = Array(24).fill(0);
-    walks.forEach(t => { const a = t.started_at, b = t.ended_at || a;
+  if (steps) {
+    const hours = Array(24).fill(0), hourDays = new Set(days.filter(x => x.hrs).map(x => x.d));
+    days.forEach(x => (x.hrs || []).forEach(h => hours[new Date(h.hour).getHours()] += h.steps));
+    walks.filter(t => !hourDays.has(sod(t.started_at))).forEach(t => { const a = t.started_at, b = t.ended_at || a;
       if (b <= a) { hours[new Date(a).getHours()] += t.steps; return; }
       for (let x = a; x < b;) { const d = new Date(x), h = d.getHours(); d.setMinutes(0, 0, 0); d.setHours(h + 1); const e = Math.min(b, +d); hours[h] += t.steps * (e - x) / (b - a); x = e; } });
     const avg = hours.map(v => Math.round(v / Math.max(1, days.length))), peak = avg.indexOf(Math.max(...avg));
@@ -1333,7 +1364,7 @@ async function pageWalk() {
     { t: "V pracovnom čase", pri: 8, cls: "text-end", d: r => int(r.work), s: r => r.work, x: r => r.work },
   ], { order: [[1, "desc"]], pageLength: 14, rowTrip: false, file: "chodza-dni-" + S.range.title, title: "Chôdza po dňoch – " + S.range.title,
     foot: (r) => ["Spolu", int(sum(r, x => x.steps)), r.filter(x => x.goal).length + "×", nf(sum(r, x => x.m) / 1000, 1), dur(sum(r, x => x.ms)), int(sum(r, x => x.n)),
-      paceTxt(pace(sum(r, x => x.ms), sum(r, x => x.m))), int(sum(r, x => x.work))] });
+      paceTxt(pace(sum(r, x => x.ms), sum(r, x => x.wm))), int(sum(r, x => x.work))] });
   $("wDays").addEventListener("click", (e) => { const tr = e.target.closest("tbody tr"); if (!tr || e.target.closest("td.dtr-control")) return;
     const r = tables.wDaysT?.row(tr).data(); if (r) location.hash = "#/den?d=" + r.d; });
   const gCols = (first) => [
@@ -1417,7 +1448,7 @@ document.querySelectorAll("#periodSeg button").forEach(b => b.onclick = () => {
 $("prev").onclick = () => { S.offset--; render(); };
 $("next").onclick = () => { if (S.offset < 0) { S.offset++; render(); } };
 $("vehicleSel").onchange = (e) => { S.vehicle = e.target.value; LS.set("ct_vehicle", S.vehicle); render(); };
-$("reload").onclick = async () => { for (const k in pointCache) delete pointCache[k]; S.loadedKey = ""; S.yearKey = ""; S.walkYearKey = ""; await loadBase().catch(() => {}); render(); toast("Údaje obnovené"); };
+$("reload").onclick = async () => { for (const k in pointCache) delete pointCache[k]; S.loadedKey = ""; S.yearKey = ""; S.walkYearKey = ""; S.stepKey = ""; await loadBase().catch(() => {}); render(); toast("Údaje obnovené"); };
 
 async function start() {
   stopPairing();

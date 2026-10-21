@@ -100,6 +100,11 @@ data class VehicleSyncRequest(val vehicles: List<VehicleDto>)
 data class SyncRequest(val trips: List<TripDto>)
 data class SyncResponse(val synced: List<String>)
 data class OkResponse(val ok: Boolean?)
+/** Kroky po hodinách: hour = začiatok hodiny (ms), steps = počet krokov z krokomera. */
+data class StepHourDto(val hour: Long, val steps: Int)
+data class StepSyncRequest(val hours: List<StepHourDto>)
+data class StepSyncResponse(val synced: Int)
+data class StepsResponse(val hours: List<StepHourDto>)
 /** Prihlásenie webu z telefónu: code = tajný kód z QR, short = 6-miestny kód zo stránky (jedno z nich). */
 data class PairRequest(val code: String? = null, val short: String? = null)
 data class PairInfo(val browser: String?, val ip: String?, val createdAt: Long?)
@@ -123,6 +128,8 @@ interface ApiService {
     @GET("trips") suspend fun trips(@Query("limit") limit: Int, @Query("offset") offset: Int): RemoteTripsResponse
     @POST("trips/points") suspend fun tripPoints(@Body body: PointsRequest): PointsResponse
     @GET("items") suspend fun items(): ItemsResponse
+    @POST("steps/sync") suspend fun syncSteps(@Body body: StepSyncRequest): StepSyncResponse
+    @GET("steps") suspend fun steps(@Query("from") from: Long, @Query("to") to: Long): StepsResponse
     @GET("vehicles/{uuid}/shares") suspend fun shares(@Path("uuid") uuid: String): SharesResponse
     @POST("vehicles/{uuid}/shares") suspend fun share(@Path("uuid") uuid: String, @Body body: ShareRequest): ShareResponse
     @DELETE("vehicles/{uuid}/shares/{user}") suspend fun unshare(@Path("uuid") uuid: String, @Path("user") user: Int): OkResponse

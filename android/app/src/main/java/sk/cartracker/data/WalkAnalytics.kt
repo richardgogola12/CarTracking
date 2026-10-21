@@ -30,18 +30,34 @@ object WalkAnalytics {
     // ---------------- dni ----------------
     data class Day(
         val start: Long, val steps: Int, val meters: Double, val ms: Long, val walks: Int, val workSteps: Int, val goalMet: Boolean,
-    ) { val pace get() = pace(ms, meters) }
+        /** Vzdialenosť iba zaznamenaných chôdzí (na tempo – čas poznáme len pri nich). */
+        val walkMeters: Double = meters,
+    ) { val pace get() = pace(ms, walkMeters) }
 
-    /** Všetky dni v [from, to) – aj tie bez chôdze (0 krokov). */
-    fun days(walks: List<TripEntity>, from: Long, to: Long, goal: Int, work: (Long, Long) -> Double): List<Day> {
+    /**
+     * Všetky dni v [from, to) – aj tie bez chôdze (0 krokov).
+     * [hourly] = celodenné kroky z krokomera po hodinách (začiatok hodiny → kroky). Ak ich je za deň viac ako
+     * v zaznamenaných chôdzach, platia ony; vzdialenosť sa doplní o kroky mimo chôdzí × [strideM].
+     */
+    fun days(walks: List<TripEntity>, from: Long, to: Long, goal: Int,
+             hourly: Map<Long, Int> = emptyMap(), strideM: Double = 0.75, work: (Long, Long) -> Double): List<Day> {
         val byDay = walks.groupBy { dayStart(it.startedAt) }
+        val hoursByDay = hourly.entries.groupBy { dayStart(it.key) }
         val out = ArrayList<Day>()
         var d = dayStart(from)
         while (d < to) {
             val l = byDay[d].orEmpty()
-            val steps = l.sumOf { it.steps }
-            val workSteps = l.sumOf { (it.steps * work(it.startedAt, it.endedAt ?: it.startedAt)).roundToInt() }
-            out += Day(d, steps, l.sumOf { it.distanceM }, l.sumOf { it.ms() }, l.size, workSteps, goal in 1..steps)
+            val walkSteps = l.sumOf { it.steps }
+            val hrs = hoursByDay[d].orEmpty()
+            val all = hrs.sumOf { it.value }
+            val day = if (all > walkSteps) {
+                val work = hrs.sumOf { (it.value * work(it.key, it.key + 3_600_000L)) }.roundToInt()
+                Day(d, all, l.sumOf { it.distanceM } + (all - walkSteps) * strideM, l.sumOf { it.ms() }, l.size, work, goal in 1..all, l.sumOf { it.distanceM })
+            } else {
+                val workSteps = l.sumOf { (it.steps * work(it.startedAt, it.endedAt ?: it.startedAt)).roundToInt() }
+                Day(d, walkSteps, l.sumOf { it.distanceM }, l.sumOf { it.ms() }, l.size, workSteps, goal in 1..walkSteps)
+            }
+            out += day
             d = nextDay(d)
         }
         return out
@@ -71,9 +87,14 @@ object WalkAnalytics {
 
     // ---------------- hodiny dňa ----------------
     /** Kroky po hodinách 0–23; kroky chôdze sa rozdelia pomerne podľa času, ktorý strávila v každej hodine. */
-    fun byHour(walks: List<TripEntity>): DoubleArray {
+    fun byHour(walks: List<TripEntity>, hourly: Map<Long, Int> = emptyMap()): DoubleArray {
         val h = DoubleArray(24)
+        // dni s celodennými krokmi (krokomer) sa berú z nich, ostatné z chôdzí
+        val walkByDay = walks.groupBy { dayStart(it.startedAt) }.mapValues { (_, l) -> l.sumOf { it.steps } }
+        val hourDays = hourly.entries.groupBy { dayStart(it.key) }.filter { (d, l) -> l.sumOf { it.value } > (walkByDay[d] ?: 0) }
+        hourDays.values.flatten().forEach { (ts, n) -> h[cal(ts).get(Calendar.HOUR_OF_DAY)] += n.toDouble() }
         for (t in walks) {
+            if (dayStart(t.startedAt) in hourDays) continue
             val a = t.startedAt; val b = t.endedAt ?: a
             if (b <= a) { h[cal(a).get(Calendar.HOUR_OF_DAY)] += t.steps.toDouble(); continue }
             var x = a
@@ -99,14 +120,14 @@ object WalkAnalytics {
     // ---------------- týždne a mesiace ----------------
     data class Group(
         val start: Long, val label: String, val sub: String, val days: Int, val steps: Int, val meters: Double, val ms: Long,
-        val walks: Int, val goalDays: Int, val bestDay: Int, val workSteps: Int,
+        val walks: Int, val goalDays: Int, val bestDay: Int, val workSteps: Int, val walkMeters: Double = meters,
     ) {
         val avgSteps get() = if (days > 0) steps.toDouble() / days else 0.0
-        val pace get() = pace(ms, meters)
+        val pace get() = pace(ms, walkMeters)
     }
 
     private fun group(key: Long, label: String, sub: String, l: List<Day>) = Group(key, label, sub, l.size, l.sumOf { it.steps }, l.sumOf { it.meters },
-        l.sumOf { it.ms }, l.sumOf { it.walks }, l.count { it.goalMet }, l.maxOfOrNull { it.steps } ?: 0, l.sumOf { it.workSteps })
+        l.sumOf { it.ms }, l.sumOf { it.walks }, l.count { it.goalMet }, l.maxOfOrNull { it.steps } ?: 0, l.sumOf { it.workSteps }, l.sumOf { it.walkMeters })
 
     fun weeks(days: List<Day>): List<Group> {
         val f = SimpleDateFormat("d. M.", SK)
@@ -137,8 +158,9 @@ object WalkAnalytics {
     data class Summary(
         val steps: Int, val meters: Double, val ms: Long, val walks: Int, val days: Int, val activeDays: Int, val goalDays: Int,
         val avgSteps: Double, val bestDay: Day?, val longest: TripEntity?, val workSteps: Int, val curStreak: Int, val bestStreak: Int,
+        val walkMeters: Double = meters,
     ) {
-        val pace get() = pace(ms, meters)
+        val pace get() = pace(ms, walkMeters)
         val goalPct get() = if (days > 0) goalDays * 100.0 / days else 0.0
         val workPct get() = if (steps > 0) workSteps * 100.0 / steps else 0.0
     }
@@ -147,5 +169,6 @@ object WalkAnalytics {
         days.sumOf { it.steps }, days.sumOf { it.meters }, days.sumOf { it.ms }, walks.size, days.size, days.count { it.steps > 0 },
         days.count { it.goalMet }, if (days.isEmpty()) 0.0 else days.sumOf { it.steps }.toDouble() / days.size,
         days.filter { it.steps > 0 }.maxByOrNull { it.steps }, walks.maxByOrNull { it.steps }, days.sumOf { it.workSteps }, curStreak, bestStreak,
+        days.sumOf { it.walkMeters },
     )
 }

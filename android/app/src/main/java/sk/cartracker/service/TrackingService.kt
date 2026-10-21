@@ -478,10 +478,19 @@ class TrackingService : LifecycleService() {
             ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) return
         carCounter = -1f; counterAtMove = -1f
         val l = object : SensorEventListener {
-            override fun onSensorChanged(e: SensorEvent) { carCounter = e.values[0]; if (counterAtMove < 0) counterAtMove = carCounter }
+            override fun onSensorChanged(e: SensorEvent) { carCounter = e.values[0]; if (counterAtMove < 0) counterAtMove = carCounter; feedDaily(e.values[0]) }
             override fun onAccuracyChanged(s: Sensor?, a: Int) = Unit
         }
         if (sensorManager?.registerListener(l, sensor, SensorManager.SENSOR_DELAY_NORMAL) == true) carStepListener = l
+    }
+
+    /** Celodenné kroky: počas chôdze a jazdy sa krokomer zapisuje priebežne (najviac raz za minútu). */
+    private var lastDailyFeed = 0L
+    private fun feedDaily(v: Float) {
+        val now = System.currentTimeMillis()
+        if (now - lastDailyFeed < 60_000L) return
+        lastDailyFeed = now
+        lifecycleScope.launch { runCatching { sk.cartracker.data.StepCounter.feed(this@TrackingService, v) } }
     }
 
     private fun stopCarSteps() {
@@ -1052,6 +1061,7 @@ class TrackingService : LifecycleService() {
         val listener = object : SensorEventListener {
             override fun onSensorChanged(e: SensorEvent) {
                 val v = e.values[0]
+                feedDaily(v)
                 if (stepBase < 0) stepBase = v
                 val n = stepsOffset + (v - stepBase).toInt()
                 if (n > steps) {

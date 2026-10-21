@@ -86,6 +86,7 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
     val ctx = LocalContext.current
     val c = ctx.container
     val s by c.settings.flow.collectAsStateWithLifecycle(AppSettings())
+    val dailySteps by remember { c.steps.daily() }.collectAsStateWithLifecycle(emptyMap())
     val state by TrackingState.state.collectAsState()
     val live by TrackingState.live.collectAsState()
     val trips by remember { c.trips.trips() }.collectAsStateWithLifecycle(emptyList())
@@ -364,12 +365,21 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
                     StatBox("Tento týždeň", formatDistance(week.filter { !it.isWalk }.sumOf { it.distanceM } + liveCarM), Modifier.weight(1f))
                     StatBox("Jázd spolu", trips.count { !it.isWalk }.toString(), Modifier.weight(1f))
                 }
-                if (s.walkTracking || trips.any { it.isWalk }) {
+                if (s.walkTracking || trips.any { it.isWalk } || dailySteps.isNotEmpty()) {
                     Text("🚶 Chôdza", style = MaterialTheme.typography.labelLarge)
                     Row(Modifier.fillMaxWidth()) {
-                        StatBox("Kroky dnes", String.format(java.util.Locale("sk"), "%,d", today.filter { it.isWalk }.sumOf { it.steps } + liveSteps), Modifier.weight(1f))
-                        StatBox("Dnes", formatDistance(today.filter { it.isWalk }.sumOf { it.distanceM } + liveWalkM), Modifier.weight(1f))
-                        StatBox("Tento týždeň", formatDistance(week.filter { it.isWalk }.sumOf { it.distanceM } + liveWalkM), Modifier.weight(1f))
+                        // celý deň z krokomera (aj mimo zaznamenaných chôdzí), ak je ho viac
+                        val wSteps = today.filter { it.isWalk }.sumOf { it.steps } + liveSteps
+                        val allSteps = maxOf(wSteps, dailySteps[sk.cartracker.data.StepCounter.dayStart(System.currentTimeMillis())] ?: 0)
+                        val todayM = sk.cartracker.data.StepCounter.dayMeters(wSteps, today.filter { it.isWalk }.sumOf { it.distanceM } + liveWalkM, allSteps, s.strideCm)
+                        val weekWalks = week.filter { it.isWalk }
+                        val weekM = weekWalks.groupBy { sk.cartracker.data.StepCounter.dayStart(it.startedAt) }.let { byDay ->
+                            val days = byDay.keys + dailySteps.keys.filter { d -> d >= startOfWeek - 3_600_000L }
+                            days.sumOf { d -> val l = byDay[d].orEmpty(); sk.cartracker.data.StepCounter.dayMeters(l.sumOf { it.steps }, l.sumOf { it.distanceM }, maxOf(l.sumOf { it.steps }, dailySteps[d] ?: 0), s.strideCm) }
+                        } + liveWalkM
+                        StatBox("Kroky dnes", String.format(java.util.Locale("sk"), "%,d", allSteps), Modifier.weight(1f))
+                        StatBox("Dnes", formatDistance(todayM), Modifier.weight(1f))
+                        StatBox("Tento týždeň", formatDistance(weekM), Modifier.weight(1f))
                     }
                 }
             }

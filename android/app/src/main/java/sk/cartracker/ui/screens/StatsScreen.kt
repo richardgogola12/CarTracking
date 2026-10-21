@@ -225,7 +225,8 @@ fun StatsScreen(onNavigate: (String) -> Unit = {}) {
         val total = trips.sumOf { it.distanceM }
         val time = trips.sumOf { (it.endedAt ?: it.startedAt) - it.startedAt }
 
-        val wd = if (walkMode) rememberWalkData(all, r.from, r.to, s) else null
+        val stepHours by remember { c.steps.hours() }.collectAsStateWithLifecycle(emptyList())
+        val wd = if (walkMode) rememberWalkData(all, r.from, r.to, s, stepHours) else null
         val cd = if (!walkMode) rememberCarData(all, r.from, r.to, r.title, vehicleFilter, vehicleMap, s) else null
         if (wd != null) {
             WalkSummary(wd)

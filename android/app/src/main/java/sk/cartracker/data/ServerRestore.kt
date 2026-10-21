@@ -122,6 +122,8 @@ object ServerRestore {
         }
 
         // 4) jazdy a chôdza – najprv zoznam, potom trasy po 50 jazdách
+        progress("Kroky", 0, 0)
+        runCatching { c.steps.restore(System.currentTimeMillis() - 400L * 86_400_000L) }
         progress("Zoznam jázd", 0, 0)
         val missing = mutableListOf<sk.cartracker.data.remote.RemoteTrip>()
         var offset = 0

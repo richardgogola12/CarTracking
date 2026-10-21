@@ -429,19 +429,44 @@ private val MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
+/** Kroky z krokomera telefónu po hodinách (celý deň, nielen počas zaznamenanej chôdze). [hour] = začiatok hodiny v ms. */
+@Entity(tableName = "step_hours", primaryKeys = ["userId", "hour"])
+data class StepHourEntity(val userId: Int, val hour: Long, val steps: Int, val synced: Boolean = false)
+
+@Dao
+interface StepDao {
+    @Query("SELECT * FROM step_hours WHERE userId = :userId AND hour >= :from AND hour < :to ORDER BY hour")
+    suspend fun between(userId: Int, from: Long, to: Long): List<StepHourEntity>
+    @Query("SELECT * FROM step_hours WHERE userId = :userId ORDER BY hour") fun observe(userId: Int): Flow<List<StepHourEntity>>
+    @Query("SELECT * FROM step_hours WHERE userId = :userId AND hour = :hour") suspend fun get(userId: Int, hour: Long): StepHourEntity?
+    @androidx.room.Upsert suspend fun upsert(rows: List<StepHourEntity>)
+    @Query("SELECT * FROM step_hours WHERE userId = :userId AND synced = 0 ORDER BY hour LIMIT 2000") suspend fun unsynced(userId: Int): List<StepHourEntity>
+    /** Označí ako odoslané, iba ak sa medzitým nepridali kroky. */
+    @Query("UPDATE step_hours SET synced = 1 WHERE userId = :userId AND hour = :hour AND steps = :steps")
+    suspend fun markSynced(userId: Int, hour: Long, steps: Int)
+}
+
+private val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS step_hours (userId INTEGER NOT NULL, hour INTEGER NOT NULL, steps INTEGER NOT NULL,
+            synced INTEGER NOT NULL, PRIMARY KEY(userId, hour))""")
+    }
+}
+
 @Database(
     entities = [TripEntity::class, PointEntity::class, VehicleEntity::class, PlaceEntity::class, RefuelEntity::class, ReminderEntity::class,
-        ExpenseEntity::class],
-    version = 7, exportSchema = false,
+        ExpenseEntity::class, StepHourEntity::class],
+    version = 8, exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun tripDao(): TripDao
     abstract fun extrasDao(): ExtrasDao
+    abstract fun stepDao(): StepDao
 
     companion object {
         fun create(ctx: Context): AppDatabase =
             Room.databaseBuilder(ctx, AppDatabase::class.java, "car_tracking.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .fallbackToDestructiveMigration()
                 .build()
     }

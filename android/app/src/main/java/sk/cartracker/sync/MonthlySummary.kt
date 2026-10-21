@@ -38,11 +38,18 @@ object MonthlySummary {
         val trips = c.trips.tripsBetween(from, to)
         val cars = trips.filter { !it.isWalk }
         val walks = trips.filter { it.isWalk }
+        // kroky: za každý deň väčšie z (chôdze, krokomer celý deň); vzdialenosť doplnená o kroky mimo chôdzí
+        val daily = runCatching { c.steps.dailyBetween(from, to) }.getOrDefault(emptyMap())
+        val walkDays = walks.groupBy { sk.cartracker.data.StepCounter.dayStart(it.startedAt) }
+        val dayKeys = walkDays.keys + daily.keys
+        val allSteps = dayKeys.sumOf { d -> maxOf(walkDays[d].orEmpty().sumOf { it.steps }, daily[d] ?: 0) }
+        val allKm = dayKeys.sumOf { d -> val l = walkDays[d].orEmpty()
+            sk.cartracker.data.StepCounter.dayMeters(l.sumOf { it.steps }, l.sumOf { it.distanceM }, maxOf(l.sumOf { it.steps }, daily[d] ?: 0), s.strideCm) } / 1000.0
         return Totals(
             cars.sumOf { it.distanceM } / 1000.0, cars.size,
             cars.sumOf { it.cost(vehicles[it.vehicleUuid], s) },
             cars.filter { it.category == CATEGORY_BUSINESS }.sumOf { it.distanceM } / 1000.0,
-            walks.sumOf { it.steps }, walks.sumOf { it.distanceM } / 1000.0,
+            allSteps, allKm,
         )
     }
 

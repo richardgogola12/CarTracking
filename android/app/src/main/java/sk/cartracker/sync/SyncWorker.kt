@@ -24,6 +24,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         return try {
             c.trips.syncAll()
             c.items.syncAll()
+            runCatching { c.steps.sync() }
             runCatching { c.vehicles.pullShared() }
             runCatching { sk.cartracker.data.ServerRestore.pushSettings(applicationContext) }
             RuntimeState.setLastSyncAt(applicationContext, System.currentTimeMillis())
