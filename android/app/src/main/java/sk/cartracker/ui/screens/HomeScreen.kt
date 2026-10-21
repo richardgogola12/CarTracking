@@ -369,10 +369,10 @@ fun HomeScreen(onOpenPermissions: () -> Unit, onOpenVehicles: () -> Unit = {}, o
                 }
                 if (s.walkTracking || trips.any { it.isWalk } || dailySteps.isNotEmpty()) {
                     Text("🚶 Chôdza", style = MaterialTheme.typography.labelLarge)
+                    // celý deň z krokomera (aj mimo zaznamenaných chôdzí), ak je ho viac
+                    val wSteps = today.filter { it.isWalk }.sumOf { it.steps } + liveSteps
+                    val allSteps = maxOf(wSteps, dailySteps[sk.cartracker.data.StepCounter.dayStart(System.currentTimeMillis())] ?: 0)
                     Row(Modifier.fillMaxWidth()) {
-                        // celý deň z krokomera (aj mimo zaznamenaných chôdzí), ak je ho viac
-                        val wSteps = today.filter { it.isWalk }.sumOf { it.steps } + liveSteps
-                        val allSteps = maxOf(wSteps, dailySteps[sk.cartracker.data.StepCounter.dayStart(System.currentTimeMillis())] ?: 0)
                         val todayM = sk.cartracker.data.StepCounter.dayMeters(wSteps, today.filter { it.isWalk }.sumOf { it.distanceM } + liveWalkM, allSteps, s.strideCm)
                         val weekWalks = week.filter { it.isWalk }
                         val weekM = weekWalks.groupBy { sk.cartracker.data.StepCounter.dayStart(it.startedAt) }.let { byDay ->
