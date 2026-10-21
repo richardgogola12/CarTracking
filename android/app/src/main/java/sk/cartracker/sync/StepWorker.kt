@@ -19,8 +19,9 @@ class StepWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         if (!s.allDaySteps) return Result.success()
         runCatching { StepCounter.sample(applicationContext) }
         // odoslanie na server podľa nastaveného intervalu (s rezervou 5 min, worker nebeží presne)
-        if (System.currentTimeMillis() - StepCounter.lastSync(applicationContext) > (s.stepSyncMin.coerceAtLeast(15) - 5) * 60_000L && s.autoSync)
-            runCatching { c.steps.sync() }
+        // worker nebeží presne – s rezervou (napr. pri intervale 15 min aj po 13 min)
+        val due = System.currentTimeMillis() - StepCounter.lastSync(applicationContext) >= (s.stepSyncMin.coerceIn(1, 1440) * 60_000L * 85 / 100)
+        if (due && StepCounter.syncDue(applicationContext, s.copy(stepSyncMin = 1))) runCatching { c.steps.sync() }
         WidgetHook.update(applicationContext)
         return Result.success()
     }

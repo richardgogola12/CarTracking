@@ -48,6 +48,17 @@ object StepCounter {
     fun lastSync(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("synced_at", 0L)
     internal fun setLastSync(ctx: Context, at: Long) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("synced_at", at).apply()
 
+    /** Je čas odoslať kroky na server (podľa nastaveného intervalu, automatickej synchronizácie a Wi-Fi)? */
+    fun syncDue(ctx: Context, s: AppSettings, now: Long = System.currentTimeMillis()): Boolean {
+        if (!s.autoSync || !s.allDaySteps) return false
+        if (now - lastSync(ctx) < s.stepSyncMin.coerceIn(1, 1440) * 60_000L - 30_000L) return false
+        if (s.syncWifiOnly) {
+            val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java) ?: return false
+            if (cm.activeNetwork == null || cm.isActiveNetworkMetered) return false
+        }
+        return true
+    }
+
     fun available(ctx: Context): Boolean {
         val sm = ctx.getSystemService(SensorManager::class.java) ?: return false
         if (sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) == null) return false

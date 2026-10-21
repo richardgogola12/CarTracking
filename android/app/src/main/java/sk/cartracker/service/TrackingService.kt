@@ -490,7 +490,11 @@ class TrackingService : LifecycleService() {
         val now = System.currentTimeMillis()
         if (!settings.allDaySteps || now - lastDailyFeed < settings.stepLiveSec.coerceIn(10, 600) * 1000L) return
         lastDailyFeed = now
-        lifecycleScope.launch { runCatching { sk.cartracker.data.StepCounter.feed(this@TrackingService, v) } }
+        lifecycleScope.launch {
+            runCatching { sk.cartracker.data.StepCounter.feed(this@TrackingService, v) }
+            // počas chôdze a jazdy beží služba stále → kroky sa odosielajú presne v nastavenom intervale (aj každú minútu)
+            if (sk.cartracker.data.StepCounter.syncDue(this@TrackingService, settings)) runCatching { container.steps.sync() }
+        }
     }
 
     private fun stopCarSteps() {
