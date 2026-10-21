@@ -180,7 +180,7 @@ data class AppSettings(
     }
 
     /** Dĺžka kroku vypočítaná z GPS (cm) alebo null, ak je málo údajov. */
-    val strideFromGpsCm: Int? get() = if (strideCalWalks >= 3 && strideCalSteps > 500) (strideCalMeters * 100.0 / strideCalSteps).toInt().takeIf { it in 30..150 } else null
+    val strideFromGpsCm: Int? get() = if (strideCalWalks >= 3 && strideCalSteps > 500) (strideCalMeters * 100.0 / strideCalSteps).toInt().takeIf { it in StrideFix.MIN_CM..StrideFix.MAX_CM } else null
 
     fun fuelLiters(distanceM: Double) = distanceM / 1000.0 / 100.0 * fuelConsumption
 }

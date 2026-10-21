@@ -86,11 +86,11 @@ object StepCounter {
                 cont.invokeOnCancellation { sm.unregisterListener(l) }
             }
         } ?: return
-        feed(ctx, ev.first, ev.second)
+        feed(ctx, ev.first, ev.second, log = true)
     }
 
     /** Nová hodnota krokomera (aj z bežiaceho sledovania chôdze / jazdy). [lastStepAt] = čas posledného kroku. */
-    suspend fun feed(ctx: Context, counter: Float, lastStepAt: Long = System.currentTimeMillis()) = mutex.withLock {
+    suspend fun feed(ctx: Context, counter: Float, lastStepAt: Long = System.currentTimeMillis(), log: Boolean = false) = mutex.withLock {
         val c = ctx.container
         val uid = c.session.user()?.id ?: return@withLock
         if (!c.settings.current().allDaySteps) return@withLock
@@ -102,7 +102,7 @@ object StepCounter {
         val lastBoot = p.getLong("boot", 0L)
         val lastUid = p.getInt("uid", -1)
         val save = { p.edit().putFloat("counter", counter).putLong("ts", now).putLong("boot", boot).putInt("uid", uid).apply() }
-        if (last < 0 || lastUid != uid) { save(); return@withLock }   // prvé čítanie = východisko
+        if (last < 0 || lastUid != uid) { save(); DiagLog.log(ctx, DiagLog.WALK, "Krokomer: prvé čítanie (${counter.toInt()}) – kroky sa počítajú od teraz"); return@withLock }   // prvé čítanie = východisko
         val rebooted = abs(boot - lastBoot) > 120_000L || counter < last
         val delta = if (rebooted) counter else counter - last
         val from = if (rebooted) max(lastTs, boot) else lastTs
@@ -112,6 +112,11 @@ object StepCounter {
             val dao = c.db.stepDao()
             withContext(Dispatchers.IO) {
                 dao.upsert(split.map { (h, n) -> StepHourEntity(uid, h, (dao.get(uid, h)?.steps ?: 0) + n, synced = false) })
+                if (log) {
+                    val today = dayStart(now)
+                    val total = dao.between(uid, today, today + 86_400_000L).sumOf { it.steps }
+                    DiagLog.log(ctx, DiagLog.WALK, "Krokomer: +${delta.toInt()} krokov" + (if (rebooted) " (po reštarte telefónu)" else "") + " · dnes spolu $total")
+                }
             }
         }
         if (delta >= 1f || rebooted) save() else p.edit().putLong("ts", now).putLong("boot", boot).apply()

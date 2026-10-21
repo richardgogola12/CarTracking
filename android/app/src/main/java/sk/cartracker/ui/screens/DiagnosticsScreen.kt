@@ -193,5 +193,8 @@ private fun checks(ctx: android.content.Context, s: AppSettings): List<Pair<Bool
 private fun statusText(ctx: android.content.Context, s: AppSettings) = buildString {
     append("Trasník ${sk.cartracker.BuildConfig.VERSION_NAME} · Android ${Build.VERSION.RELEASE} · ${Build.MANUFACTURER} ${Build.MODEL}\n")
     checks(ctx, s).forEach { (ok, t) -> append(if (ok) "[OK] " else "[!!] ").append(t).append('\n') }
-    append("Nastavenia: rýchlosť ${s.minDriveSpeedKmh} km/h, potvrdenie ${s.confirmTimeoutMin} min, státie ${s.stopDelayMin} min, GPS ${s.gpsIntervalSec} s, chôdza ${s.walkTracking}")
+    append("Nastavenia: rýchlosť ${s.minDriveSpeedKmh} km/h, potvrdenie ${s.confirmTimeoutMin} min, státie ${s.stopDelayMin} min, GPS ${s.gpsIntervalSec} s, chôdza ${s.walkTracking}\n")
+    append("Kroky: dĺžka kroku ${s.strideCm} cm" + (if (s.strideAuto) " (automaticky z GPS)" else "") + ", vzdialenosť chôdze " + (if (s.walkDistanceGps) "z GPS" else "z krokov") +
+        ", celodenné kroky " + (if (s.allDaySteps) "zapnuté (čítanie ${s.stepReadMin} min, server ${s.stepSyncMin} min)" else "vypnuté") +
+        (sk.cartracker.data.StepCounter.lastRead(ctx).takeIf { it > 0 }?.let { ", krokomer prečítaný " + sk.cartracker.ui.formatDateTime(it) } ?: ""))
 }

@@ -253,6 +253,35 @@ fun SettingsScreen(onOpenPermissions: () -> Unit, onLoggedOut: () -> Unit, onOpe
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SliderRow("Dĺžka kroku", s.strideCm, 50..100, 1, "cm",
                     if (s.walkDistanceGps) "Použije sa, keď GPS nemá signál." else "Vzdialenosť = kroky × dĺžka kroku.") { v -> update { it.copy(strideCm = v) } }
+                run {
+                    var heightDlg by remember { mutableStateOf(false) }
+                    var recompute by remember { mutableStateOf(false) }
+                    Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { heightDlg = true }) { Text("Podľa výšky") }
+                        OutlinedButton(onClick = { recompute = true }) { Text("Prepočítať uložené chôdze") }
+                    }
+                    Text("Bežne ${sk.cartracker.data.StrideFix.MIN_CM}–${sk.cartracker.data.StrideFix.MAX_CM} cm (≈ výška × 0,415). Presne: prejdite 20 krokov, zmerajte vzdialenosť a vydeľte 20.",
+                        Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (heightDlg) {
+                        var h by remember { mutableStateOf("") }
+                        AlertDialog(onDismissRequest = { heightDlg = false }, title = { Text("Dĺžka kroku podľa výšky") },
+                            text = { Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedTextField(h, { h = it.filter(Char::isDigit).take(3) }, label = { Text("Výška (cm)") }, singleLine = true,
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                                h.toIntOrNull()?.takeIf { it in 120..230 }?.let { Text("Dĺžka kroku: ${sk.cartracker.data.StrideFix.fromHeight(it)} cm") }
+                            } },
+                            confirmButton = { TextButton(enabled = h.toIntOrNull() in 120..230, onClick = {
+                                val v = sk.cartracker.data.StrideFix.fromHeight(h.toInt()); update { it.copy(strideCm = v, strideAuto = false) }; heightDlg = false
+                                message = "Dĺžka kroku nastavená na $v cm." }) { Text("Použiť") } },
+                            dismissButton = { TextButton(onClick = { heightDlg = false }) { Text("Zrušiť") } })
+                    }
+                    if (recompute) AlertDialog(onDismissRequest = { recompute = false }, title = { Text("Prepočítať vzdialenosť chôdzí?") },
+                        text = { Text("Vzdialenosť všetkých uložených chôdzí sa vypočíta nanovo ako kroky × ${s.strideCm} cm (aj na serveri). Trasy a kroky sa nemenia.") },
+                        confirmButton = { TextButton(onClick = { recompute = false; scope.launch {
+                            val n = sk.cartracker.data.StrideFix.recompute(ctx, c.session.user()?.id ?: -1, s.strideCm, onlyImplausible = false)
+                            message = "Prepočítaných $n chôdzí." } }) { Text("Prepočítať") } },
+                        dismissButton = { TextButton(onClick = { recompute = false }) { Text("Zrušiť") } })
+                }
                 SliderRow("Ukončiť po nečinnosti", s.walkStopMin, 1..15, 1, "min",
                     "Koľko minút bez krokov ukončí záznam chôdze.") { v -> update { it.copy(walkStopMin = v) } }
                 SliderRow("Minimálna vzdialenosť", s.walkMinDistanceM, 0..1000, 50, "m",

@@ -70,6 +70,7 @@ class CarTrackerApp : Application() {
             val st = container.settings.current()
             sk.cartracker.sync.StepWorker.schedule(this@CarTrackerApp, st.allDaySteps, st.stepReadMin)
             runCatching { sk.cartracker.data.StepCounter.sample(this@CarTrackerApp) }
+            runCatching { sk.cartracker.data.StrideFix.runOnce(this@CarTrackerApp) }
         }
         sk.cartracker.widget.CarWidget.updateAll(this)
 

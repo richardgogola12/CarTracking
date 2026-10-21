@@ -49,6 +49,7 @@ import sk.cartracker.data.cost
 import sk.cartracker.data.local.CATEGORY_PRIVATE
 import sk.cartracker.data.local.DriveEvent
 import sk.cartracker.data.local.PointEntity
+import sk.cartracker.data.StrideFix
 import sk.cartracker.data.local.TYPE_CAR
 import sk.cartracker.data.local.TYPE_WALK
 import sk.cartracker.data.local.TripEntity
@@ -992,7 +993,9 @@ class TrackingService : LifecycleService() {
     private suspend fun calibrateStride(stepCount: Int, gpsMeters: Double) {
         if (stepCount < 300 || gpsMeters < 300) return
         val perStep = gpsMeters / stepCount
-        if (perStep !in 0.4..1.2) { DiagLog.log(this, DiagLog.WALK, "Kalibrácia kroku: chôdza vynechaná (${(perStep * 100).toInt()} cm/krok – slabé GPS)"); return }
+        // GPS pri chôdzi (interval 10 s, mesto, budovy) trasu skracuje – nereálne krátke kroky by stiahli dĺžku kroku a s ňou všetky km
+        if (perStep * 100 !in StrideFix.MIN_CM.toDouble()..StrideFix.MAX_CM.toDouble()) {
+            DiagLog.log(this, DiagLog.WALK, "Kalibrácia kroku: chôdza vynechaná (${(perStep * 100).toInt()} cm/krok – GPS nameralo kratšiu trasu, reálne je ${StrideFix.MIN_CM}–${StrideFix.MAX_CM} cm)"); return }
         container.settings.update { s ->
             val n = s.copy(strideCalMeters = s.strideCalMeters + gpsMeters.toInt(), strideCalSteps = s.strideCalSteps + stepCount,
                 strideCalWalks = s.strideCalWalks + 1)
